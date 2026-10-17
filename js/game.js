@@ -107,7 +107,7 @@ export class PointCloud {
 
 // ---------------------------------------------------------------------------
 export class Game {
-  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd }) {
+  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd, team }) {
     this.canvas = canvas;
     this.g = canvas.getContext('2d');
     this.buffer = buffer;
@@ -129,6 +129,11 @@ export class Game {
     this.fast = 0; this.slow = 0;
     this.sumScore = 0; this.sumAcc = 0; this.judged = 0;
     this.combo = 0; this.maxCombo = 0;
+    // 編成効果あり側の集計(表示・コイン用)。上の counts/sumScore/combo は効果なしの素の値(ランキング用)
+    this.team = { score: 0, judge: 0, guard: 0, ...(team || {}) };
+    this.guardLeft = this.team.guard;
+    this.tCounts = { PERFECT: 0, GREAT: 0, GOOD: 0, MISS: 0 };
+    this.tSum = 0; this.tCombo = 0; this.tMaxCombo = 0;
     this.pressed = [false, false, false, false];
     this.pressT = [-9, -9, -9, -9];
     this.fx = { lasers: [], scans: [], parts: [], judge: null, comboPop: 0 };
@@ -208,10 +213,10 @@ export class Game {
       const d = t - n.t;
       if (d < -W_GOOD) break;
       if (d > W_GOOD) continue;
-      const res = judgeOf(d);
+      const res = judgeOf(d, this.team.judge);
       n.done = true;
       n.res = res;
-      this.applyJudge(res, d, lane);
+      this.applyJudge(res, judgeOf(d), d, lane);
       if (n.end) n.holding = true;
       break;
     }
@@ -227,23 +232,30 @@ export class Game {
       n.holding = false;
       n.tailDone = true;
       const d = t - n.end;
-      if (d < -W_GOOD) { n.tailRes = 'MISS'; this.applyJudge('MISS', null, lane); }
-      else { n.tailRes = judgeOf(Math.min(0, d)); this.applyJudge(n.tailRes, null, lane); }
+      if (d < -W_GOOD) { n.tailRes = 'MISS'; this.applyJudge('MISS', 'MISS', null, lane); }
+      else { n.tailRes = judgeOf(Math.min(0, d), this.team.judge); this.applyJudge(n.tailRes, judgeOf(Math.min(0, d)), null, lane); }
     }
   }
 
-  applyJudge(res, d, lane) {
-    this.counts[res]++;
+  // res: 編成効果込みの判定 / raw: 効果なしの判定
+  applyJudge(res, raw, d, lane) {
+    this.counts[raw]++;
     this.judged++;
-    this.sumScore += SCORE_W[res];
-    this.sumAcc += ACC_W[res];
-    if (res === 'MISS') this.combo = 0;
-    else {
-      this.combo++;
-      this.maxCombo = Math.max(this.maxCombo, this.combo);
+    this.sumScore += SCORE_W[raw];
+    this.sumAcc += ACC_W[raw];
+    if (raw === 'MISS') this.combo = 0;
+    else { this.combo++; this.maxCombo = Math.max(this.maxCombo, this.combo); }
+
+    this.tCounts[res]++;
+    this.tSum += SCORE_W[res];
+    let tag = '';
+    if (res === 'MISS') {
+      if (this.guardLeft > 0) { this.guardLeft--; tag = 'GUARD'; } else this.tCombo = 0;
+    } else {
+      this.tCombo++;
+      this.tMaxCombo = Math.max(this.tMaxCombo, this.tCombo);
       this.fx.comboPop = 1;
     }
-    let tag = '';
     if (d != null && res !== 'PERFECT' && res !== 'MISS') {
       if (d < 0) { this.fast++; tag = 'FAST'; } else { this.slow++; tag = 'SLOW'; }
     }
@@ -254,6 +266,12 @@ export class Game {
   get score() {
     if (!this.total) return 0;
     return Math.round((950000 * this.sumScore) / this.total + (50000 * this.maxCombo) / this.total);
+  }
+  // 編成効果込みのスコア(100万点を超えることがある)
+  get teamScore() {
+    if (!this.total) return 0;
+    const base = (950000 * this.tSum) / this.total + (50000 * this.tMaxCombo) / this.total;
+    return Math.round(base * (1 + this.team.score / 100));
   }
   get accuracy() { return this.judged ? (this.sumAcc / this.judged) * 100 : 100; }
 
@@ -266,13 +284,13 @@ export class Game {
         if (!n.done) {
           if (t - n.t > W_GOOD) {
             n.done = true; n.res = 'MISS';
-            this.applyJudge('MISS', null, l);
-            if (n.end) { n.tailDone = true; n.tailRes = 'MISS'; this.applyJudge('MISS', null, l); }
+            this.applyJudge('MISS', 'MISS', null, l);
+            if (n.end) { n.tailDone = true; n.tailRes = 'MISS'; this.applyJudge('MISS', 'MISS', null, l); }
           } else break;
         }
         if (n.holding && t >= n.end) {
           n.holding = false; n.tailDone = true; n.tailRes = 'PERFECT';
-          this.applyJudge('PERFECT', null, l);
+          this.applyJudge('PERFECT', 'PERFECT', null, l);
         }
       }
       while (this.laneIdx[l] < list.length && list[this.laneIdx[l]].done && list[this.laneIdx[l]].tailDone) this.laneIdx[l]++;
@@ -293,6 +311,11 @@ export class Game {
       fc: this.counts.MISS === 0 && this.total > 0 && this.judged === this.total,
       ap: this.counts.PERFECT === this.total && this.total > 0,
       total: this.total,
+      hits: this.counts.PERFECT + this.counts.GREAT,
+      teamScore: this.teamScore,
+      tCounts: { ...this.tCounts },
+      tMaxCombo: this.tMaxCombo,
+      hasTeam: this.team.score > 0 || this.team.judge > 0 || this.team.guard > 0,
     };
     r.rank = rankOf(score);
     this.onEnd?.(r);
@@ -328,8 +351,9 @@ export class Game {
   spawnHit(lane, res) {
     const now = performance.now();
     const F = this.F;
-    if (F.laser > 0) this.fx.lasers.push({ lane, at: now, res });
-    if (F.scan > 0) this.fx.scans.push({ lane, at: now, wide: res === 'PERFECT' && F.scan >= 1 });
+    const beam = !!this.settings.hitBeam;
+    if (beam && F.laser > 0) this.fx.lasers.push({ lane, at: now, res });
+    if (beam && F.scan > 0) this.fx.scans.push({ lane, at: now, wide: res === 'PERFECT' && F.scan >= 1 });
     if (res === 'PERFECT') {
       const n = F.parts;
       for (let i = 0; i < n; i++) {
@@ -359,7 +383,7 @@ export class Game {
     bg.addColorStop(0, '#02030a'); bg.addColorStop(1, '#070a1c');
     g.fillStyle = bg; g.fillRect(0, 0, W, H);
     const F = this.F;
-    const energy = (0.35 + Math.min(1, this.combo / 60) * 0.65) * F.pulse;
+    const energy = (0.35 + Math.min(1, this.tCombo / 60) * 0.65) * F.pulse;
     this.cloud.draw(g, W, H, Math.max(0, t), this.bpm, energy, this.color, F.cloud);
 
     // レーン床
@@ -570,7 +594,7 @@ export class Game {
     g.font = `700 ${small ? 20 : 30}px "Orbitron", sans-serif`;
     g.fillStyle = '#fff';
     g.shadowColor = this.color; g.shadowBlur = this.F.glow;
-    g.fillText(String(this.score).padStart(7, '0'), W - 16, 14);
+    g.fillText(String(this.teamScore).padStart(7, '0'), W - 16, 14);
     g.shadowBlur = 0;
     g.font = `600 ${small ? 11 : 14}px "Orbitron", sans-serif`;
     g.fillStyle = 'rgba(200,220,255,0.85)';
@@ -579,7 +603,7 @@ export class Game {
 
     // コンボ
     const midY = G.J - (G.J - G.H * 0.06) * 0.5;
-    if (this.combo >= 3) {
+    if (this.tCombo >= 3) {
       this.fx.comboPop *= 0.85;
       const s = 1 + this.fx.comboPop * 0.18;
       g.save();
@@ -588,7 +612,7 @@ export class Game {
       g.scale(s, s);
       g.font = `800 ${Math.round(G.laneW * 0.62)}px "Orbitron", sans-serif`;
       g.fillStyle = 'rgba(255,255,255,0.22)';
-      g.fillText(this.combo, 0, 0);
+      g.fillText(this.tCombo, 0, 0);
       g.font = `700 ${Math.round(G.laneW * 0.13)}px "Orbitron", sans-serif`;
       g.fillStyle = 'rgba(255,255,255,0.35)';
       g.fillText('COMBO', 0, G.laneW * 0.45);
@@ -611,7 +635,7 @@ export class Game {
       if (j.tag) {
         g.shadowBlur = 0;
         g.font = `700 12px "Orbitron", sans-serif`;
-        g.fillStyle = j.tag === 'FAST' ? '#6fb8ff' : '#ff9a5c';
+        g.fillStyle = j.tag === 'FAST' ? '#6fb8ff' : j.tag === 'GUARD' ? '#ffd25e' : '#ff9a5c';
         g.fillText(j.tag, 0, 24);
       }
       g.restore();
@@ -637,10 +661,11 @@ export class Game {
 
 export const DIFF_COLOR = { easy: '#6dffb0', normal: '#ffd25e', hard: '#ff5a8a' };
 
-function judgeOf(d) {
-  const a = Math.abs(d);
-  if (a <= W_PERFECT) return 'PERFECT';
-  if (a <= W_GREAT) return 'GREAT';
+// extraMs: 編成の判定サポートで PERFECT/GREAT 幅を広げる量
+function judgeOf(d, extraMs = 0) {
+  const a = Math.abs(d), x = extraMs / 1000;
+  if (a <= W_PERFECT + x) return 'PERFECT';
+  if (a <= W_GREAT + x) return 'GREAT';
   if (a <= W_GOOD) return 'GOOD';
   return 'MISS';
 }

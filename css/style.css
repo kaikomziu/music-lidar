@@ -217,3 +217,120 @@ body.touch .foot-hint, body.touch .keys-hint { display: none; }
   .row { grid-template-columns: 96px 1fr 48px; }
   .r-rank { font-size: 72px; min-width: 100px; }
 }
+
+/* ---------- ナビ・コイン ---------- */
+.nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.nav-btn { position: relative; }
+.coin-ico { color: #ffd25e; font-weight: 700; margin-right: 3px; }
+.coin-chip { font-family: var(--font-d); font-weight: 700; }
+.badge-dot { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #ff4f6e; color: #fff; font-size: 11px; font-weight: 700; display: grid; place-items: center; font-family: var(--font-d); }
+.badge-dot[hidden] { display: none; }
+.team-fx-mini { font-size: 12px; color: var(--muted); margin: -6px 0 12px; text-align: center; }
+.link-btn { background: none; border: 0; color: var(--accent); text-decoration: underline; padding: 0; }
+.small { font-size: 12px; }
+
+/* ---------- アカウント ---------- */
+.acc-tabs, .q-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.acc-tab, .q-tab { position: relative; flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--panel-line); background: rgba(0, 0, 0, 0.3); font-weight: 700; }
+.acc-tab.sel, .q-tab.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, transparent); }
+.f-row { display: block; margin-bottom: 10px; font-size: 13px; }
+.f-row span { display: block; color: var(--muted); margin-bottom: 4px; }
+.f-row input { width: 100%; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--panel-line); color: var(--text); border-radius: 8px; padding: 10px 12px; font: inherit; font-size: 16px; -webkit-user-select: text; user-select: text; }
+.f-row input:focus { outline: none; border-color: var(--accent); }
+.f-row[hidden] { display: none; }
+.acc-msg { color: #ff8a9a; font-size: 13px; min-height: 1em; margin: 4px 0; }
+.acc-who { font-family: var(--font-d); font-size: 24px; font-weight: 800; margin: 8px 0 4px; }
+#acc-in[hidden], #acc-out[hidden] { display: none; }
+.row.check input { width: 22px; height: 22px; accent-color: var(--cyan); justify-self: start; }
+
+/* ---------- メタ画面共通 ---------- */
+.screen.meta { flex-direction: column; background: rgba(2, 3, 10, 0.55); }
+.meta-title { font-family: var(--font-d); letter-spacing: 0.3em; margin: 0 0 0 8px; font-size: 18px; }
+.meta-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 20px 24px; width: min(900px, 100%); margin: 0 auto; }
+
+/* クエスト */
+.quest-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.quest { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--panel-line); background: var(--panel); }
+.quest.ready { border-color: #ffd25e; box-shadow: 0 0 14px rgba(255, 210, 94, 0.2); }
+.quest.claimed { opacity: 0.5; }
+.q-title { font-weight: 700; font-size: 14px; }
+.q-bar { height: 5px; background: rgba(255, 255, 255, 0.08); border-radius: 3px; margin: 6px 0 3px; overflow: hidden; }
+.q-bar span { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.quest.ready .q-bar span { background: #ffd25e; }
+.q-prog { font-size: 11px; color: var(--muted); font-family: var(--font-d); }
+.q-reward { font-family: var(--font-d); font-weight: 700; }
+.q-claim { padding: 8px 12px; border-radius: 8px; border: 1px solid #ffd25e; background: rgba(255, 210, 94, 0.15); font-weight: 700; font-size: 13px; min-width: 76px; }
+.q-claim[disabled] { border-color: var(--panel-line); background: transparent; color: var(--muted); cursor: default; }
+
+/* ガチャ */
+.gacha-banner { text-align: center; padding: 26px 16px; border-radius: 18px; border: 1px solid var(--panel-line); background:
+  radial-gradient(circle at 50% 0%, rgba(255, 210, 94, 0.18), transparent 60%), radial-gradient(circle at 50% 120%, rgba(94, 242, 255, 0.15), transparent 60%), var(--panel); }
+.gb-title { font-family: var(--font-d); font-weight: 900; font-size: clamp(32px, 7vw, 52px); letter-spacing: 0.1em; color: var(--muted); }
+.gb-title b { color: #fff; text-shadow: 0 0 16px #ffd25e; }
+.gb-sub { color: var(--muted); margin: 4px 0 12px; font-size: 13px; }
+.gb-rates { font-size: 12px; color: var(--text); opacity: 0.85; line-height: 1.7; }
+.gb-pity { font-family: var(--font-d); color: #ffd25e; margin: 10px 0 16px; font-size: 13px; letter-spacing: 0.05em; }
+.gb-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.gb-buttons button { min-width: 150px; }
+.gb-buttons button[disabled] { opacity: 0.4; cursor: default; }
+.gacha-lineup-head, .team-units-head { display: flex; align-items: center; justify-content: space-between; margin: 20px 0 8px; }
+.gacha-lineup-head h3, .team-units-head h3 { font-family: var(--font-d); font-size: 13px; letter-spacing: 0.2em; color: var(--muted); margin: 0; }
+.lineup-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.lineup-row b { width: 56px; font-size: 12px; }
+.lineup-u.unowned { filter: grayscale(1) brightness(0.5); }
+.gacha-result { position: fixed; inset: 0; z-index: 35; display: none; align-items: center; justify-content: center; background: rgba(2, 3, 10, 0.88); backdrop-filter: blur(6px); padding: 16px; overflow-y: auto; }
+.gacha-result.on { display: flex; }
+.gr-inner { text-align: center; width: min(760px, 100%); }
+.gr-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.gr-card { position: relative; padding: 12px 6px 10px; border-radius: 12px; border: 1px solid var(--panel-line); background: var(--panel); animation: grIn 0.45s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .gr-card { animation: none !important; } }
+.gr-card.r3 { border-color: #ff4fd8; box-shadow: 0 0 16px rgba(255, 79, 216, 0.35); }
+.gr-card.r4 { border-color: #ffd25e; box-shadow: 0 0 24px rgba(255, 210, 94, 0.55); animation-name: grIn4; }
+@keyframes grIn { from { opacity: 0; transform: translateY(14px) scale(0.92); } to { opacity: 1; transform: none; } }
+@keyframes grIn4 { 0% { opacity: 0; transform: scale(1.5); } 60% { opacity: 1; transform: scale(0.96); } 100% { opacity: 1; transform: none; } }
+.gr-new { position: absolute; top: 6px; left: 6px; font-family: var(--font-d); font-size: 10px; font-weight: 800; background: #ff4f6e; color: #fff; padding: 2px 6px; border-radius: 4px; }
+.gr-stars { font-size: 12px; margin-top: 4px; }
+.gr-name { font-family: var(--font-d); font-size: 12px; font-weight: 700; margin-top: 2px; }
+.gr-sub { font-size: 11px; color: var(--muted); }
+
+/* 編成 */
+.team-slots { display: grid; grid-template-columns: 1.3fr repeat(4, 1fr); gap: 8px; }
+.slot { position: relative; min-height: 170px; padding: 22px 6px 10px; border-radius: 14px; border: 1px solid var(--panel-line); background: var(--panel); display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; }
+.slot.leader { border-color: rgba(255, 210, 94, 0.6); }
+.slot.sel { border-color: var(--accent); box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 40%, transparent); }
+.slot-tag { position: absolute; top: 6px; font-family: var(--font-d); font-size: 9px; letter-spacing: 0.2em; color: var(--muted); }
+.slot.leader .slot-tag { color: #ffd25e; }
+.slot-name { font-family: var(--font-d); font-size: 11px; font-weight: 700; }
+.slot-lv { font-size: 11px; color: var(--muted); }
+.slot-skill { font-size: 10.5px; color: var(--text); opacity: 0.85; line-height: 1.35; }
+.slot-empty { margin: auto; font-size: 30px; color: var(--muted); }
+.team-fx-box { margin: 12px 0 4px; padding: 10px 14px; border-radius: 10px; background: rgba(0, 0, 0, 0.35); font-size: 14px; }
+.team-fx-box b { color: var(--accent); }
+#team-sort { background: rgba(0, 0, 0, 0.4); color: var(--text); border: 1px solid var(--panel-line); border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 13px; }
+.team-units { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+.unit-card { position: relative; padding: 10px 6px; border-radius: 12px; border: 1px solid var(--panel-line); background: var(--panel); text-align: center; }
+.unit-card:hover { border-color: rgba(160, 180, 255, 0.5); }
+.unit-card.in-team { border-color: var(--accent); }
+.in-tag { position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: #000; font-family: var(--font-d); font-size: 11px; font-weight: 800; display: grid; place-items: center; }
+.uc-name { font-family: var(--font-d); font-size: 11px; font-weight: 700; margin-top: 4px; }
+.uc-meta { font-size: 11px; color: var(--muted); }
+.uc-skill { font-size: 10.5px; opacity: 0.85; margin-top: 2px; line-height: 1.35; }
+.unit-icon { display: block; margin: 0 auto; }
+
+/* リザルト追加 */
+.r-team { font-size: 13px; margin-bottom: 10px; }
+.r-team b { font-family: var(--font-d); color: var(--accent); font-size: 16px; }
+.r-reward { margin-top: 12px; font-family: var(--font-d); font-weight: 700; font-size: 16px; min-height: 1em; }
+.r-reward .muted { font-family: var(--font-b); font-weight: 400; }
+
+@media (max-width: 760px) {
+  .topbar { flex-wrap: wrap; row-gap: 8px; }
+  .topbar .nav { width: 100%; justify-content: flex-start; gap: 6px; }
+  .nav .chip { padding: 7px 10px; font-size: 12px; }
+  .meta-body { padding: 4px 12px 24px; }
+  .team-slots { grid-template-columns: repeat(3, 1fr); }
+  .slot.leader { grid-column: span 3; min-height: 150px; }
+  .slot { min-height: 150px; }
+  .quest { grid-template-columns: 1fr auto; }
+  .q-claim { grid-column: span 2; }
+}

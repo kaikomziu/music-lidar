@@ -30,8 +30,14 @@
   <header class="topbar">
     <div class="logo-small">MUSIC <b>LiDAR</b></div>
     <div class="spacer"></div>
-    <button id="btn-name" class="chip" title="プレイヤー名"><span class="ico">◉</span><span id="name-label">GUEST</span></button>
-    <button id="btn-settings" class="chip" title="設定"><span class="ico">⚙</span>設定</button>
+    <nav class="nav">
+      <button class="chip nav-btn" data-nav="quest"><span class="ico">◇</span>クエスト<span class="q-badge badge-dot" hidden></span></button>
+      <button class="chip nav-btn" data-nav="gacha"><span class="ico">✦</span>ガチャ</button>
+      <button class="chip nav-btn" data-nav="team"><span class="ico">▣</span>編成</button>
+      <span class="chip coin-chip" title="コイン"><span class="coin-ico">◎</span><span class="coin-val">-</span></span>
+      <button id="btn-name" class="chip" title="アカウント"><span class="ico">◉</span><span id="name-label">GUEST</span></button>
+      <button id="btn-settings" class="chip" title="設定"><span class="ico">⚙</span>設定</button>
+    </nav>
   </header>
   <div class="select-body">
     <div class="song-list" id="song-list"></div>
@@ -42,6 +48,7 @@
       <div class="diffs" id="diffs"></div>
       <div class="best" id="best"></div>
       <button id="btn-play" class="btn-play"><span>PLAY</span><small id="play-sub">ENTER</small></button>
+      <div class="team-fx-mini" id="team-fx-mini"></div>
       <div class="ranking">
         <div class="rank-head"><h3>ONLINE RANKING</h3><button id="btn-rank-reload" class="mini" title="更新">↻</button></div>
         <ol id="rank-list" class="rank-list"></ol>
@@ -66,12 +73,59 @@
         <div class="r-acc">ACCURACY <b id="r-acc"></b> ・ MAX COMBO <b id="r-combo"></b></div>
       </div>
     </div>
+    <div class="r-team" id="r-team"></div>
     <div class="r-counts" id="r-counts"></div>
+    <div class="r-reward" id="r-reward"></div>
     <div class="r-online" id="r-online"></div>
     <div class="r-buttons">
       <button id="btn-retry" class="btn-line">RETRY <small>R</small></button>
       <button id="btn-back" class="btn-glow">選曲へ <small>ENTER</small></button>
     </div>
+  </div>
+</section>
+
+<!-- クエスト -->
+<section id="quest" class="screen meta">
+  <header class="topbar"><button class="chip" data-back>← 戻る</button><h2 class="meta-title">QUEST</h2><div class="spacer"></div><span class="chip coin-chip"><span class="coin-ico">◎</span><span class="coin-val">-</span></span></header>
+  <div class="meta-body">
+    <div class="q-tabs"><button class="q-tab sel" data-tab="daily">デイリー<span class="q-badge badge-dot" hidden></span></button><button class="q-tab" data-tab="ach">実績</button></div>
+    <ul class="quest-list" id="quest-list"></ul>
+    <p class="muted small" id="q-reset"></p>
+  </div>
+</section>
+
+<!-- ガチャ -->
+<section id="gacha" class="screen meta">
+  <header class="topbar"><button class="chip" data-back>← 戻る</button><h2 class="meta-title">GACHA</h2><div class="spacer"></div><span class="chip coin-chip"><span class="coin-ico">◎</span><span class="coin-val">-</span></span></header>
+  <div class="meta-body">
+    <div class="gacha-banner">
+      <div class="gb-title">SCAN<b>UNIT</b></div>
+      <div class="gb-sub">点群の奥から新しいユニットを呼び出す</div>
+      <div class="gb-rates">★4 2% ・ ★3 8% ・ ★2 30% ・ ★1 60%<br>10連は★2以上1体確定 ・ 100回で★4確定</div>
+      <div class="gb-pity" id="gacha-pity"></div>
+      <div class="gb-buttons">
+        <button id="btn-gacha-1" class="btn-line">1回 <span class="coin-ico">◎</span>100</button>
+        <button id="btn-gacha-10" class="btn-glow">10連 <span class="coin-ico">◎</span>900</button>
+      </div>
+      <p class="muted small">同じキャラが出るとLvアップ(最大Lv5、以降はコインに変換)</p>
+    </div>
+    <div class="gacha-lineup-head"><h3>ラインナップ</h3><span id="gacha-collect" class="muted"></span></div>
+    <div class="gacha-lineup" id="gacha-lineup"></div>
+  </div>
+  <div id="gacha-result" class="gacha-result"></div>
+</section>
+
+<!-- 編成 -->
+<section id="team" class="screen meta">
+  <header class="topbar"><button class="chip" data-back>← 戻る</button><h2 class="meta-title">TEAM</h2><div class="spacer"></div><span class="chip coin-chip"><span class="coin-ico">◎</span><span class="coin-val">-</span></span></header>
+  <div class="meta-body">
+    <div class="team-slots" id="team-slots"></div>
+    <div class="team-fx-box">編成効果: <b id="team-fx"></b></div>
+    <p class="muted small" id="team-hint"></p>
+    <div class="team-units-head"><h3>所持キャラ</h3>
+      <select id="team-sort"><option value="rarity">レア度順</option><option value="kind">スキル別</option><option value="lv">Lv順</option></select></div>
+    <div class="team-units" id="team-units"></div>
+    <p class="muted small">ランキングには編成効果なしのスコアが登録されます。編成スコアはコインやクエストに反映されます。</p>
   </div>
 </section>
 
@@ -96,24 +150,40 @@
   <div class="modal-box">
     <h2>SETTINGS</h2>
     <label class="row"><span>演出の強さ</span><input type="range" id="s-fx" min="0" max="2" step="1"><output id="o-fx"></output></label>
+    <label class="row check"><span>叩いた時に上へ伸びる光</span><input type="checkbox" id="s-beam"><output id="o-beam"></output></label>
     <label class="row"><span>ハイスピード</span><input type="range" id="s-hs" min="1" max="12" step="0.1"><output id="o-hs"></output></label>
     <label class="row"><span>BGM 音量</span><input type="range" id="s-bgm" min="0" max="1" step="0.01"><output id="o-bgm"></output></label>
     <label class="row"><span>タップ音 音量</span><input type="range" id="s-se" min="0" max="1" step="0.01"><output id="o-se"></output></label>
     <label class="row"><span>レーン幅</span><input type="range" id="s-lane" min="60" max="170" step="1"><output id="o-lane"></output></label>
     <label class="row"><span>判定ライン位置</span><input type="range" id="s-judge" min="0.66" max="0.94" step="0.01"><output id="o-judge"></output></label>
-    <label class="row"><span>プレイヤー名</span><input type="text" id="s-name" maxlength="16" placeholder="ランキングに表示"></label>
+    <label class="row"><span>ゲスト名</span><input type="text" id="s-name" maxlength="16" placeholder="未ログイン時のランキング名"></label>
     <div class="preview-wrap"><canvas id="s-preview" width="320" height="180"></canvas></div>
     <div class="modal-actions"><button id="btn-s-reset" class="btn-line">初期値に戻す</button><button id="btn-s-close" class="btn-glow">閉じる</button></div>
   </div>
 </div>
 
-<!-- 名前登録 -->
-<div id="name-modal" class="overlay modal">
+<!-- アカウント -->
+<div id="account-modal" class="overlay modal">
   <div class="modal-box narrow">
-    <h2>PLAYER NAME</h2>
-    <p class="muted">オンラインランキングに表示される名前です(16文字まで)。あとから設定で変えられます。</p>
-    <input type="text" id="name-input" maxlength="16" placeholder="なまえ" autocomplete="nickname">
-    <div class="modal-actions"><button id="btn-name-skip" class="btn-line">あとで</button><button id="btn-name-ok" class="btn-glow">登録</button></div>
+    <div id="acc-in">
+      <h2>ACCOUNT</h2>
+      <div class="acc-tabs"><button class="acc-tab sel" data-tab="login">ログイン</button><button class="acc-tab" data-tab="register">新規登録</button></div>
+      <form id="acc-form" autocomplete="on">
+        <label class="f-row"><span>プレイヤー名</span><input type="text" id="acc-name" maxlength="16" autocomplete="username" placeholder="ランキングにも表示されます"></label>
+        <label class="f-row"><span>パスワード</span><input type="password" id="acc-pass" maxlength="72" autocomplete="current-password" placeholder="6文字以上"></label>
+        <label class="f-row" id="acc-pass2-row" hidden><span>パスワード(確認)</span><input type="password" id="acc-pass2" maxlength="72" autocomplete="new-password"></label>
+        <p class="muted" id="acc-note"></p>
+        <p class="acc-msg" id="acc-msg"></p>
+        <div class="modal-actions"><button type="button" id="btn-acc-guest" class="btn-line">ゲストで遊ぶ</button><button type="submit" id="acc-submit" class="btn-glow">ログイン</button></div>
+      </form>
+      <p class="muted small">ログインするとコイン・ガチャ・編成・クエストが使え、データはサーバーに保存されて別の端末からも続きを遊べます。</p>
+    </div>
+    <div id="acc-out" hidden>
+      <h2>ACCOUNT</h2>
+      <p class="acc-who" id="acc-who"></p>
+      <p class="muted" id="acc-stats"></p>
+      <div class="modal-actions"><button type="button" id="btn-acc-logout" class="btn-line">ログアウト</button><button type="button" id="btn-acc-close" class="btn-glow">閉じる</button></div>
+    </div>
   </div>
 </div>
 

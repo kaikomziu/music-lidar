@@ -11,7 +11,7 @@ export function save(key, val) {
   try { localStorage.setItem(P + key, JSON.stringify(val)); } catch { /* private mode etc. */ }
 }
 
-export const DEFAULT_SETTINGS = { hs: 5.0, bgm: 0.8, se: 0.6, laneW: 110, judgePos: 0.84, fx: 1 };
+export const DEFAULT_SETTINGS = { hs: 5.0, bgm: 0.8, se: 0.6, laneW: 110, judgePos: 0.84, fx: 1, hitBeam: false };
 
 export function getSettings() { return { ...DEFAULT_SETTINGS, ...load('settings', {}) }; }
 export function setSettings(s) { save('settings', s); }

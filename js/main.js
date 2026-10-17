@@ -5,6 +5,8 @@ import { analyzeFile, hashFile } from './analyzer.js';
 import { Game, PointCloud, KEYS, DIFF_COLOR, visibleTime, IS_TOUCH, FX_LEVELS } from './game.js';
 import { load, save, getSettings, setSettings, DEFAULT_SETTINGS, clientId, getBest, recordBest } from './storage.js';
 import { fetchRanking, submitScore } from './ranking.js';
+import * as acc from './account.js';
+import { initMeta, openAccount, renderHeader, gachaResultOpen, closeGacha } from './meta.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -13,7 +15,7 @@ const fmtScore = (n) => String(n).padStart(7, '0');
 const canvas = $('stage');
 const cloud = new PointCloud();
 let settings = getSettings();
-let state = 'title'; // title | select | game | result
+let state = 'title'; // title | select | game | result | quest | gacha | team
 let game = null;
 let lastResult = null;
 
@@ -104,13 +106,23 @@ function enterFromTitle() {
   renderList();
   selectSong(sel, true);
   warmup();
-  if (!load('name', '') && !load('nameSkipped', false)) openNameModal();
+  if (!acc.isLoggedIn() && !load('nameSkipped', false)) openAccount();
 }
 $('btn-start').addEventListener('click', enterFromTitle);
 
 // ---------------------------------------------------------------------------
 // 選曲画面
 // ---------------------------------------------------------------------------
+// ログイン中はサーバーの記録と端末の記録の良いほう
+function bestOf(id, d) {
+  const l = getBest(id, d);
+  const s = acc.getState()?.best?.[id + '/' + d];
+  if (!s) return l;
+  if (!l) return { ...s, plays: 0 };
+  const top = s.score > l.score ? { ...l, score: s.score, rank: s.rank, acc: s.acc } : { ...l };
+  return { ...top, combo: Math.max(l.combo, s.combo), fc: l.fc || s.fc, ap: l.ap || s.ap };
+}
+
 function renderList() {
   const list = $('song-list');
   list.innerHTML = '';
@@ -119,7 +131,7 @@ function renderList() {
     b.className = 'song-card' + (i === sel ? ' sel' : '');
     b.style.setProperty('--c', e.color);
     const lv = DIFFS.map((d) => {
-      const best = getBest(e.id, d);
+      const best = bestOf(e.id, d);
       const mark = best?.ap ? 'AP' : best?.fc ? 'FC' : '';
       return `<span class="lv ${d}">${e.levels[d]}${mark ? `<span class="mark">${mark}</span>` : ''}</span>`;
     }).join('');
@@ -168,14 +180,14 @@ function renderDetail() {
       <div class="dn">${d.toUpperCase()}</div><div class="dl">${e.levels[d]}</div><div class="dc">${e.stats[d].notes} notes</div>
     </button>`).join('');
   for (const b of $('diffs').children) b.addEventListener('click', () => setDiff(b.dataset.d));
-  const best = getBest(e.id, diff);
+  const best = bestOf(e.id, diff);
   const bx = $('best');
   if (best) {
     bx.className = 'best';
     bx.innerHTML = `<div class="b-rank" style="color:${DIFF_COLOR[diff]}">${best.rank}</div>
       <div class="b-score">${fmtScore(best.score)}</div>
       <div class="b-badges">${best.ap ? '<span class="badge ap">ALL PERFECT</span>' : best.fc ? '<span class="badge fc">FULL COMBO</span>' : ''}</div>
-      <div class="b-sub">自己ベスト ・ ${best.acc.toFixed(2)}% ・ MAX ${best.combo} COMBO ・ ${best.plays} プレイ</div>`;
+      <div class="b-sub">自己ベスト ・ ${Number(best.acc).toFixed(2)}% ・ MAX ${best.combo} COMBO${best.plays ? ` ・ ${best.plays} プレイ` : ''}</div>`;
   } else {
     bx.className = 'best none';
     bx.textContent = 'まだプレイしていません';
@@ -190,6 +202,7 @@ const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padSt
 
 // --- ランキング ---
 const rankCache = new Map();
+const myRankId = () => acc.getState()?.id || clientId();
 function rankRows(rows) {
   if (!rows.length) return '<li class="empty">まだ記録がありません。一番乗りしよう</li>';
   return rows.map((r) => `<li class="${r.is_me ? 'me' : ''}"><span class="rk">${r.rank}</span><span class="nm">${esc(r.name)}</span>
@@ -206,7 +219,7 @@ function loadRanking(force = false) {
   clearTimeout(loadRanking.tid);
   loadRanking.tid = setTimeout(async () => {
     try {
-      const rows = await fetchRanking(e.id, diff, clientId());
+      const rows = await fetchRanking(e.id, diff, myRankId());
       rankCache.set(key, { rows, at: Date.now() });
       if (entries[sel] === e && (e.id + '/' + diff) === key) list.innerHTML = rankRows(rows);
     } catch (err) {
@@ -292,6 +305,7 @@ async function startGameInner(entry, d) {
   game = new Game(canvas, {
     buffer: entry.buffer, notes: entry.charts[d], settings, bpm: entry.bpm, title: entry.title, diff: d, color: entry.color, cloud,
     onEnd: (r) => onGameEnd(r),
+    team: acc.isLoggedIn() ? acc.teamFx() : null,
   });
   game.start();
 }
@@ -331,12 +345,31 @@ function onGameEnd(r) {
   $('r-acc').textContent = r.accuracy.toFixed(2) + '%';
   $('r-combo').textContent = `${r.maxCombo} / ${r.total}`;
   const C = { PERFECT: '#7ff9ff', GREAT: '#ff7ce6', GOOD: '#b6ff7a', MISS: '#ff5a6e' };
+  $('r-team').innerHTML = r.hasTeam
+    ? `編成スコア <b>${r.teamScore.toLocaleString()}</b> <span class="muted">(ランキング・自己ベストは編成効果なしの ${fmtScore(r.score)} で記録)</span>`
+    : '';
+  $('r-reward').innerHTML = '';
   $('r-counts').innerHTML = Object.entries(r.counts).map(([k, v]) => `<div><small style="color:${C[k]}">${k}</small><b>${v}</b></div>`).join('') +
     `<div class="fs">FAST ${r.fast} ・ SLOW ${r.slow}</div>`;
   const on = $('r-online');
   const name = load('name', '');
-  if (entry.local) on.innerHTML = '<p class="r-msg">読み込んだ曲の記録はこの端末にだけ保存されます。</p>';
-  else if (!name) on.innerHTML = '<p class="r-msg">プレイヤー名を登録するとオンラインランキングに参加できます(右上の名前ボタンか設定から)。</p>';
+  if (acc.isLoggedIn()) {
+    on.innerHTML = '<p class="r-msg">記録を送信中…</p>';
+    acc.playResult(entry.id, d, !entry.local, r).then(async (res) => {
+      if (state !== 'result' || lastResult !== r) return;
+      const n = acc.claimableCount();
+      $('r-reward').innerHTML = `<span class="coin-ico">◎</span> +${res.gained} コイン` +
+        (res.gained === 0 ? ' <span class="muted">(連続送信のため報酬なし)</span>' : '') +
+        (n ? ` ・ <button class="link-btn" data-nav-q>受け取れるクエストが ${n} 件</button>` : '');
+      $('r-reward').querySelector('[data-nav-q]')?.addEventListener('click', () => { import('./meta.js').then((m) => m.openScreen('quest')); });
+      if (entry.local) { on.innerHTML = '<p class="r-msg">読み込んだ曲はランキング対象外です。</p>'; return; }
+      rankCache.delete(entry.id + '/' + d);
+      const rows = await fetchRanking(entry.id, d, myRankId(), 10);
+      if (state !== 'result' || lastResult !== r) return;
+      on.innerHTML = `<p>ONLINE RANK <span class="r-myrank">#${res.online}</span></p><ol class="rank-list">${rankRows(rows)}</ol>`;
+    }).catch((err) => { console.error(err); on.innerHTML = `<p class="r-msg">${esc(acc.errText(err))}(記録は端末に保存済み)</p>`; });
+  } else if (entry.local) on.innerHTML = '<p class="r-msg">読み込んだ曲の記録はこの端末にだけ保存されます。</p>';
+  else if (!name) on.innerHTML = '<p class="r-msg">ログインするとコインがもらえ、オンラインランキングにも参加できます(右上のアカウントから)。</p>';
   else {
     on.innerHTML = '<p class="r-msg">ランキングに送信中…</p>';
     submitScore(entry.id, d, clientId(), name, r)
@@ -359,8 +392,7 @@ $('btn-p-quit').addEventListener('click', quitGame);
 // 入力
 // ---------------------------------------------------------------------------
 window.addEventListener('keydown', (ev) => {
-  if (ev.target.tagName === 'INPUT' && ev.target.type === 'text') {
-    if (ev.key === 'Enter' && ev.target.id === 'name-input') $('btn-name-ok').click();
+  if (ev.target.tagName === 'INPUT' && (ev.target.type === 'text' || ev.target.type === 'password')) {
     if (ev.key === 'Escape') closeModals();
     return;
   }
@@ -381,6 +413,10 @@ window.addEventListener('keydown', (ev) => {
     else if (ev.key === 'ArrowRight') { ev.preventDefault(); setDiff(DIFFS[Math.min(2, DIFFS.indexOf(diff) + 1)]); }
     else if (ev.key === 'ArrowLeft') { ev.preventDefault(); setDiff(DIFFS[Math.max(0, DIFFS.indexOf(diff) - 1)]); }
     else if (ev.key === 'Enter') { ev.preventDefault(); startGame(); }
+    return;
+  }
+  if (state === 'quest' || state === 'gacha' || state === 'team') {
+    if (ev.key === 'Escape') { if (gachaResultOpen()) closeGacha(); else backToSelect(); }
     return;
   }
   if (state === 'result') {
@@ -440,29 +476,20 @@ canvas.addEventListener('touchend', touchEnd);
 canvas.addEventListener('touchcancel', touchEnd);
 
 // ---------------------------------------------------------------------------
-// プレイヤー名
+// アカウント・メタ画面
 // ---------------------------------------------------------------------------
-function updateNameLabel() { $('name-label').textContent = load('name', '') || 'GUEST'; }
-function openNameModal() {
-  $('name-input').value = load('name', '');
-  overlay('name-modal', true);
-  setTimeout(() => $('name-input').focus(), 50);
-}
 function closeModals() {
   if ($('settings').classList.contains('on')) closeSettings();
-  overlay('name-modal', false);
+  overlay('account-modal', false);
 }
-$('btn-name').addEventListener('click', openNameModal);
-$('btn-name-skip').addEventListener('click', () => { save('nameSkipped', true); overlay('name-modal', false); });
-$('btn-name-ok').addEventListener('click', () => {
-  const v = $('name-input').value.trim().slice(0, 16);
-  if (!v) { toast('名前を入力してください'); return; }
-  save('name', v);
-  updateNameLabel();
-  overlay('name-modal', false);
-  toast(`「${v}」で登録しました`);
-});
-updateNameLabel();
+function backToSelect() {
+  show('select');
+  renderList();
+  selectSong(sel, true);
+}
+initMeta({ show: (n) => { stopPreview(); show(n); }, toast, back: backToSelect, current: () => state });
+acc.onChange(() => { if (state === 'select') { renderList(); renderDetail(); } });
+acc.init();
 
 // ---------------------------------------------------------------------------
 // 設定
@@ -482,7 +509,14 @@ function syncSettingsUI() {
   }
   $('o-hs').title = `表示時間 ${visibleTime(settings.hs).toFixed(2)}秒`;
   $('s-name').value = load('name', '');
+  $('s-beam').checked = !!settings.hitBeam;
+  $('o-beam').textContent = settings.hitBeam ? 'ON' : 'OFF';
 }
+$('s-beam').addEventListener('change', () => {
+  settings.hitBeam = $('s-beam').checked;
+  $('o-beam').textContent = settings.hitBeam ? 'ON' : 'OFF';
+  setSettings(settings);
+});
 for (const [id, key, fmt] of SLIDERS) {
   $(id).addEventListener('input', () => {
     settings[key] = +$(id).value;
@@ -521,7 +555,7 @@ function openSettings() {
 }
 function closeSettings() {
   const v = $('s-name').value.trim().slice(0, 16);
-  if (v !== load('name', '')) { save('name', v); updateNameLabel(); }
+  if (v !== load('name', '')) { save('name', v); renderHeader(); }
   cancelAnimationFrame(previewRaf);
   previewGame = null;
   overlay('settings', false);

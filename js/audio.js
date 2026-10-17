@@ -314,11 +314,48 @@ const VOICES = {
   },
 };
 
-// 1つのOfflineAudioContextに全ノードを詰めると「ノード数×曲の長さ」で重くなるので、
-// 数秒ごとの区間に分けて並列に合成し、最後に足し合わせてからコンプをかける。
-const SEG = 4, TAIL = 3.2, SR = 44100;
+// 区間ごとに並列でオフライン合成する。
+// - ノイズ・残響用のバッファは一度だけ作って使い回す
+// - 残響は区間ごとではなく、最後に曲全体へ1回だけかける(区間は「ドライ」と「残響へ送る音」の4chで書き出す)
+const SEG = 8, TAIL = 2.2, SR = 44100;
+let sharedNoise = null, sharedIR = null;
+
+function workerCount() {
+  const n = navigator.hardwareConcurrency || 4;
+  return Math.max(2, Math.min(6, n - 1));
+}
+
+// ドラムは毎回ノードを組むと重いので、1音ずつ先に録っておいてサンプルとして鳴らす
+const DRUM_LEN = { kick: 0.45, hardkick: 0.4, snare: 0.25, clap: 0.26, hat: 0.07, ohat: 0.34, ride: 0.5, crash: 1.8 };
+const DRUM_SEND = { snare: 0.25, clap: 0.3, crash: 0.4 };
+let drumSamples = null;
+async function prepareDrums() {
+  if (drumSamples) return drumSamples;
+  const out = {};
+  await Promise.all(Object.entries(DRUM_LEN).map(async ([type, len]) => {
+    const oc = new OfflineAudioContext(1, Math.ceil(len * SR), SR);
+    const sink = oc.createGain();
+    sink.connect(oc.destination);
+    const S = { oc, noise: sharedNoise, drums: sink, music: sink, verb: oc.createGain() };
+    VOICES[type](S, { type, t: 0, vel: 1, dur: 0 });
+    out[type] = await oc.startRendering();
+  }));
+  return (drumSamples = out);
+}
+function playDrum(S, e) {
+  const src = S.oc.createBufferSource();
+  src.buffer = drumSamples[e.type];
+  const g = S.oc.createGain();
+  g.gain.value = e.vel;
+  src.connect(g); g.connect(S.drums);
+  if (DRUM_SEND[e.type]) send(S, g, DRUM_SEND[e.type]);
+  src.start(e.t);
+}
 
 export async function renderEvents(events, duration, opts = {}) {
+  sharedNoise ||= makeNoise(new OfflineAudioContext(1, 1, SR));
+  sharedIR ||= makeIR(new OfflineAudioContext(2, 1, SR), 2.6, 2.6);
+  await prepareDrums();
   const segs = [];
   for (let a = 0; a < duration; a += SEG) {
     const evs = events.filter((e) => e.t >= a && e.t < a + SEG);
@@ -328,51 +365,60 @@ export async function renderEvents(events, duration, opts = {}) {
     segs.push({ a, len: Math.min(duration - a, end - a + TAIL), evs });
   }
   const total = Math.ceil(duration * SR);
-  const L = new Float32Array(total), R = new Float32Array(total);
+  const ch = [0, 1, 2, 3].map(() => new Float32Array(total)); // ドライL, ドライR, 送りL, 送りR
   let next = 0;
   const worker = async () => {
     while (next < segs.length) {
       const s = segs[next++];
       const buf = await renderSegment(s.evs, s.a, s.len, opts);
       const off = Math.round(s.a * SR);
-      const l = buf.getChannelData(0), r = buf.getChannelData(1);
-      const n = Math.min(l.length, total - off);
-      for (let i = 0; i < n; i++) { L[off + i] += l[i]; R[off + i] += r[i]; }
+      for (let c = 0; c < 4; c++) {
+        const src = buf.getChannelData(c), dst = ch[c];
+        const n = Math.min(src.length, total - off);
+        for (let i = 0; i < n; i++) dst[off + i] += src[i];
+      }
     }
   };
-  await Promise.all([worker(), worker()]);
+  await Promise.all(Array.from({ length: workerCount() }, worker));
 
+  // 仕上げ: 残響 → コンプ
   const oc = new OfflineAudioContext(2, total, SR);
-  const mix = oc.createBuffer(2, total, SR);
-  mix.copyToChannel(L, 0); mix.copyToChannel(R, 1);
-  const src = oc.createBufferSource();
-  src.buffer = mix;
+  const dry = oc.createBuffer(2, total, SR), wet = oc.createBuffer(2, total, SR);
+  dry.copyToChannel(ch[0], 0); dry.copyToChannel(ch[1], 1);
+  wet.copyToChannel(ch[2], 0); wet.copyToChannel(ch[3], 1);
   const comp = oc.createDynamicsCompressor();
   comp.threshold.value = -12; comp.knee.value = 6; comp.ratio.value = 4;
   comp.attack.value = 0.003; comp.release.value = 0.2;
-  const g = oc.createGain();
-  g.gain.value = 0.9;
-  src.connect(comp); comp.connect(g); g.connect(oc.destination);
-  src.start();
+  const out = oc.createGain();
+  out.gain.value = 0.9;
+  comp.connect(out); out.connect(oc.destination);
+  const d = oc.createBufferSource(); d.buffer = dry; d.connect(comp);
+  const w = oc.createBufferSource(); w.buffer = wet;
+  const verb = oc.createConvolver(); verb.buffer = sharedIR;
+  const wg = oc.createGain(); wg.gain.value = 0.75;
+  w.connect(verb); verb.connect(wg); wg.connect(comp);
+  d.start(); w.start();
   return oc.startRendering();
 }
 
 async function renderSegment(events, a, len, opts) {
-  const oc = new OfflineAudioContext(2, Math.ceil(len * SR), SR);
-  const master = oc.createGain();
+  const oc = new OfflineAudioContext(4, Math.ceil(len * SR), SR);
+  const merger = oc.createChannelMerger(4);
+  merger.connect(oc.destination);
+  const stereo = (node) => { node.channelCount = 2; node.channelCountMode = 'explicit'; node.channelInterpretation = 'speakers'; return node; };
+  const master = stereo(oc.createGain());
   master.gain.value = 0.75;
-  master.connect(oc.destination);
-  events = events.map((e) => ({ ...e, t: e.t - a }));
-
-  const verb = oc.createConvolver();
-  verb.buffer = makeIR(oc, 2.6, 2.6);
-  const verbIn = oc.createGain();
+  const ms = oc.createChannelSplitter(2);
+  master.connect(ms); ms.connect(merger, 0, 0); ms.connect(merger, 1, 1);
+  const verbIn = stereo(oc.createGain());
   verbIn.gain.value = opts.reverb ?? 0.35;
-  verbIn.connect(verb); verb.connect(master);
+  const vs = oc.createChannelSplitter(2);
+  verbIn.connect(vs); vs.connect(merger, 0, 2); vs.connect(merger, 1, 3);
+  events = events.map((e) => ({ ...e, t: e.t - a }));
 
   const drums = oc.createGain(); drums.connect(master);
   const music = oc.createGain(); music.connect(master);
-  const S = { oc, noise: makeNoise(oc), drums, music, verb: verbIn };
+  const S = { oc, noise: sharedNoise, drums, music, verb: verbIn };
 
   if (opts.sidechain) {
     let lastK = -1;
@@ -384,6 +430,9 @@ async function renderSegment(events, a, len, opts) {
       music.gain.linearRampToValueAtTime(1, e.t + 0.19);
     }
   }
-  for (const e of events) VOICES[e.type]?.(S, e);
+  for (const e of events) {
+    if (drumSamples[e.type]) playDrum(S, e);
+    else VOICES[e.type]?.(S, e);
+  }
   return oc.startRendering();
 }

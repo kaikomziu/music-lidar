@@ -1,6 +1,7 @@
 import SONGS from './songs/index.js';
 import { composeSong, candidatesFromEvents, generateChart, chartStats, DIFFS, hashStr } from './composer.js';
-import { getCtx, setVolumes, renderEvents, playPreview, stopPreview } from './audio.js';
+import { getCtx, setVolumes, playPreview, stopPreview } from './audio.js';
+import { loadSongAudio } from './audio-cache.js';
 import { analyzeFile, hashFile } from './analyzer.js';
 import { buildScroll, dropNotesInStops, gimmickLabel } from './gimmick.js';
 import { jacketURL, clearJackets } from './jacket.js';
@@ -42,7 +43,7 @@ const entries = SONGS.map((def) => {
     buffer: null, rendering: null,
     load() {
       if (this.buffer) return Promise.resolve(this.buffer);
-      if (!this.rendering) this.rendering = renderEvents(events, duration, { sidechain: def.sidechain }).then((b) => (this.buffer = b));
+      if (!this.rendering) this.rendering = loadSongAudio(def.id, events, duration, { sidechain: !!def.sidechain }).then((b) => (this.buffer = b));
       return this.rendering;
     },
   };
@@ -52,7 +53,10 @@ let sel = Math.max(0, Math.min(entries.length - 1, load('sel', 0)));
 let diff = DIFFS.includes(load('diff', 'normal')) ? load('diff', 'normal') : 'normal';
 
 // 起動後に全曲をバックグラウンドで順に合成しておく
+let warmed = false;
 async function warmup() {
+  if (warmed) return;
+  warmed = true;
   const order = [entries[sel], ...entries.filter((e, i) => i !== sel && !e.local)];
   for (const e of order) {
     // プレイ中は重い合成をしない(音飛び・カクつき防止)
@@ -80,6 +84,8 @@ function bgLoop(now) {
   cloud.draw(g, W, H, now / 1000, e?.bpm || 120, (state === 'select' ? 0.6 : 0.4) * amt, e?.color || '#5ef2ff', amt);
 }
 requestAnimationFrame(bgLoop);
+// タイトル画面の間から裏で音源を用意しておく(2回目以降はブラウザに保存した音を使うので一瞬)
+setTimeout(() => warmup(), 300);
 
 // ---------------------------------------------------------------------------
 // 画面切り替え
@@ -281,7 +287,7 @@ function renderDetail() {
   }
   const ready = !!e.buffer;
   $('btn-play').classList.toggle('wait', !ready);
-  $('play-sub').textContent = ready ? 'ENTER' : '音源を生成中…';
+  $('play-sub').textContent = ready ? 'ENTER' : '音源を準備中…(初回のみ)';
   loadRanking();
 }
 

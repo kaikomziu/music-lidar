@@ -170,8 +170,14 @@ async function pull(n) {
 function showGachaResult(res) {
   const box = $('gacha-result');
   const best = Math.max(...res.map((r) => r.rarity));
-  box.className = 'gacha-result on best' + best;
-  box.innerHTML = `<div class="gr-inner"><div class="gr-cards">${res.map((r, i) => {
+  box.className = 'gacha-result on scanning best' + best;
+  // まずスキャン演出(最高レアの色がにじむ)→ カード。タップで飛ばせる
+  const reveal = () => { if (box.classList.contains('scanning')) box.classList.remove('scanning'); };
+  clearTimeout(showGachaResult.t);
+  showGachaResult.t = setTimeout(reveal, best >= 4 ? 2200 : best >= 3 ? 1700 : 1300);
+  box.onclick = (ev) => { if (box.classList.contains('scanning')) { ev.stopPropagation(); reveal(); } };
+  box.innerHTML = `<div class="gr-scan"><div class="gr-ring"></div><div class="gr-ring r2"></div><div class="gr-scantext">SCANNING<span>${best >= 4 ? 'SIGNAL ★★★★' : 'SIGNAL DETECTED'}</span></div></div>
+  <div class="gr-inner"><div class="gr-cards">${res.map((r, i) => {
     const u = acc.unitById(r.id) || { id: r.id, name: r.id, rarity: r.rarity, kind: 'score' };
     return `<div class="gr-card r${r.rarity}" style="animation-delay:${0.15 + i * 0.12}s">
       ${r.new ? '<span class="gr-new">NEW</span>' : ''}

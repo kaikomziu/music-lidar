@@ -3,6 +3,7 @@ import { composeSong, candidatesFromEvents, generateChart, chartStats, DIFFS, ha
 import { getCtx, setVolumes, renderEvents, playPreview, stopPreview } from './audio.js';
 import { analyzeFile, hashFile } from './analyzer.js';
 import { buildScroll, dropNotesInStops, gimmickLabel } from './gimmick.js';
+import { jacketURL, clearJackets } from './jacket.js';
 import { Game, PointCloud, KEYS, DIFF_COLOR, visibleTime, IS_TOUCH, FX_LEVELS } from './game.js';
 import { load, save, getSettings, setSettings, DEFAULT_SETTINGS, clientId, getBest, recordBest } from './storage.js';
 import { fetchRanking, submitScore } from './ranking.js';
@@ -114,6 +115,24 @@ function enterFromTitle() {
 }
 $('btn-start').addEventListener('click', enterFromTitle);
 
+// タイトルのブートログ(飾り)
+(function bootLog() {
+  const v = document.querySelector('meta[name="app-version"]')?.content || 'dev';
+  $('tt-ver').textContent = 'BUILD ' + v;
+  const lines = ['INIT AUDIO ENGINE', `LOAD ${entries.length} TRACKS`, 'CALIBRATE LIDAR ARRAY', 'SYNC CLOCK', 'READY'];
+  const el = $('tt-boot');
+  let i = 0;
+  const tick = () => {
+    if (i >= lines.length || state !== 'title') return;
+    el.innerHTML += `${lines[i]} ${i < lines.length - 1 ? '<b>.... OK</b>' : '<b class="ok">■</b>'}<br>`;
+    i++;
+    setTimeout(tick, 260 + Math.random() * 220);
+  };
+  setTimeout(tick, 500);
+})();
+// フォント読み込み後にジャケットを描き直す(最初はフォント未読込のことがある)
+document.fonts?.ready.then(() => { clearJackets(); if (state === 'select') { renderList(); renderDetail(); } });
+
 // ---------------------------------------------------------------------------
 // 選曲画面
 // ---------------------------------------------------------------------------
@@ -189,7 +208,7 @@ function renderList() {
       const mark = best?.ap ? 'AP' : best?.fc ? 'FC' : '';
       return `<span class="lv ${d}">${e.levels[d]}${mark ? `<span class="mark">${mark}</span>` : ''}</span>`;
     }).join('');
-    b.innerHTML = `<div class="sc-title">${esc(e.title)}</div><div class="sc-sub">${esc(e.genre)} ・ BPM ${Math.round(e.bpm)}${e.local ? ' ・ LOCAL' : ''}</div><div class="sc-lv">${lv}</div>`;
+    b.innerHTML = `<img class="sc-jacket" src="${jacketURL(e, 128)}" alt=""><div class="sc-text"><div class="sc-title">${esc(e.title)}</div><div class="sc-sub">${esc(e.genre)} ・ BPM ${Math.round(e.bpm)}${e.local ? ' ・ LOCAL' : ''}</div></div><div class="sc-lv">${lv}</div>`;
     b.addEventListener('click', () => { if (sel === i) startGame(); else selectSong(i); });
     list.appendChild(b);
   });
@@ -239,6 +258,8 @@ function renderDetail() {
   const e = entries[sel];
   document.documentElement.style.setProperty('--accent', e.color);
   $('d-genre').textContent = e.genre;
+  $('d-jacket').src = jacketURL(e, 256);
+  $('d-index').textContent = `${String(sel + 1).padStart(2, '0')} / ${String(entries.length).padStart(2, '0')}`;
   $('d-title').textContent = e.title;
   $('d-meta').textContent = `${e.artist} ・ BPM ${Math.round(e.bpm)} ・ ${fmtTime(e.duration)}${e.gimmick ? ` ・ ギミック: ${e.gimmick}` : ''}`;
   $('diffs').innerHTML = DIFFS.map((d) => `
@@ -397,6 +418,19 @@ function retry() {
   startGame(playing.entry, playing.diff, playing.custom);
 }
 
+// 数字を数え上げる演出
+function countUp(el, to, ms, fmtFn) {
+  const t0 = performance.now();
+  const step = (now) => {
+    const k = Math.min(1, (now - t0) / ms);
+    el.textContent = fmtFn(Math.round(to * (1 - Math.pow(1 - k, 3))));
+    if (k < 1 && el.isConnected) requestAnimationFrame(step);
+  };
+  el.textContent = fmtFn(0);
+  requestAnimationFrame(step);
+  setTimeout(() => { el.textContent = fmtFn(to); }, ms + 50); // タブが裏にあっても最終値にする
+}
+
 function onGameEnd(r) {
   const { entry, diff: d, custom } = playing;
   game = null;
@@ -411,9 +445,18 @@ function onGameEnd(r) {
   rd.style.color = DIFF_COLOR[custom ? 'custom' : d];
   if (custom) $('r-title').textContent = `${custom.title} (${entry.title})`;
   $('r-rank').textContent = r.rank;
-  $('r-score').textContent = fmtScore(r.score);
+  $('r-jacket').src = jacketURL(entry, 256);
+  $('r-stamp').textContent = new Date().toLocaleString('ja-JP', { hour12: false }).replace(/\//g, '.');
+  const banner = r.ap ? 'ALL PERFECT' : r.fc ? 'FULL COMBO' : r.score >= 600000 ? 'CLEAR' : 'FAILED';
+  const bn = $('r-banner');
+  bn.textContent = banner;
+  bn.className = 'r-banner ' + banner.toLowerCase().replace(' ', '-');
+  // 演出をやり直すためにクラスを付け直す
+  const panel = document.querySelector('.result-panel');
+  panel.classList.remove('reveal'); void panel.offsetWidth; panel.classList.add('reveal');
+  countUp($('r-score'), r.score, 900, fmtScore);
   $('r-new').classList.toggle('on', isNew);
-  $('r-badges').innerHTML = r.ap ? '<span class="badge ap">ALL PERFECT</span>' : r.fc ? '<span class="badge fc">FULL COMBO</span>' : '';
+  $('r-badges').innerHTML = ''; // FC/AP は上のバナーで表示
   $('r-acc').textContent = r.accuracy.toFixed(2) + '%';
   $('r-combo').textContent = `${r.maxCombo} / ${r.total}`;
   const C = { PERFECT: '#7ff9ff', GREAT: '#ff7ce6', GOOD: '#b6ff7a', MISS: '#ff5a6e' };

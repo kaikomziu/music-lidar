@@ -147,15 +147,16 @@ export class Game {
     this.lastNoteT = this.notes.length ? Math.max(...this.notes.map((n) => n.end ?? n.t)) : 0;
   }
 
-  start() {
+  // startFrom: 曲の途中から始める(譜面メーカーのテストプレイ用)。ノーツは呼び出し側で絞っておく
+  start(startFrom = 0) {
     const ctx = getCtx();
-    const first = this.notes.length ? this.notes[0].t : 2;
+    const first = this.notes.length ? this.notes[0].t - startFrom : 2;
     this.leadIn = Math.max(1.6, this.T + 0.6 - first);
     this.src = ctx.createBufferSource();
     this.src.buffer = this.buffer;
     this.src.connect(bgmOut());
-    this.startAt = ctx.currentTime + this.leadIn;
-    this.src.start(this.startAt);
+    this.startAt = ctx.currentTime + this.leadIn - startFrom;
+    this.src.start(ctx.currentTime + this.leadIn, startFrom);
     // 表示・判定用の時計。performance.now() で滑らかに進め、オーディオ時計に少しずつ合わせる
     const p = performance.now();
     this.anchorPerf = p;
@@ -679,7 +680,7 @@ export class Game {
   }
 }
 
-export const DIFF_COLOR = { easy: '#6dffb0', normal: '#ffd25e', hard: '#ff5a8a' };
+export const DIFF_COLOR = { easy: '#6dffb0', normal: '#ffd25e', hard: '#ff5a8a', custom: '#c49bff', test: '#9fe8ff' };
 
 // extraMs: 編成の判定サポートで PERFECT/GREAT 幅を広げる量
 function judgeOf(d, extraMs = 0) {

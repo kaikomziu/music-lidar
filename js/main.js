@@ -8,6 +8,8 @@ import { load, save, getSettings, setSettings, DEFAULT_SETTINGS, clientId, getBe
 import { fetchRanking, submitScore } from './ranking.js';
 import * as acc from './account.js';
 import { initMeta, openAccount, renderHeader, gachaResultOpen, closeGacha } from './meta.js';
+import { initMaker, openCharts, openEditor, makerKeydown } from './maker.js';
+import { fetchChartRanking, submitChartScore } from './maker-api.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -34,7 +36,7 @@ const entries = SONGS.map((def) => {
   }
   return {
     id: def.id, title: def.title, artist: def.artist, genre: def.genre, bpm: def.bpm, color: def.color,
-    levels: def.levels, charts, stats, local: false, duration, scroll, gimmick: gimmickLabel(def.gimmicks),
+    levels: def.levels, charts, stats, local: false, duration, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [],
     previewAt: (def.preview ?? 32) * 60 / def.bpm,
     buffer: null, rendering: null,
     load() {
@@ -348,12 +350,13 @@ window.addEventListener('drop', (ev) => {
 // ---------------------------------------------------------------------------
 let playing = null; // { entry, diff }
 let starting = false;
-async function startGame(entry = entries[sel], d = diff) {
+// custom: 譜面メーカーの譜面 { kind: 'custom'|'test', notes, scroll, title, level, chartId, startFrom, onExit(result?) }
+async function startGame(entry = entries[sel], d = diff, custom = null) {
   if (state === 'game' || starting) return;
   starting = true;
-  try { await startGameInner(entry, d); } finally { starting = false; }
+  try { await startGameInner(entry, d, custom); } finally { starting = false; }
 }
-async function startGameInner(entry, d) {
+async function startGameInner(entry, d, custom) {
   document.activeElement?.blur?.();
   getCtx();
   stopPreview();
@@ -363,22 +366,24 @@ async function startGameInner(entry, d) {
     try { await entry.load(); } catch (err) { console.error(err); toast('音源の生成に失敗しました'); overlay('loading', false); return; }
     overlay('loading', false);
   }
-  playing = { entry, diff: d };
+  playing = { entry, diff: d, custom };
   show('game');
   setVolumes(settings.bgm, settings.se);
   game = new Game(canvas, {
-    buffer: entry.buffer, notes: entry.charts[d], settings, bpm: entry.bpm, title: entry.title, diff: d, color: entry.color, cloud,
+    buffer: entry.buffer, notes: custom ? custom.notes : entry.charts[d], settings, bpm: entry.bpm,
+    title: custom ? custom.title : entry.title, diff: custom ? custom.kind : d, color: entry.color, cloud,
     onEnd: (r) => onGameEnd(r),
-    team: acc.isLoggedIn() ? acc.teamFx() : null,
-    scroll: entry.scroll,
+    team: !custom && acc.isLoggedIn() ? acc.teamFx() : null,
+    scroll: custom ? custom.scroll : entry.scroll,
   });
-  game.start();
+  game.start(custom?.startFrom || 0);
 }
 
 function quitGame() {
   overlay('pause', false);
   game?.destroy();
   game = null;
+  if (playing?.custom) { stopPreview(); playing.custom.onExit(null); return; }
   show('select');
   renderList();
   selectSong(sel, true);
@@ -389,20 +394,22 @@ function retry() {
   game?.destroy();
   game = null;
   state = 'retry';
-  startGame(playing.entry, playing.diff);
+  startGame(playing.entry, playing.diff, playing.custom);
 }
 
 function onGameEnd(r) {
-  const { entry, diff: d } = playing;
+  const { entry, diff: d, custom } = playing;
   game = null;
   lastResult = r;
-  const isNew = recordBest(entry.id, d, r);
+  if (custom?.kind === 'test') { custom.onExit(r); return; }
+  const isNew = custom ? false : recordBest(entry.id, d, r);
   show('result');
   document.documentElement.style.setProperty('--accent', entry.color);
   $('r-title').textContent = entry.title;
   const rd = $('r-diff');
-  rd.textContent = `${d.toUpperCase()} ${entry.levels[d]}`;
-  rd.style.color = DIFF_COLOR[d];
+  rd.textContent = custom ? `CUSTOM Lv${custom.level}` : `${d.toUpperCase()} ${entry.levels[d]}`;
+  rd.style.color = DIFF_COLOR[custom ? 'custom' : d];
+  if (custom) $('r-title').textContent = `${custom.title} (${entry.title})`;
   $('r-rank').textContent = r.rank;
   $('r-score').textContent = fmtScore(r.score);
   $('r-new').classList.toggle('on', isNew);
@@ -418,6 +425,17 @@ function onGameEnd(r) {
     `<div class="fs">FAST ${r.fast} ・ SLOW ${r.slow}</div>`;
   const on = $('r-online');
   const name = load('name', '');
+  if (custom) {
+    const who = acc.getState()?.name || name;
+    if (!who) { on.innerHTML = '<p class="r-msg">ログインするか設定でゲスト名を入れると、この譜面のランキングに参加できます。</p>'; return; }
+    on.innerHTML = '<p class="r-msg">ランキングに送信中…</p>';
+    submitChartScore(custom.chartId, myRankId(), who, r).then(async (rank) => {
+      const rows = await fetchChartRanking(custom.chartId, myRankId(), 10);
+      if (state !== 'result' || lastResult !== r) return;
+      on.innerHTML = `<p>この譜面のランク <span class="r-myrank">#${rank}</span></p><ol class="rank-list">${rankRows(rows)}</ol>`;
+    }).catch((err) => { console.error(err); on.innerHTML = '<p class="r-msg">ランキングに送信できませんでした</p>'; });
+    return;
+  }
   if (acc.isLoggedIn()) {
     on.innerHTML = '<p class="r-msg">記録を送信中…</p>';
     acc.playResult(entry.id, d, !entry.local, r).then(async (res) => {
@@ -484,6 +502,7 @@ window.addEventListener('keydown', (ev) => {
     else if (ev.key === 'Enter') { ev.preventDefault(); startGame(); }
     return;
   }
+  if (state === 'editor' || state === 'charts') { makerKeydown(ev); return; }
   if (state === 'quest' || state === 'gacha' || state === 'team') {
     if (ev.key === 'Escape') { if (gachaResultOpen()) closeGacha(); else backToSelect(); }
     return;
@@ -557,6 +576,13 @@ function backToSelect() {
   selectSong(sel, true);
 }
 initMeta({ show: (n) => { stopPreview(); show(n); }, toast, back: backToSelect, current: () => state });
+initMaker({
+  entries, show: (n) => { stopPreview(); show(n); }, toast, back: backToSelect, current: () => state, overlay,
+  play: (entry, custom) => startGame(entry, custom.kind, custom), rankRows, myRankId, esc,
+  selectedEntry: () => entries[sel],
+});
+$('btn-charts').addEventListener('click', () => openCharts());
+$('btn-maker').addEventListener('click', () => openEditor(entries[sel]));
 acc.onChange(() => { if (state === 'select') { renderList(); renderDetail(); } });
 acc.init();
 

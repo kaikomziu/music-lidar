@@ -11,20 +11,21 @@ export const NO_SCROLL = { S: (t) => t, coverAt: () => 0, stops: [], has: false 
 export function buildScroll(gimmicks, bpm) {
   if (!gimmicks?.length) return NO_SCROLL;
   const spb = 60 / bpm;
-  const list = [...gimmicks].sort((a, b) => a.beat - b.beat);
+  const list = [...gimmicks].sort((a, b) => (a.t ?? a.beat * spb) - (b.t ?? b.beat * spb));
 
   // 速度の変化点 { t, m }
   const changes = [];
   const stops = [];
   let cur = 1;
   for (const g of list) {
-    const t0 = g.beat * spb, dur = (g.beats || 0) * spb;
+    // 拍(beat/beats)でも秒(t/dur)でも指定できる。譜面メーカーは秒で保存する
+    const t0 = g.t ?? g.beat * spb, dur = g.dur ?? (g.beats || 0) * spb;
     if (g.type === 'stop') {
       changes.push({ t: t0, m: 0 }, { t: t0 + dur, m: cur });
       stops.push([t0, t0 + dur]);
     } else if (g.type === 'speed') {
       if (dur > 0) {
-        const steps = Math.max(4, Math.round(g.beats * 8));
+        const steps = Math.max(4, Math.round((dur / spb) * 8));
         for (let k = 1; k <= steps; k++) changes.push({ t: t0 + ((k - 1) / steps) * dur, m: cur + ((g.to - cur) * k) / steps });
       } else changes.push({ t: t0, m: g.to });
       cur = g.to;
@@ -43,7 +44,7 @@ export function buildScroll(gimmicks, bpm) {
     return g.s + g.m * (t - g.t);
   };
 
-  const covers = list.filter((g) => g.type === 'cover').map((g) => ({ t: g.beat * spb, to: g.to, dur: Math.max(0.001, (g.beats || 0) * spb) }));
+  const covers = list.filter((g) => g.type === 'cover').map((g) => ({ t: g.t ?? g.beat * spb, to: g.to, dur: Math.max(0.001, g.dur ?? (g.beats || 0) * spb) }));
   const coverAt = (t) => {
     let v = 0;
     for (const c of covers) {

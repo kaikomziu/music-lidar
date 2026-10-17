@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="app-version" content="20261017183927">
+<meta name="app-version" content="20261017185359">
 <script>
 // HTMLがキャッシュで古いまま新しいJSと混ざらないよう、最新バージョンと違えば読み直す
 (function () {
@@ -14,7 +14,7 @@
   }).catch(function () {});
 })();
 </script>
-<!--IMPORTMAP--><script type="importmap">{"imports": {"./js/account.js": "./js/account.js?v=20261017183927", "./js/analyzer.js": "./js/analyzer.js?v=20261017183927", "./js/audio.js": "./js/audio.js?v=20261017183927", "./js/composer.js": "./js/composer.js?v=20261017183927", "./js/game.js": "./js/game.js?v=20261017183927", "./js/gimmick.js": "./js/gimmick.js?v=20261017183927", "./js/main.js": "./js/main.js?v=20261017183927", "./js/meta.js": "./js/meta.js?v=20261017183927", "./js/ranking.js": "./js/ranking.js?v=20261017183927", "./js/songs/cloud-point.js": "./js/songs/cloud-point.js?v=20261017183927", "./js/songs/first-light.js": "./js/songs/first-light.js?v=20261017183927", "./js/songs/freeze-frame.js": "./js/songs/freeze-frame.js?v=20261017183927", "./js/songs/hello-lane.js": "./js/songs/hello-lane.js?v=20261017183927", "./js/songs/hyper-scan-breaker.js": "./js/songs/hyper-scan-breaker.js?v=20261017183927", "./js/songs/index.js": "./js/songs/index.js?v=20261017183927", "./js/songs/lidar-rush.js": "./js/songs/lidar-rush.js?v=20261017183927", "./js/songs/overclock-omega.js": "./js/songs/overclock-omega.js?v=20261017183927", "./js/songs/pulse-grid.js": "./js/songs/pulse-grid.js?v=20261017183927", "./js/storage.js": "./js/storage.js?v=20261017183927", "./js/units.js": "./js/units.js?v=20261017183927"}}</script><!--/IMPORTMAP-->
+<!--IMPORTMAP--><script type="importmap">{"imports": {"./js/account.js": "./js/account.js?v=20261017185359", "./js/analyzer.js": "./js/analyzer.js?v=20261017185359", "./js/audio.js": "./js/audio.js?v=20261017185359", "./js/composer.js": "./js/composer.js?v=20261017185359", "./js/game.js": "./js/game.js?v=20261017185359", "./js/gimmick.js": "./js/gimmick.js?v=20261017185359", "./js/main.js": "./js/main.js?v=20261017185359", "./js/maker-api.js": "./js/maker-api.js?v=20261017185359", "./js/maker.js": "./js/maker.js?v=20261017185359", "./js/meta.js": "./js/meta.js?v=20261017185359", "./js/ranking.js": "./js/ranking.js?v=20261017185359", "./js/songs/cloud-point.js": "./js/songs/cloud-point.js?v=20261017185359", "./js/songs/first-light.js": "./js/songs/first-light.js?v=20261017185359", "./js/songs/freeze-frame.js": "./js/songs/freeze-frame.js?v=20261017185359", "./js/songs/hello-lane.js": "./js/songs/hello-lane.js?v=20261017185359", "./js/songs/hyper-scan-breaker.js": "./js/songs/hyper-scan-breaker.js?v=20261017185359", "./js/songs/index.js": "./js/songs/index.js?v=20261017185359", "./js/songs/lidar-rush.js": "./js/songs/lidar-rush.js?v=20261017185359", "./js/songs/overclock-omega.js": "./js/songs/overclock-omega.js?v=20261017185359", "./js/songs/pulse-grid.js": "./js/songs/pulse-grid.js?v=20261017185359", "./js/storage.js": "./js/storage.js?v=20261017185359", "./js/units.js": "./js/units.js?v=20261017185359"}}</script><!--/IMPORTMAP-->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>MUSIC LiDAR</title>
 <meta name="description" content="ブラウザで遊べる4キー音ゲー。D F J K で奥から迫るノーツを叩け。">
@@ -23,7 +23,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20261017183927">
+<link rel="stylesheet" href="css/style.css?v=20261017185359">
 </head>
 <body>
 <canvas id="stage"></canvas>
@@ -47,6 +47,8 @@
       <button class="chip nav-btn" data-nav="quest"><span class="ico">◇</span>クエスト<span class="q-badge badge-dot" hidden></span></button>
       <button class="chip nav-btn" data-nav="gacha"><span class="ico">✦</span>ガチャ</button>
       <button class="chip nav-btn" data-nav="team"><span class="ico">▣</span>編成</button>
+      <button class="chip nav-btn" id="btn-charts"><span class="ico">♪</span>みんなの譜面</button>
+      <button class="chip nav-btn" id="btn-maker"><span class="ico">✎</span>譜面メーカー</button>
       <span class="chip coin-chip" title="コイン"><span class="coin-ico">◎</span><span class="coin-val">-</span></span>
       <button id="btn-name" class="chip" title="アカウント"><span class="ico">◉</span><span id="name-label">GUEST</span></button>
       <button id="btn-settings" class="chip" title="設定"><span class="ico">⚙</span>設定</button>
@@ -174,6 +176,77 @@
   </div>
 </section>
 
+<!-- 譜面メーカー -->
+<section id="editor" class="screen editor">
+  <header class="topbar ed-top">
+    <button class="chip" id="ed-back">← 戻る</button>
+    <h2 class="meta-title">CHART MAKER</h2>
+    <select id="ed-song" aria-label="曲"></select>
+    <input type="text" id="ed-title" maxlength="40" placeholder="譜面のタイトル" aria-label="譜面のタイトル">
+    <label class="ed-lv">Lv <select id="ed-level" aria-label="レベル"></select><small id="ed-estlv"></small></label>
+    <div class="spacer"></div>
+    <span class="muted small" id="ed-saved"></span>
+    <button class="btn-glow" id="ed-post">投稿</button>
+  </header>
+  <div class="ed-toolbar">
+    <button id="ed-play" class="tb">▶ 再生 <kbd>Space</kbd></button>
+    <button id="ed-rec" class="tb rec">● 録音 <kbd>R</kbd></button>
+    <button id="ed-test" class="tb">▷ テストプレイ <kbd>T</kbd></button>
+    <span class="tb-sep"></span>
+    <div class="tb seg" id="ed-tools"><button data-tool="note" class="sel">ノーツ</button><button data-tool="gimmick">ギミック</button></div>
+    <label class="tb">スナップ <select id="ed-snap"><option value="1">4分</option><option value="2">8分</option><option value="3">12分</option><option value="4">16分</option><option value="6">24分</option><option value="8">32分</option></select></label>
+    <label class="tb">ズーム <input type="range" id="ed-zoom" min="80" max="700" value="240"></label>
+    <span class="tb-sep"></span>
+    <label class="tb">自動譜面を読込 <select id="ed-auto"><option value="">選ぶ…</option><option value="easy">EASY</option><option value="normal">NORMAL</option><option value="hard">HARD</option></select></label>
+    <button id="ed-undo" class="tb" title="元に戻す (Ctrl+Z)">↶ 戻す</button>
+    <button id="ed-redo" class="tb" title="やり直す (Ctrl+Y)">↷ やり直す</button>
+    <button id="ed-clear" class="tb danger">全消去</button>
+    <label class="tb"><input type="checkbox" id="ed-guide" checked> ガイド音</label>
+    <label class="tb" id="ed-bpm-wrap" hidden>BPM <input type="number" id="ed-bpm" step="0.01" min="40" max="300"> 1拍目の位置(秒) <input type="number" id="ed-offset" step="0.001"></label>
+  </div>
+  <div class="ed-main">
+    <canvas id="ed-canvas"></canvas>
+    <aside class="ed-side">
+      <div class="ed-info" id="ed-info"></div>
+      <details class="ed-help" open>
+        <summary>使い方</summary>
+        <ul>
+          <li><b>置く</b>: レーンをクリック/タップ。上へドラッグでロングノーツ</li>
+          <li><b>消す</b>: ノーツをもう一度クリック(右クリックでも)</li>
+          <li><b>キーで置く</b>: 止めた状態で D F J K → 今の位置に置く/消す</li>
+          <li><b>録音</b>: R で再生しながら D F J K を叩くと記録(長押しでロング)</li>
+          <li><b>移動</b>: ホイール / 左の小節番号をドラッグ / 下のバー / ↑↓ PageUp/Down</li>
+          <li><b>ギミック</b>: 右の紫の列をクリック → 停止・変速・隠し</li>
+          <li><b>テスト</b>: T で今の位置の少し前から試せる</li>
+          <li>作業は自動で下書き保存。内蔵曲の譜面は「投稿」でみんなに公開(ログインが必要)</li>
+        </ul>
+      </details>
+    </aside>
+  </div>
+  <input type="range" id="ed-pos" class="ed-pos" min="0" max="1000" value="0" aria-label="再生位置">
+  <div id="ed-gpop" class="ed-gpop" hidden>
+    <div class="gp-title" id="gp-title"></div>
+    <label class="gp-row">種類 <select id="gp-type"><option value="stop">停止</option><option value="speed">変速</option><option value="cover">隠し</option></select></label>
+    <label class="gp-row"><span id="gp-dur-label">長さ(拍)</span> <input type="number" id="gp-dur" min="0" max="64" step="0.25" value="1"></label>
+    <label class="gp-row" id="gp-to-row"><span id="gp-to-label">値</span> <input type="number" id="gp-to" step="0.05" value="0.5"></label>
+    <p class="muted small" id="gp-help"></p>
+    <div class="gp-actions"><button id="gp-del" class="btn-line">削除</button><button id="gp-cancel" class="btn-line">閉じる</button><button id="gp-ok" class="btn-glow">決定</button></div>
+  </div>
+</section>
+
+<!-- みんなの譜面 -->
+<section id="charts" class="screen meta">
+  <header class="topbar"><button class="chip" data-back>← 戻る</button><h2 class="meta-title">みんなの譜面</h2><div class="spacer"></div><button class="btn-glow" id="charts-new">＋ 譜面を作る</button></header>
+  <div class="meta-body">
+    <div class="list-tools">
+      <input type="search" id="charts-q" placeholder="タイトル・作者で検索" aria-label="譜面を検索" autocomplete="off">
+      <select id="charts-song" aria-label="曲"></select>
+      <select id="charts-sort" aria-label="並び順"><option value="new">新着順</option><option value="popular">プレイ数順</option><option value="likes">いいね順</option><option value="mine">自分の譜面</option></select>
+    </div>
+    <ul class="chart-list" id="chart-list"></ul>
+  </div>
+</section>
+
 <!-- 一時停止 -->
 <div id="pause" class="overlay">
   <div class="pause-box">
@@ -234,6 +307,6 @@
 
 <button id="btn-pause-game" class="btn-pause-game" aria-label="一時停止">❚❚</button>
 <div id="toast" class="toast"></div>
-<script type="module" src="js/main.js?v=20261017183927"></script>
+<script type="module" src="js/main.js?v=20261017185359"></script>
 </body>
 </html>

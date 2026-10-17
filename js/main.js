@@ -2,7 +2,7 @@ import SONGS from './songs/index.js';
 import { composeSong, candidatesFromEvents, generateChart, chartStats, DIFFS, hashStr } from './composer.js';
 import { getCtx, setVolumes, renderEvents, playPreview, stopPreview } from './audio.js';
 import { analyzeFile, hashFile } from './analyzer.js';
-import { Game, PointCloud, KEYS, DIFF_COLOR, visibleTime } from './game.js';
+import { Game, PointCloud, KEYS, DIFF_COLOR, visibleTime, IS_TOUCH, FX_LEVELS } from './game.js';
 import { load, save, getSettings, setSettings, DEFAULT_SETTINGS, clientId, getBest, recordBest } from './storage.js';
 import { fetchRanking, submitScore } from './ranking.js';
 
@@ -65,7 +65,8 @@ function bgLoop(now) {
   grd.addColorStop(0, '#02030a'); grd.addColorStop(1, '#070a1c');
   g.fillStyle = grd; g.fillRect(0, 0, W, H);
   const e = entries[sel] || entries[0];
-  cloud.draw(g, W, H, now / 1000, e?.bpm || 120, state === 'select' ? 0.6 : 0.4, e?.color || '#5ef2ff');
+  const amt = [0.15, 0.45, 1][settings.fx ?? 1];
+  cloud.draw(g, W, H, now / 1000, e?.bpm || 120, (state === 'select' ? 0.6 : 0.4) * amt, e?.color || '#5ef2ff', amt);
 }
 requestAnimationFrame(bgLoop);
 
@@ -382,9 +383,16 @@ window.addEventListener('keyup', (ev) => {
   const lane = KEYS.indexOf(ev.code);
   if (lane >= 0) game.release(lane, ev.timeStamp);
 });
-window.addEventListener('blur', () => {
+function pauseGame() {
   if (state === 'game' && game && !game.paused) { game.pause(); overlay('pause', true); }
-});
+}
+window.addEventListener('blur', pauseGame);
+document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
+$('btn-pause-game').addEventListener('click', pauseGame);
+if (IS_TOUCH) {
+  document.body.classList.add('touch');
+  $('btn-start').textContent = 'TAP TO START';
+}
 
 // タッチ(スマホ)
 const touchLane = new Map();
@@ -405,6 +413,19 @@ const touchEnd = (ev) => {
     if (l != null && ![...touchLane.values()].includes(l)) game.release(l, ev.timeStamp);
   }
 };
+canvas.addEventListener('touchmove', (ev) => {
+  if (state !== 'game' || !game) return;
+  ev.preventDefault();
+  // 指をスライドして隣のレーンへ移動できるように
+  for (const t of ev.changedTouches) {
+    const old = touchLane.get(t.identifier);
+    const l = game.laneAt(t.clientX);
+    if (old == null || old === l) continue;
+    touchLane.set(t.identifier, l);
+    if (![...touchLane.values()].includes(old)) game.release(old, ev.timeStamp);
+    game.press(l, ev.timeStamp);
+  }
+}, { passive: false });
 canvas.addEventListener('touchend', touchEnd);
 canvas.addEventListener('touchcancel', touchEnd);
 
@@ -437,6 +458,7 @@ updateNameLabel();
 // 設定
 // ---------------------------------------------------------------------------
 const SLIDERS = [
+  ['s-fx', 'fx', (v) => FX_LEVELS[v]],
   ['s-hs', 'hs', (v) => `${v.toFixed(1)}`],
   ['s-bgm', 'bgm', (v) => `${Math.round(v * 100)}`],
   ['s-se', 'se', (v) => `${Math.round(v * 100)}`],

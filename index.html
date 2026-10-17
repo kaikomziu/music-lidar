@@ -95,6 +95,7 @@
 <div id="settings" class="overlay modal">
   <div class="modal-box">
     <h2>SETTINGS</h2>
+    <label class="row"><span>演出の強さ</span><input type="range" id="s-fx" min="0" max="2" step="1"><output id="o-fx"></output></label>
     <label class="row"><span>ハイスピード</span><input type="range" id="s-hs" min="1" max="12" step="0.1"><output id="o-hs"></output></label>
     <label class="row"><span>BGM 音量</span><input type="range" id="s-bgm" min="0" max="1" step="0.01"><output id="o-bgm"></output></label>
     <label class="row"><span>タップ音 音量</span><input type="range" id="s-se" min="0" max="1" step="0.01"><output id="o-se"></output></label>
@@ -116,6 +117,7 @@
   </div>
 </div>
 
+<button id="btn-pause-game" class="btn-pause-game" aria-label="一時停止">❚❚</button>
 <div id="toast" class="toast"></div>
 <script type="module" src="js/main.js"></script>
 </body>

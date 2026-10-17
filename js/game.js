@@ -12,6 +12,16 @@ const JUDGE_COLOR = { PERFECT: '#7ff9ff', GREAT: '#ff7ce6', GOOD: '#b6ff7a', MIS
 
 const Z_J = 10, Z_FAR = 34;
 
+export const IS_TOUCH = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+
+// 演出の強さ (settings.fx): 0=オフ 1=控えめ 2=派手
+export const FX_LEVELS = ['オフ', '控えめ', '派手'];
+const FX = [
+  { cloud: 0.18, pulse: 0, laser: 0, scan: 0, parts: 0, glow: 0, judgeGlow: 0 },
+  { cloud: 0.4, pulse: 0.25, laser: 0.3, scan: 0.35, parts: 4, glow: 4, judgeGlow: 6 },
+  { cloud: 1, pulse: 1, laser: 1, scan: 1, parts: 14, glow: 14, judgeGlow: 18 },
+];
+
 export function rankOf(score) {
   if (score >= 1000000) return 'MAX';
   if (score >= 975000) return 'S+';
@@ -60,8 +70,10 @@ export class PointCloud {
     this.pts = pts;
   }
 
-  // t: 秒, bpm, energy: 0..1(演出の強さ), color
-  draw(g, W, H, t, bpm, energy = 0.5, color = '#5ef2ff') {
+  // t: 秒, bpm, energy: 0..1(拍の脈動), amount: 0..1(全体の明るさ。演出設定)
+  draw(g, W, H, t, bpm, energy = 0.5, color = '#5ef2ff', amount = 1) {
+    if (amount <= 0) return;
+    const step = IS_TOUCH || W < 700 ? 2 : 1;
     const spb = 60 / bpm;
     const beatPh = ((t / spb) % 1 + 1) % 1;
     const pulse = Math.exp(-beatPh * 5) * energy;
@@ -72,7 +84,8 @@ export class PointCloud {
     const sway = Math.sin(t * 0.13) * 0.8;
     g.save();
     g.globalCompositeOperation = 'lighter';
-    for (const p of this.pts) {
+    for (let i = 0; i < this.pts.length; i += step) {
+      const p = this.pts[i];
       let z = (p.z - travel) % CLOUD_L;
       if (z < 0) z += CLOUD_L;
       z += 1.5;
@@ -81,7 +94,7 @@ export class PointCloud {
       if (sx < -4 || sx > W + 4 || sy < -4 || sy > H + 4) continue;
       const fade = Math.min(1, (CLOUD_L - z) / 40) * Math.min(1, z / 4);
       const scan = Math.max(0, 1 - Math.abs(z - scanZ) / 2.6);
-      const a = (0.28 + pulse * 0.45 + scan * 0.9) * fade;
+      const a = (0.28 + pulse * 0.45 + scan * 0.9) * fade * amount;
       if (a < 0.02) continue;
       const sz = Math.max(1, Math.min(3.4, 30 / z)) * (1 + scan * 0.6);
       g.globalAlpha = Math.min(1, a);
@@ -289,12 +302,15 @@ export class Game {
 
   zOf(t, now) { return Z_J + (t - now) * this.v; }
 
+  get F() { return FX[this.settings.fx ?? 1] || FX[1]; }
+
   spawnHit(lane, res) {
     const now = performance.now();
-    this.fx.lasers.push({ lane, at: now, res });
-    this.fx.scans.push({ lane, at: now, wide: res === 'PERFECT' });
+    const F = this.F;
+    if (F.laser > 0) this.fx.lasers.push({ lane, at: now, res });
+    if (F.scan > 0) this.fx.scans.push({ lane, at: now, wide: res === 'PERFECT' && F.scan >= 1 });
     if (res === 'PERFECT') {
-      const n = 14;
+      const n = F.parts;
       for (let i = 0; i < n; i++) {
         const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.6;
         const sp = 140 + Math.random() * 360;
@@ -320,14 +336,15 @@ export class Game {
     const bg = g.createLinearGradient(0, 0, 0, H);
     bg.addColorStop(0, '#02030a'); bg.addColorStop(1, '#070a1c');
     g.fillStyle = bg; g.fillRect(0, 0, W, H);
-    const energy = 0.35 + Math.min(1, this.combo / 60) * 0.65;
-    this.cloud.draw(g, W, H, Math.max(0, t), this.bpm, energy, this.color);
+    const F = this.F;
+    const energy = (0.35 + Math.min(1, this.combo / 60) * 0.65) * F.pulse;
+    this.cloud.draw(g, W, H, Math.max(0, t), this.bpm, energy, this.color, F.cloud);
 
     // レーン床
     const zNear = Z_J * 0.82;
     g.save();
     this.quad(G, -2.06, 2.06, zNear, Z_FAR);
-    g.fillStyle = 'rgba(3,6,18,0.82)';
+    g.fillStyle = 'rgba(3,6,18,0.93)';
     g.fill();
     for (let l = 0; l < 4; l++) {
       const u0 = l - 2, u1 = u0 + 1;
@@ -373,7 +390,7 @@ export class Game {
       const z = Z_J + k * (Z_FAR - Z_J);
       const u0 = s.wide ? -2 : s.lane - 2, u1 = s.wide ? 2 : s.lane - 1;
       this.quad(G, u0, u1, z, z + 0.35);
-      g.fillStyle = hexA(LANE_COLORS[s.lane], (1 - k) * (s.wide ? 0.55 : 0.8));
+      g.fillStyle = hexA(LANE_COLORS[s.lane], (1 - k) * (s.wide ? 0.55 : 0.8) * F.scan);
       g.fill();
     }
     // レーザー
@@ -382,10 +399,10 @@ export class Game {
       const k = (perfNow - s.at) / 260;
       const u = s.lane - 1.5;
       const [x0, y0] = this.proj(G, u, Z_J), [x1, y1] = this.proj(G, u, Z_FAR);
-      g.strokeStyle = hexA(LANE_COLORS[s.lane], 1 - k);
-      g.lineWidth = (1 - k) * G.laneW * 0.5;
+      g.strokeStyle = hexA(LANE_COLORS[s.lane], (1 - k) * F.laser);
+      g.lineWidth = (1 - k) * G.laneW * 0.5 * F.laser;
       g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
-      g.strokeStyle = `rgba(255,255,255,${1 - k})`;
+      g.strokeStyle = `rgba(255,255,255,${(1 - k) * F.laser})`;
       g.lineWidth = 2;
       g.stroke();
     }
@@ -411,7 +428,7 @@ export class Game {
     g.save();
     g.globalCompositeOperation = 'lighter';
     const [jx0, jy] = this.proj(G, -2.06, Z_J), [jx1] = this.proj(G, 2.06, Z_J);
-    g.shadowColor = '#7ff9ff'; g.shadowBlur = 16;
+    g.shadowColor = '#7ff9ff'; g.shadowBlur = F.judgeGlow;
     g.strokeStyle = 'rgba(220,255,255,0.95)'; g.lineWidth = 3;
     g.beginPath(); g.moveTo(jx0, jy); g.lineTo(jx1, jy); g.stroke();
     g.shadowBlur = 0;
@@ -419,6 +436,7 @@ export class Game {
       const [x0, y0] = this.proj(G, l - 2 + 0.08, Z_J), [x1] = this.proj(G, l - 1 - 0.08, Z_J);
       g.fillStyle = this.pressed[l] ? hexA(LANE_COLORS[l], 0.9) : 'rgba(140,160,255,0.18)';
       g.fillRect(x0, y0 + 6, x1 - x0, 5);
+      if (IS_TOUCH) continue;
       g.font = `600 ${Math.round(G.laneW * 0.16)}px "Orbitron", sans-serif`;
       g.textAlign = 'center';
       g.fillStyle = this.pressed[l] ? '#fff' : 'rgba(170,190,255,0.35)';
@@ -496,7 +514,7 @@ export class Game {
     g.save();
     g.globalAlpha = alpha * behind;
     this.quad(G, u0, u1, z, z + 0.55);
-    g.shadowColor = c; g.shadowBlur = 14;
+    g.shadowColor = c; g.shadowBlur = this.F.glow;
     g.fillStyle = c;
     g.fill();
     g.shadowBlur = 0;
@@ -529,7 +547,7 @@ export class Game {
     g.textAlign = 'right';
     g.font = `700 ${small ? 20 : 30}px "Orbitron", sans-serif`;
     g.fillStyle = '#fff';
-    g.shadowColor = this.color; g.shadowBlur = 12;
+    g.shadowColor = this.color; g.shadowBlur = this.F.glow;
     g.fillText(String(this.score).padStart(7, '0'), W - 16, 14);
     g.shadowBlur = 0;
     g.font = `600 ${small ? 11 : 14}px "Orbitron", sans-serif`;
@@ -566,7 +584,7 @@ export class Game {
       g.globalAlpha = 1 - Math.max(0, k - 0.6) / 0.4;
       g.font = `800 ${Math.round(Math.min(34, G.laneW * 0.3))}px "Orbitron", sans-serif`;
       g.fillStyle = JUDGE_COLOR[j.res];
-      g.shadowColor = JUDGE_COLOR[j.res]; g.shadowBlur = 18;
+      g.shadowColor = JUDGE_COLOR[j.res]; g.shadowBlur = this.F.judgeGlow;
       g.fillText(j.res, 0, 0);
       if (j.tag) {
         g.shadowBlur = 0;

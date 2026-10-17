@@ -1,5 +1,6 @@
 // ゲーム本体: 判定・スコア・3D風レーン描画・LiDAR演出
 import { getCtx, bgmOut, nowAudio, playTap } from './audio.js';
+import { NO_SCROLL } from './gimmick.js';
 
 export const LANE_COLORS = ['#5ef2ff', '#ff4fd8', '#ff4fd8', '#5ef2ff'];
 export const KEYS = ['KeyD', 'KeyF', 'KeyJ', 'KeyK'];
@@ -107,7 +108,9 @@ export class PointCloud {
 
 // ---------------------------------------------------------------------------
 export class Game {
-  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd, team }) {
+  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd, team, scroll }) {
+    this.scroll = scroll || NO_SCROLL;
+    this.nowS = 0;
     this.canvas = canvas;
     this.g = canvas.getContext('2d');
     this.buffer = buffer;
@@ -344,7 +347,8 @@ export class Game {
     g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(d[0], d[1]); g.closePath();
   }
 
-  zOf(t, now) { return Z_J + (t - now) * this.v; }
+  // ノーツの奥行き。時刻ではなくスクロール量で決める(停止・変速ギミック用)。render の最初で nowS を更新する
+  zOf(t) { return Z_J + (this.scroll.S(t) - this.nowS) * this.v; }
 
   get F() { return FX[this.settings.fx ?? 1] || FX[1]; }
 
@@ -375,6 +379,7 @@ export class Game {
   }
 
   render(t, perfNow) {
+    this.nowS = this.scroll.S(t);
     const G = this.geom();
     const g = this.g;
     g.setTransform(G.dpr, 0, 0, G.dpr, 0, 0);
@@ -417,8 +422,8 @@ export class Game {
     // 拍線
     const spb = 60 / this.bpm;
     const firstBeat = Math.ceil(t / spb);
-    for (let b = firstBeat; ; b++) {
-      const z = this.zOf(b * spb, t);
+    for (let b = firstBeat; b < firstBeat + 400; b++) {
+      const z = this.zOf(b * spb);
       if (z > Z_FAR) break;
       const [x0, y] = this.proj(G, -2, z), [x1] = this.proj(G, 2, z);
       g.strokeStyle = `rgba(120,140,255,${(b % 4 === 0 ? 0.28 : 0.1) * Math.min(1, (Z_FAR - z) / 6)})`;
@@ -463,12 +468,27 @@ export class Game {
     const vis = [];
     for (let i = this.drawStart; i < this.notes.length; i++) {
       const n = this.notes[i];
-      if (n.t > t + this.T + 0.2) break;
+      if (this.scroll.S(n.t) - this.nowS > (Z_FAR - Z_J) / this.v + 0.2) break;
       vis.push(n);
     }
     g.save();
     for (let i = vis.length - 1; i >= 0; i--) this.drawNote(G, vis[i], t);
     g.restore();
+
+    // 隠し(サドゥン)ギミック: レーンの奥を覆う
+    const cover = this.scroll.coverAt(t);
+    if (cover > 0.01) {
+      const zc = Z_FAR - cover * (Z_FAR - Z_J);
+      g.save();
+      this.quad(G, -2.08, 2.08, zc, Z_FAR + 1);
+      g.fillStyle = 'rgba(4,6,16,0.97)';
+      g.fill();
+      const [x0, y] = this.proj(G, -2.08, zc), [x1] = this.proj(G, 2.08, zc);
+      g.strokeStyle = 'rgba(196,155,255,0.8)';
+      g.lineWidth = 2;
+      g.beginPath(); g.moveTo(x0, y); g.lineTo(x1, y); g.stroke();
+      g.restore();
+    }
 
     // 判定ライン
     g.save();
@@ -516,8 +536,8 @@ export class Game {
     if (n.end) {
       if (n.tailDone && n.tailRes !== 'MISS' && !n.holding) return;
       const failed = n.res === 'MISS' || n.tailRes === 'MISS';
-      let zh = this.zOf(n.t, t);
-      const zt = Math.min(Z_FAR, this.zOf(n.end, t));
+      let zh = this.zOf(n.t);
+      const zt = Math.min(Z_FAR, this.zOf(n.end));
       if (n.holding) zh = Z_J;
       if (zt <= Z_J * 0.82) return;
       const zhc = Math.max(Z_J * 0.82, Math.min(Z_FAR, zh));
@@ -547,7 +567,7 @@ export class Game {
       return;
     }
     if (n.done) return;
-    const z = this.zOf(n.t, t);
+    const z = this.zOf(n.t);
     if (z > Z_FAR + thick || z < Z_J * 0.75) return;
     this.drawHead(G, n, z, c, fade(z));
   }

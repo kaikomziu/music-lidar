@@ -2,6 +2,7 @@ import SONGS from './songs/index.js';
 import { composeSong, candidatesFromEvents, generateChart, chartStats, DIFFS, hashStr } from './composer.js';
 import { getCtx, setVolumes, renderEvents, playPreview, stopPreview } from './audio.js';
 import { analyzeFile, hashFile } from './analyzer.js';
+import { buildScroll, dropNotesInStops, gimmickLabel } from './gimmick.js';
 import { Game, PointCloud, KEYS, DIFF_COLOR, visibleTime, IS_TOUCH, FX_LEVELS } from './game.js';
 import { load, save, getSettings, setSettings, DEFAULT_SETTINGS, clientId, getBest, recordBest } from './storage.js';
 import { fetchRanking, submitScore } from './ranking.js';
@@ -25,14 +26,15 @@ let lastResult = null;
 const entries = SONGS.map((def) => {
   const { events, duration } = composeSong(def);
   const cands = candidatesFromEvents(events);
+  const scroll = buildScroll(def.gimmicks, def.bpm);
   const charts = {}, stats = {};
   for (const d of DIFFS) {
-    charts[d] = generateChart(cands, d, duration, hashStr(def.id), def.chart?.[d]);
+    charts[d] = dropNotesInStops(generateChart(cands, d, duration, hashStr(def.id), def.chart?.[d]), scroll.stops);
     stats[d] = chartStats(charts[d]);
   }
   return {
     id: def.id, title: def.title, artist: def.artist, genre: def.genre, bpm: def.bpm, color: def.color,
-    levels: def.levels, charts, stats, local: false, duration,
+    levels: def.levels, charts, stats, local: false, duration, scroll, gimmick: gimmickLabel(def.gimmicks),
     previewAt: (def.preview ?? 32) * 60 / def.bpm,
     buffer: null, rendering: null,
     load() {
@@ -236,7 +238,7 @@ function renderDetail() {
   document.documentElement.style.setProperty('--accent', e.color);
   $('d-genre').textContent = e.genre;
   $('d-title').textContent = e.title;
-  $('d-meta').textContent = `${e.artist} ・ BPM ${Math.round(e.bpm)} ・ ${fmtTime(e.duration)}`;
+  $('d-meta').textContent = `${e.artist} ・ BPM ${Math.round(e.bpm)} ・ ${fmtTime(e.duration)}${e.gimmick ? ` ・ ギミック: ${e.gimmick}` : ''}`;
   $('diffs').innerHTML = DIFFS.map((d) => `
     <button class="diff-btn ${d}${d === diff ? ' sel' : ''}" data-d="${d}">
       <div class="dn">${d.toUpperCase()}</div><div class="dl">${e.levels[d]}</div><div class="dc">${e.stats[d].notes} notes</div>
@@ -368,6 +370,7 @@ async function startGameInner(entry, d) {
     buffer: entry.buffer, notes: entry.charts[d], settings, bpm: entry.bpm, title: entry.title, diff: d, color: entry.color, cloud,
     onEnd: (r) => onGameEnd(r),
     team: acc.isLoggedIn() ? acc.teamFx() : null,
+    scroll: entry.scroll,
   });
   game.start();
 }

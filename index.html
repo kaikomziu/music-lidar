@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MUSIC LiDAR</title>
+<meta name="description" content="ブラウザで遊べる4キー音ゲー。D F J K で奥から迫るノーツを叩け。">
+<meta name="theme-color" content="#02030a">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2302030a'/%3E%3Cpath d='M14 50 26 14h4L20 50zM34 50l10-36h4L38 50z' fill='%235ef2ff'/%3E%3Ccircle cx='32' cy='32' r='3' fill='%23ff4fd8'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<!-- タイトル -->
+<section id="title" class="screen active">
+  <div class="title-inner">
+    <div class="logo-big"><span>MUSIC</span><b>LiDAR</b></div>
+    <p class="tagline">4KEY RHYTHM SCANNER</p>
+    <button id="btn-start" class="btn-glow">CLICK / PRESS ENTER</button>
+    <p class="keys-hint"><kbd>D</kbd><kbd>F</kbd><kbd>J</kbd><kbd>K</kbd></p>
+  </div>
+</section>
+
+<!-- 選曲 -->
+<section id="select" class="screen">
+  <header class="topbar">
+    <div class="logo-small">MUSIC <b>LiDAR</b></div>
+    <div class="spacer"></div>
+    <button id="btn-name" class="chip" title="プレイヤー名"><span class="ico">◉</span><span id="name-label">GUEST</span></button>
+    <button id="btn-settings" class="chip" title="設定"><span class="ico">⚙</span>設定</button>
+  </header>
+  <div class="select-body">
+    <div class="song-list" id="song-list"></div>
+    <div class="detail" id="detail">
+      <div class="d-genre" id="d-genre"></div>
+      <h1 class="d-title" id="d-title"></h1>
+      <div class="d-meta" id="d-meta"></div>
+      <div class="diffs" id="diffs"></div>
+      <div class="best" id="best"></div>
+      <button id="btn-play" class="btn-play"><span>PLAY</span><small id="play-sub">ENTER</small></button>
+      <div class="ranking">
+        <div class="rank-head"><h3>ONLINE RANKING</h3><button id="btn-rank-reload" class="mini" title="更新">↻</button></div>
+        <ol id="rank-list" class="rank-list"></ol>
+      </div>
+    </div>
+  </div>
+  <div class="foot-hint">↑↓ 曲を選ぶ ・ ←→ 難易度 ・ Enter プレイ ・ ゲーム中 Esc で一時停止</div>
+  <input type="file" id="file-input" accept="audio/*,.mp3,.wav,.ogg,.m4a,.flac" hidden>
+  <div id="drop-veil" class="drop-veil">音声ファイルをドロップして譜面を生成</div>
+</section>
+
+<!-- リザルト -->
+<section id="result" class="screen">
+  <div class="result-panel">
+    <div class="r-song"><span id="r-title"></span><span id="r-diff" class="r-diff"></span></div>
+    <div class="r-main">
+      <div class="r-rank" id="r-rank">S</div>
+      <div class="r-scorebox">
+        <div class="r-new" id="r-new">NEW RECORD</div>
+        <div class="r-score" id="r-score">0000000</div>
+        <div class="r-badges" id="r-badges"></div>
+        <div class="r-acc">ACCURACY <b id="r-acc"></b> ・ MAX COMBO <b id="r-combo"></b></div>
+      </div>
+    </div>
+    <div class="r-counts" id="r-counts"></div>
+    <div class="r-online" id="r-online"></div>
+    <div class="r-buttons">
+      <button id="btn-retry" class="btn-line">RETRY <small>R</small></button>
+      <button id="btn-back" class="btn-glow">選曲へ <small>ENTER</small></button>
+    </div>
+  </div>
+</section>
+
+<!-- 一時停止 -->
+<div id="pause" class="overlay">
+  <div class="pause-box">
+    <h2>PAUSE</h2>
+    <button id="btn-resume" class="btn-glow">再開 <small>ESC</small></button>
+    <button id="btn-p-retry" class="btn-line">リトライ</button>
+    <button id="btn-p-quit" class="btn-line">選曲へ</button>
+  </div>
+</div>
+
+<!-- 読み込み -->
+<div id="loading" class="overlay">
+  <div class="scanner"><div class="scan-bar"></div></div>
+  <p id="loading-text">SCANNING...</p>
+</div>
+
+<!-- 設定 -->
+<div id="settings" class="overlay modal">
+  <div class="modal-box">
+    <h2>SETTINGS</h2>
+    <label class="row"><span>ハイスピード</span><input type="range" id="s-hs" min="1" max="12" step="0.1"><output id="o-hs"></output></label>
+    <label class="row"><span>BGM 音量</span><input type="range" id="s-bgm" min="0" max="1" step="0.01"><output id="o-bgm"></output></label>
+    <label class="row"><span>タップ音 音量</span><input type="range" id="s-se" min="0" max="1" step="0.01"><output id="o-se"></output></label>
+    <label class="row"><span>レーン幅</span><input type="range" id="s-lane" min="60" max="170" step="1"><output id="o-lane"></output></label>
+    <label class="row"><span>判定ライン位置</span><input type="range" id="s-judge" min="0.66" max="0.94" step="0.01"><output id="o-judge"></output></label>
+    <label class="row"><span>プレイヤー名</span><input type="text" id="s-name" maxlength="16" placeholder="ランキングに表示"></label>
+    <div class="preview-wrap"><canvas id="s-preview" width="320" height="180"></canvas></div>
+    <div class="modal-actions"><button id="btn-s-reset" class="btn-line">初期値に戻す</button><button id="btn-s-close" class="btn-glow">閉じる</button></div>
+  </div>
+</div>
+
+<!-- 名前登録 -->
+<div id="name-modal" class="overlay modal">
+  <div class="modal-box narrow">
+    <h2>PLAYER NAME</h2>
+    <p class="muted">オンラインランキングに表示される名前です(16文字まで)。あとから設定で変えられます。</p>
+    <input type="text" id="name-input" maxlength="16" placeholder="なまえ" autocomplete="nickname">
+    <div class="modal-actions"><button id="btn-name-skip" class="btn-line">あとで</button><button id="btn-name-ok" class="btn-glow">登録</button></div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

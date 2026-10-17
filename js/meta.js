@@ -1,6 +1,6 @@
 // クエスト・ガチャ・編成・アカウント画面
 import * as acc from './account.js';
-import { unitIcon, skillText, fxText, stars, KIND_LABEL, RARITY_COLOR } from './units.js';
+import { unitIcon, skillText, skillValue, fxText, stars, KIND_LABEL, KIND_COLOR, KIND_DESC, RARITY_COLOR } from './units.js';
 import { load, save } from './storage.js';
 
 const $ = (id) => document.getElementById(id);
@@ -32,6 +32,7 @@ export function initMeta(api) {
 
   // 編成
   $('team-sort').addEventListener('change', renderTeam);
+  initTeamDnd();
   renderHeader();
 }
 
@@ -186,66 +187,222 @@ export function gachaResultOpen() { return $('gacha-result').classList.contains(
 export function closeGacha() { closeGachaResult(); }
 
 // ---------------------------------------------------------------------------
-// 編成
+// 編成 (ドラッグ&ドロップ / タップ)
 // ---------------------------------------------------------------------------
-let teamSlot = null; // 選択中の枠(0〜4)
+let teamSlot = null; // タップ操作で選択中の枠(0〜4)
+let kindFilter = 'all';
+let localTeam = null; // 通信待ちの間に表示する編成
+
+const curTeam = () => (localTeam || acc.getState()?.team || []).slice(0, 5);
+
+// サーバー(mlidar_team_fx)と同じ計算。通信を待たずに表示するため
+function calcFx(team, units) {
+  const fx = { score: 0, judge: 0, guard: 0, coin: 0 };
+  team.forEach((id, i) => {
+    const u = acc.unitById(id);
+    if (u) fx[u.kind] += skillValue(u, units[id]?.lv || 1, i === 0);
+  });
+  return { score: Math.round(fx.score * 10) / 10, judge: Math.min(20, Math.round(fx.judge * 10) / 10), guard: Math.floor(fx.guard), coin: Math.round(fx.coin * 10) / 10 };
+}
+
 function renderTeam() {
   const s = acc.getState();
   if (!s) return;
-  const team = s.team.slice(0, 5);
+  const team = curTeam();
   $('team-slots').innerHTML = [0, 1, 2, 3, 4].map((i) => {
     const id = team[i];
     const u = id && acc.unitById(id);
     const lv = id ? s.units[id]?.lv || 1 : 0;
-    return `<button class="slot ${i === 0 ? 'leader' : ''} ${teamSlot === i ? 'sel' : ''}" data-i="${i}">
-      <span class="slot-tag">${i === 0 ? 'LEADER' : 'MEMBER'}</span>
-      ${u ? `${unitIcon(u, i === 0 ? 76 : 60)}<span class="slot-name">${esc(u.name)}</span><span class="slot-lv">Lv${lv}</span><span class="slot-skill">${skillText(u, lv, i === 0)}</span>` : '<span class="slot-empty">＋</span>'}
-    </button>`;
+    const label = (i === 0 ? 'リーダー枠' : 'メンバー枠' + i) + (u ? ': ' + u.name : ' (空き)');
+    return `<div class="slot ${i === 0 ? 'leader' : ''} ${teamSlot === i ? 'sel' : ''} ${u ? 'filled' : ''}" data-i="${i}" ${u ? `data-drag="slot" data-id="${u.id}"` : ''} role="button" tabindex="0" aria-label="${esc(label)}">
+      <span class="slot-tag">${i === 0 ? '★ LEADER ×1.5' : 'MEMBER ' + i}</span>
+      ${u ? `<button class="slot-x" data-x="${i}" aria-label="外す">×</button>
+        ${unitIcon(u, i === 0 ? 76 : 60)}<span class="slot-name">${esc(u.name)}</span>
+        <span class="kind-chip" style="--k:${KIND_COLOR[u.kind]}">${KIND_LABEL[u.kind]}</span>
+        <span class="slot-skill">${skillText(u, lv, i === 0)}</span>`
+      : '<span class="slot-empty">＋<small>ここへドラッグ</small></span>'}
+    </div>`;
   }).join('');
-  for (const b of $('team-slots').querySelectorAll('.slot')) {
-    b.addEventListener('click', () => {
-      const i = +b.dataset.i;
-      teamSlot = teamSlot === i ? null : i;
-      renderTeam();
-    });
-  }
-  $('team-fx').textContent = fxText(s.fx);
-  $('team-hint').textContent = teamSlot == null ? '枠を選んでから下のキャラを選ぶと入れ替わります。リーダーはスキル1.5倍。'
-    : `${teamSlot === 0 ? 'リーダー' : 'メンバー' + teamSlot}に入れるキャラを選んでください`;
 
-  const sort = $('team-sort').value;
+  // 効果のまとめ
+  const fx = calcFx(team, s.units);
+  const tiles = [
+    ['score', 'スコア', fx.score ? `+${fx.score}%` : '-'],
+    ['judge', '判定の幅', fx.judge ? `+${fx.judge}ms` : '-'],
+    ['guard', 'コンボガード', fx.guard ? `${fx.guard}回` : '-'],
+    ['coin', 'コイン', fx.coin ? `+${fx.coin}%` : '-'],
+  ];
+  $('team-fx-grid').innerHTML = tiles.map(([k, label, v]) => `<div class="fx-tile ${v === '-' ? 'off' : ''}" style="--k:${KIND_COLOR[k]}">
+    <div class="fx-label">${label}</div><div class="fx-val">${v}</div><div class="fx-desc">${KIND_DESC[k]}</div></div>`).join('');
+
+  // 所持キャラ
   const owned = acc.getCatalog().filter((u) => s.units[u.id]);
-  owned.sort((a, b) => sort === 'kind' ? a.kind.localeCompare(b.kind) || b.rarity - a.rarity
-    : sort === 'lv' ? (s.units[b.id].lv - s.units[a.id].lv) || b.rarity - a.rarity
-    : b.rarity - a.rarity || a.sort - b.sort);
-  $('team-units').innerHTML = owned.map((u) => {
+  const counts = { all: owned.length };
+  for (const u of owned) counts[u.kind] = (counts[u.kind] || 0) + 1;
+  $('kind-tabs').innerHTML = ['all', 'score', 'judge', 'guard', 'coin'].map((k) =>
+    `<button class="kind-tab ${kindFilter === k ? 'sel' : ''}" data-k="${k}" style="--k:${k === 'all' ? 'var(--accent)' : KIND_COLOR[k]}">${k === 'all' ? 'すべて' : KIND_LABEL[k]} <small>${counts[k] || 0}</small></button>`).join('');
+  $('team-count').textContent = `${owned.length} / ${acc.getCatalog().length}`;
+  const sort = $('team-sort').value;
+  const list = owned.filter((u) => kindFilter === 'all' || u.kind === kindFilter);
+  list.sort((a, b) => sort === 'lv' ? (s.units[b.id].lv - s.units[a.id].lv) || b.rarity - a.rarity : b.rarity - a.rarity || s.units[b.id].lv - s.units[a.id].lv || a.sort - b.sort);
+  $('team-units').innerHTML = list.map((u) => {
     const lv = s.units[u.id].lv;
     const pos = team.indexOf(u.id);
-    return `<button class="unit-card ${pos >= 0 ? 'in-team' : ''}" data-id="${u.id}">
+    return `<div class="unit-card ${pos >= 0 ? 'in-team' : ''}" data-drag="unit" data-id="${u.id}" role="button" tabindex="0" aria-label="${esc(u.name)}">
       ${pos >= 0 ? `<span class="in-tag">${pos === 0 ? 'L' : pos}</span>` : ''}
       ${unitIcon(u, 56)}
       <div class="uc-name">${esc(u.name)}</div>
       <div class="uc-meta"><span style="color:${RARITY_COLOR[u.rarity]}">${stars(u.rarity)}</span> Lv${lv}</div>
+      <span class="kind-chip" style="--k:${KIND_COLOR[u.kind]}">${KIND_LABEL[u.kind]}</span>
       <div class="uc-skill">${skillText(u, lv)}</div>
-    </button>`;
-  }).join('');
-  for (const b of $('team-units').querySelectorAll('.unit-card')) b.addEventListener('click', () => pickUnit(b.dataset.id));
+    </div>`;
+  }).join('') || '<p class="muted">このスキルのキャラはまだいません。ガチャで集めよう</p>';
+
+  const hint = $('team-hint');
+  hint.hidden = teamSlot == null;
+  hint.textContent = teamSlot == null ? '' : `${teamSlot === 0 ? 'リーダー枠' : 'メンバー枠' + teamSlot}を選択中 → 入れたいキャラをタップ`;
 }
 
-async function pickUnit(id) {
-  const s = acc.getState();
-  const team = s.team.slice(0, 5);
+// 編成を変えて保存(表示は先に更新)
+async function commitTeam(team) {
+  localTeam = team.filter(Boolean).slice(0, 5);
+  renderTeam();
+  try { await acc.setTeam(localTeam); } catch (e) { ui.toast(acc.errText(e)); }
+  localTeam = null;
+  renderTeam();
+}
+
+function placeUnit(id, slot) {
+  const team = curTeam();
   const pos = team.indexOf(id);
-  if (teamSlot == null) {
-    // 枠未選択: 編成にいれば外す、いなければ空き枠へ
-    if (pos >= 0) team.splice(pos, 1);
-    else if (team.length < 5) team.push(id);
-    else { ui.toast('枠を選んでから入れ替えてください'); return; }
-  } else {
-    if (pos >= 0) team.splice(pos, 1, team[teamSlot]);
-    if (teamSlot < team.length) team[teamSlot] = id;
-    else team.push(id);
-    teamSlot = null;
+  if (pos === slot) return;
+  if (pos >= 0) {
+    // 編成内での移動 = 入れ替え
+    if (slot < team.length) [team[pos], team[slot]] = [team[slot], team[pos]];
+    else { team.splice(pos, 1); team.push(id); }
+  } else if (slot < team.length) team[slot] = id;
+  else team.push(id);
+  commitTeam(team);
+}
+
+function removeAt(i) {
+  const team = curTeam();
+  team.splice(i, 1);
+  commitTeam(team);
+}
+
+// タップ操作
+function onTap(el) {
+  if (el.classList.contains('slot')) {
+    const i = +el.dataset.i;
+    teamSlot = teamSlot === i ? null : i;
+    renderTeam();
+  } else if (el.classList.contains('unit-card')) {
+    const id = el.dataset.id;
+    const team = curTeam();
+    if (teamSlot != null) { const sl = teamSlot; teamSlot = null; placeUnit(id, sl); }
+    else if (team.includes(id)) removeAt(team.indexOf(id));
+    else if (team.length < 5) placeUnit(id, team.length);
+    else ui.toast('枠がいっぱいです。枠を選ぶか、ドラッグで入れ替えてください');
   }
-  try { await acc.setTeam(team.filter(Boolean)); } catch (e) { ui.toast(acc.errText(e)); }
+}
+
+// --- ドラッグ&ドロップ (Pointer Events: マウスもタッチも) ---
+let drag = null;
+const LONG_PRESS = 220;
+
+function initTeamDnd() {
+  const root = $('team');
+  root.addEventListener('pointerdown', (ev) => {
+    if (ev.button !== 0 || ev.target.closest('.slot-x')) return;
+    const el = ev.target.closest('[data-drag]') || ev.target.closest('.slot');
+    if (!el) return;
+    drag = { el, x: ev.clientX, y: ev.clientY, id: ev.pointerId, touch: ev.pointerType !== 'mouse', started: false, ready: ev.pointerType === 'mouse' };
+    if (drag.touch) {
+      drag.timer = setTimeout(() => {
+        if (drag && !drag.started && drag.el.dataset.drag) { drag.ready = true; el.classList.add('lift'); navigator.vibrate?.(15); }
+      }, LONG_PRESS);
+    }
+  });
+  window.addEventListener('pointermove', (ev) => {
+    if (!drag || ev.pointerId !== drag.id) return;
+    const dist = Math.hypot(ev.clientX - drag.x, ev.clientY - drag.y);
+    if (!drag.started) {
+      if (!drag.ready) { if (dist > 8) cancelDrag(); return; } // 長押し前に動いた = スクロール
+      if (dist < 6 || !drag.el.dataset.drag) return;
+      startDrag(ev);
+    }
+    moveGhost(ev.clientX, ev.clientY);
+  });
+  window.addEventListener('pointerup', (ev) => {
+    if (!drag || ev.pointerId !== drag.id) return;
+    const d = drag;
+    if (d.started) finishDrag(ev.clientX, ev.clientY);
+    else { cancelDrag(); onTap(d.el); }
+  });
+  window.addEventListener('pointercancel', () => cancelDrag());
+  // ドラッグ中はスクロールさせない
+  root.addEventListener('touchmove', (ev) => { if (drag && (drag.started || drag.ready)) ev.preventDefault(); }, { passive: false });
+  root.addEventListener('contextmenu', (ev) => { if (ev.target.closest('[data-drag]')) ev.preventDefault(); });
+  root.addEventListener('click', (ev) => {
+    const x = ev.target.closest('.slot-x');
+    if (x) { ev.stopPropagation(); removeAt(+x.dataset.x); }
+  });
+  root.addEventListener('keydown', (ev) => {
+    if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches('.slot, .unit-card')) { ev.preventDefault(); onTap(ev.target); }
+  });
+  $('kind-tabs').addEventListener('click', (ev) => { const b = ev.target.closest('.kind-tab'); if (b) { kindFilter = b.dataset.k; renderTeam(); } });
+  $('btn-team-auto').addEventListener('click', autoTeam);
+  $('btn-team-clear').addEventListener('click', () => commitTeam([]));
+}
+
+function startDrag(ev) {
+  drag.started = true;
+  const src = drag.el;
+  const icon = src.querySelector('.unit-icon');
+  const g = document.createElement('div');
+  g.className = 'drag-ghost';
+  g.innerHTML = icon ? icon.outerHTML : '';
+  document.body.appendChild(g);
+  drag.ghost = g;
+  src.classList.add('dragging-src');
+  document.body.classList.add('team-dragging');
+  moveGhost(ev.clientX, ev.clientY);
+}
+
+function moveGhost(x, y) {
+  if (!drag?.ghost) return;
+  drag.ghost.style.transform = `translate(${x - 36}px, ${y - 36}px)`;
+  const over = document.elementFromPoint(x, y)?.closest('.slot');
+  for (const s of document.querySelectorAll('.slot.over')) if (s !== over) s.classList.remove('over');
+  over?.classList.add('over');
+  document.body.classList.toggle('drop-remove', drag.el.dataset.drag === 'slot' && !over);
+}
+
+function finishDrag(x, y) {
+  const d = drag;
+  const target = document.elementFromPoint(x, y)?.closest('.slot');
+  cancelDrag();
+  if (target) placeUnit(d.el.dataset.id, +target.dataset.i);
+  else if (d.el.dataset.drag === 'slot') removeAt(+d.el.dataset.i);
+}
+
+function cancelDrag() {
+  if (!drag) return;
+  clearTimeout(drag.timer);
+  drag.ghost?.remove();
+  drag.el.classList.remove('dragging-src', 'lift');
+  document.body.classList.remove('team-dragging', 'drop-remove');
+  for (const s of document.querySelectorAll('.slot.over')) s.classList.remove('over');
+  drag = null;
+}
+
+// 強さの目安でざっくり上位5体。いちばん強いキャラをリーダーに
+function autoTeam() {
+  const s = acc.getState();
+  const norm = { score: 7, judge: 12, guard: 5, coin: 20 };
+  const owned = acc.getCatalog().filter((u) => s.units[u.id]);
+  owned.sort((a, b) => skillValue(b, s.units[b.id].lv) / norm[b.kind] - skillValue(a, s.units[a.id].lv) / norm[a.kind]);
+  commitTeam(owned.slice(0, 5).map((u) => u.id));
+  ui.toast('おまかせで編成しました');
 }

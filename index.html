@@ -119,13 +119,22 @@
 <section id="team" class="screen meta">
   <header class="topbar"><button class="chip" data-back>← 戻る</button><h2 class="meta-title">TEAM</h2><div class="spacer"></div><span class="chip coin-chip"><span class="coin-ico">◎</span><span class="coin-val">-</span></span></header>
   <div class="meta-body">
+    <div class="team-guide">
+      <b>使い方</b> 下のキャラを上の枠へ<b>ドラッグ</b>して編成。枠どうしで入れ替え、枠の外へドラッグか <b>×</b> で外せます。
+      <span class="muted">(スマホは長押ししてからドラッグ。タップで「枠を選ぶ → キャラを選ぶ」でもOK)</span>
+    </div>
     <div class="team-slots" id="team-slots"></div>
-    <div class="team-fx-box">編成効果: <b id="team-fx"></b></div>
-    <p class="muted small" id="team-hint"></p>
-    <div class="team-units-head"><h3>所持キャラ</h3>
-      <select id="team-sort"><option value="rarity">レア度順</option><option value="kind">スキル別</option><option value="lv">Lv順</option></select></div>
+    <p class="team-hint" id="team-hint" hidden></p>
+    <div class="team-fx-grid" id="team-fx-grid"></div>
+    <div class="team-actions">
+      <button id="btn-team-auto" class="btn-line">おまかせ編成</button>
+      <button id="btn-team-clear" class="btn-line">すべて外す</button>
+    </div>
+    <div class="team-units-head"><h3>所持キャラ <span class="muted" id="team-count"></span></h3>
+      <select id="team-sort" aria-label="並び順"><option value="rarity">レア度順</option><option value="lv">Lv順</option></select></div>
+    <div class="kind-tabs" id="kind-tabs"></div>
     <div class="team-units" id="team-units"></div>
-    <p class="muted small">ランキングには編成効果なしのスコアが登録されます。編成スコアはコインやクエストに反映されます。</p>
+    <p class="muted small">ランキングには編成効果なしのスコアが登録されます。編成の効果はリザルトの「編成スコア」とコイン・クエストに反映されます。</p>
   </div>
 </section>
 

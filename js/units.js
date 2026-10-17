@@ -3,6 +3,13 @@ import { hashStr, mulberry32 } from './composer.js';
 
 export const RARITY_COLOR = { 1: '#8fa3c8', 2: '#5ef2ff', 3: '#ff4fd8', 4: '#ffd25e' };
 export const KIND_LABEL = { score: 'スコアUP', judge: '判定サポート', guard: 'コンボガード', coin: 'コインUP' };
+export const KIND_COLOR = { score: '#ff9a5c', judge: '#5ef2ff', guard: '#9dff4f', coin: '#ffd25e' };
+export const KIND_DESC = {
+  score: '編成スコアがこの%だけ増える',
+  judge: 'PERFECT・GREATになる幅が広がり、少しズレても良い判定に',
+  guard: 'MISSしても、この回数まではコンボが切れない',
+  coin: 'プレイ後にもらえるコインがこの%だけ増える',
+};
 
 // サーバー(mlidar_team_fx)と同じ式。表示用
 const BASE = { score: [1, 2, 4, 7], judge: [2, 4, 7, 12], guard: [1, 2, 3, 5], coin: [3, 6, 12, 20] };

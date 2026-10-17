@@ -123,12 +123,62 @@ function bestOf(id, d) {
   return { ...top, combo: Math.max(l.combo, s.combo), fc: l.fc || s.fc, ap: l.ap || s.ap };
 }
 
+// --- 検索・並び替え・絞り込み ---
+const songView = { q: '', sort: load('songSort', 'default'), lv: load('songLv', 'all'), status: load('songStatus', 'all') };
+const LV_FILTERS = [['all', 'すべて'], ['1-4', 'Lv1〜4'], ['5-9', 'Lv5〜9'], ['10-', 'Lv10以上']];
+const STATUS_FILTERS = [['all', 'すべて'], ['new', '未プレイ'], ['nofc', '未フルコンボ'], ['fc', 'フルコンボ済'], ['local', '読み込んだ曲']];
+
+function visibleSongs() {
+  const q = songView.q.trim().toLowerCase();
+  let idx = entries.map((e, i) => i).filter((i) => {
+    const e = entries[i];
+    if (q && !`${e.title} ${e.genre} ${e.artist} ${Math.round(e.bpm)}`.toLowerCase().includes(q)) return false;
+    const lv = e.levels[diff];
+    if (songView.lv === '1-4' && lv > 4) return false;
+    if (songView.lv === '5-9' && (lv < 5 || lv > 9)) return false;
+    if (songView.lv === '10-' && lv < 10) return false;
+    const b = bestOf(e.id, diff);
+    if (songView.status === 'new' && b) return false;
+    if (songView.status === 'nofc' && b?.fc) return false;
+    if (songView.status === 'fc' && !b?.fc) return false;
+    if (songView.status === 'local' && !e.local) return false;
+    return true;
+  });
+  const by = {
+    level: (a, b) => entries[a].levels[diff] - entries[b].levels[diff],
+    'level-desc': (a, b) => entries[b].levels[diff] - entries[a].levels[diff],
+    bpm: (a, b) => entries[a].bpm - entries[b].bpm,
+    'bpm-desc': (a, b) => entries[b].bpm - entries[a].bpm,
+    name: (a, b) => entries[a].title.localeCompare(entries[b].title, 'ja'),
+    score: (a, b) => (bestOf(entries[b].id, diff)?.score ?? -1) - (bestOf(entries[a].id, diff)?.score ?? -1),
+    'score-asc': (a, b) => (bestOf(entries[a].id, diff)?.score ?? -1) - (bestOf(entries[b].id, diff)?.score ?? -1),
+  }[songView.sort];
+  if (by) idx = idx.sort((a, b) => by(a, b) || a - b);
+  return idx;
+}
+
+function renderFilters() {
+  const chip = (group, [v, label]) => `<button class="f-chip ${songView[group] === v ? 'sel' : ''}" data-g="${group}" data-v="${v}">${label}</button>`;
+  $('song-filters').innerHTML =
+    `<span class="f-label">${diff.toUpperCase()}</span>${LV_FILTERS.map((f) => chip('lv', f)).join('')}<span class="f-sep"></span>${STATUS_FILTERS.filter(([v]) => v !== 'local' || entries.some((e) => e.local)).map((f) => chip('status', f)).join('')}`;
+}
+
 function renderList() {
+  renderFilters();
   const list = $('song-list');
   list.innerHTML = '';
-  entries.forEach((e, i) => {
+  const view = visibleSongs();
+  if (!view.length) {
+    const p = document.createElement('p');
+    p.className = 'list-empty';
+    p.textContent = '条件に合う曲がありません';
+    list.appendChild(p);
+  }
+  view.forEach((i) => {
+    const e = entries[i];
     const b = document.createElement('button');
     b.className = 'song-card' + (i === sel ? ' sel' : '');
+    b.dataset.i = i;
     b.style.setProperty('--c', e.color);
     const lv = DIFFS.map((d) => {
       const best = bestOf(e.id, d);
@@ -150,8 +200,8 @@ function selectSong(i, force = false) {
   if (i === sel && !force) return;
   sel = i;
   save('sel', entries[i].local ? 0 : i);
-  [...$('song-list').children].forEach((c, j) => c.classList.toggle('sel', j === i));
-  $('song-list').children[i]?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  for (const c of $('song-list').querySelectorAll('.song-card[data-i]')) c.classList.toggle('sel', +c.dataset.i === i);
+  $('song-list').querySelector(`.song-card[data-i="${i}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
   renderDetail();
   const e = entries[i];
   stopPreview();
@@ -167,7 +217,19 @@ function setDiff(d) {
   diff = d;
   save('diff', d);
   renderDetail();
+  renderList(); // レベル・自己ベストの並び替えや絞り込みは難易度で変わる
 }
+
+$('song-search').addEventListener('input', () => { songView.q = $('song-search').value; renderList(); });
+$('song-sort').value = songView.sort;
+$('song-sort').addEventListener('change', () => { songView.sort = $('song-sort').value; save('songSort', songView.sort); renderList(); });
+$('song-filters').addEventListener('click', (ev) => {
+  const b = ev.target.closest('.f-chip');
+  if (!b) return;
+  songView[b.dataset.g] = b.dataset.v;
+  save(b.dataset.g === 'lv' ? 'songLv' : 'songStatus', b.dataset.v);
+  renderList();
+});
 
 function renderDetail() {
   const e = entries[sel];
@@ -392,8 +454,9 @@ $('btn-p-quit').addEventListener('click', quitGame);
 // 入力
 // ---------------------------------------------------------------------------
 window.addEventListener('keydown', (ev) => {
-  if (ev.target.tagName === 'INPUT' && (ev.target.type === 'text' || ev.target.type === 'password')) {
-    if (ev.key === 'Escape') closeModals();
+  if (ev.target.tagName === 'INPUT' && ['text', 'password', 'search'].includes(ev.target.type)) {
+    if (ev.target.type === 'search' && (ev.key === 'Escape' || ev.key === 'Enter')) ev.target.blur();
+    else if (ev.key === 'Escape') closeModals();
     return;
   }
   if (modalOpen()) { if (ev.key === 'Escape') closeModals(); return; }
@@ -408,8 +471,11 @@ window.addEventListener('keydown', (ev) => {
   }
   if (state === 'title' && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); enterFromTitle(); return; }
   if (state === 'select') {
-    if (ev.key === 'ArrowDown') { ev.preventDefault(); selectSong((sel + 1) % entries.length); }
-    else if (ev.key === 'ArrowUp') { ev.preventDefault(); selectSong((sel - 1 + entries.length) % entries.length); }
+    const view = visibleSongs();
+    const pos = view.indexOf(sel);
+    if (ev.key === 'ArrowDown' && view.length) { ev.preventDefault(); selectSong(view[(pos + 1) % view.length]); }
+    else if (ev.key === 'ArrowUp' && view.length) { ev.preventDefault(); selectSong(view[(pos - 1 + view.length) % view.length]); }
+    else if (ev.key === '/' ) { ev.preventDefault(); $('song-search').focus(); }
     else if (ev.key === 'ArrowRight') { ev.preventDefault(); setDiff(DIFFS[Math.min(2, DIFFS.indexOf(diff) + 1)]); }
     else if (ev.key === 'ArrowLeft') { ev.preventDefault(); setDiff(DIFFS[Math.max(0, DIFFS.indexOf(diff) - 1)]); }
     else if (ev.key === 'Enter') { ev.preventDefault(); startGame(); }

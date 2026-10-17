@@ -380,3 +380,33 @@ body.drop-remove .drag-ghost { opacity: 0.6; filter: grayscale(1) drop-shadow(0 
   .fx-val { font-size: 18px; }
   .team-actions button { flex: 1; }
 }
+
+/* ---------- 検索・並び替え・絞り込み ---------- */
+.song-col { display: flex; flex-direction: column; min-height: 0; gap: 8px; }
+.song-col .song-list { flex: 1; min-height: 0; }
+.list-tools { display: flex; gap: 8px; align-items: center; }
+.list-tools input[type=search] {
+  flex: 1; min-width: 0; background: rgba(0, 0, 0, 0.45); border: 1px solid var(--panel-line); color: var(--text); border-radius: 10px;
+  padding: 9px 12px 9px 34px; font: inherit; font-size: 14px; -webkit-user-select: text; user-select: text;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a97c0' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: 10px center; background-size: 16px;
+}
+.list-tools input[type=search]:focus { outline: none; border-color: var(--accent); }
+.list-tools select { background: rgba(0, 0, 0, 0.45); color: var(--text); border: 1px solid var(--panel-line); border-radius: 10px; padding: 9px 8px; font: inherit; font-size: 13px; max-width: 48%; }
+.filter-chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.f-chip { padding: 5px 11px; border-radius: 999px; border: 1px solid var(--panel-line); background: rgba(0, 0, 0, 0.3); font-size: 12px; color: var(--text); }
+.f-chip:hover { border-color: rgba(160, 180, 255, 0.5); }
+.f-chip.sel { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); font-weight: 700; }
+.f-label { font-family: var(--font-d); font-size: 10px; letter-spacing: 0.15em; color: var(--muted); margin-right: 2px; }
+.f-sep { width: 1px; height: 18px; background: var(--panel-line); margin: 0 2px; }
+.list-empty { color: var(--muted); font-size: 13px; padding: 16px 4px; }
+#team .list-tools { margin-bottom: 8px; }
+#team .filter-chips { margin-bottom: 10px; }
+
+@media (max-width: 760px) {
+  .song-col { min-width: 0; }
+  .filter-chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .filter-chips::-webkit-scrollbar { display: none; }
+  .f-chip { white-space: nowrap; flex-shrink: 0; }
+  .list-tools input[type=search] { font-size: 16px; }
+}

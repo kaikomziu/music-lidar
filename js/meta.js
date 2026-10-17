@@ -191,6 +191,8 @@ export function closeGacha() { closeGachaResult(); }
 // ---------------------------------------------------------------------------
 let teamSlot = null; // タップ操作で選択中の枠(0〜4)
 let kindFilter = 'all';
+let rarityFilter = 0; // 0 = すべて
+let hideInTeam = false;
 let localTeam = null; // 通信待ちの間に表示する編成
 
 const curTeam = () => (localTeam || acc.getState()?.team || []).slice(0, 5);
@@ -242,9 +244,22 @@ function renderTeam() {
   $('kind-tabs').innerHTML = ['all', 'score', 'judge', 'guard', 'coin'].map((k) =>
     `<button class="kind-tab ${kindFilter === k ? 'sel' : ''}" data-k="${k}" style="--k:${k === 'all' ? 'var(--accent)' : KIND_COLOR[k]}">${k === 'all' ? 'すべて' : KIND_LABEL[k]} <small>${counts[k] || 0}</small></button>`).join('');
   $('team-count').textContent = `${owned.length} / ${acc.getCatalog().length}`;
+  $('team-filters').innerHTML = [0, 4, 3, 2, 1].map((r) => `<button class="f-chip ${rarityFilter === r ? 'sel' : ''}" data-r="${r}">${r ? stars(r) : 'レア度すべて'}</button>`).join('') +
+    `<span class="f-sep"></span><button class="f-chip ${hideInTeam ? 'sel' : ''}" data-hide="1">編成中を隠す</button>`;
   const sort = $('team-sort').value;
-  const list = owned.filter((u) => kindFilter === 'all' || u.kind === kindFilter);
-  list.sort((a, b) => sort === 'lv' ? (s.units[b.id].lv - s.units[a.id].lv) || b.rarity - a.rarity : b.rarity - a.rarity || s.units[b.id].lv - s.units[a.id].lv || a.sort - b.sort);
+  const q = $('team-search').value.trim().toLowerCase();
+  const norm = { score: 7, judge: 12, guard: 5, coin: 20 };
+  const power = (u) => skillValue(u, s.units[u.id].lv) / norm[u.kind];
+  const list = owned.filter((u) => (kindFilter === 'all' || u.kind === kindFilter) && (!rarityFilter || u.rarity === rarityFilter)
+    && (!hideInTeam || !team.includes(u.id)) && (!q || `${u.name} ${KIND_LABEL[u.kind]} ${u.flavor || ''}`.toLowerCase().includes(q)));
+  const cmp = {
+    rarity: (a, b) => b.rarity - a.rarity || s.units[b.id].lv - s.units[a.id].lv || a.sort - b.sort,
+    power: (a, b) => power(b) - power(a) || b.rarity - a.rarity,
+    lv: (a, b) => s.units[b.id].lv - s.units[a.id].lv || b.rarity - a.rarity,
+    name: (a, b) => a.name.localeCompare(b.name),
+    new: (a, b) => a.sort - b.sort,
+  }[sort] || (() => 0);
+  list.sort(cmp);
   $('team-units').innerHTML = list.map((u) => {
     const lv = s.units[u.id].lv;
     const pos = team.indexOf(u.id);
@@ -256,7 +271,7 @@ function renderTeam() {
       <span class="kind-chip" style="--k:${KIND_COLOR[u.kind]}">${KIND_LABEL[u.kind]}</span>
       <div class="uc-skill">${skillText(u, lv)}</div>
     </div>`;
-  }).join('') || '<p class="muted">このスキルのキャラはまだいません。ガチャで集めよう</p>';
+  }).join('') || `<p class="muted">${q || rarityFilter || hideInTeam ? '条件に合うキャラがいません' : 'このスキルのキャラはまだいません。ガチャで集めよう'}</p>`;
 
   const hint = $('team-hint');
   hint.hidden = teamSlot == null;
@@ -352,6 +367,13 @@ function initTeamDnd() {
     if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches('.slot, .unit-card')) { ev.preventDefault(); onTap(ev.target); }
   });
   $('kind-tabs').addEventListener('click', (ev) => { const b = ev.target.closest('.kind-tab'); if (b) { kindFilter = b.dataset.k; renderTeam(); } });
+  $('team-filters').addEventListener('click', (ev) => {
+    const b = ev.target.closest('.f-chip');
+    if (!b) return;
+    if (b.dataset.hide) hideInTeam = !hideInTeam; else rarityFilter = +b.dataset.r;
+    renderTeam();
+  });
+  $('team-search').addEventListener('input', renderTeam);
   $('btn-team-auto').addEventListener('click', autoTeam);
   $('btn-team-clear').addEventListener('click', () => commitTeam([]));
 }

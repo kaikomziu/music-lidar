@@ -148,21 +148,42 @@ export class Game {
     this.src.connect(bgmOut());
     this.startAt = ctx.currentTime + this.leadIn;
     this.src.start(this.startAt);
+    // 表示・判定用の時計。performance.now() で滑らかに進め、オーディオ時計に少しずつ合わせる
+    const p = performance.now();
+    this.anchorPerf = p;
+    this.anchorSong = nowAudio(p) - this.startAt;
+    this.holdSyncUntil = 0;
     this.endAt = Math.max(this.buffer.duration, this.lastNoteT + 1.5);
     this.loop = this.loop.bind(this);
     this.raf = requestAnimationFrame(this.loop);
   }
 
-  songTime(perfNow) { return nowAudio(perfNow) - this.startAt; }
+  songTime(perfNow) { return this.anchorSong + (perfNow - this.anchorPerf) / 1000; }
+
+  syncClock(perfNow) {
+    if (perfNow < this.holdSyncUntil) return;
+    const target = nowAudio(perfNow) - this.startAt;
+    const err = target - this.songTime(perfNow);
+    if (!Number.isFinite(err)) return;
+    if (Math.abs(err) > 0.06) { this.anchorPerf = perfNow; this.anchorSong = target; }
+    else this.anchorSong += err * 0.08;
+  }
 
   pause() {
     if (this.paused || this.ended) return;
     this.paused = true;
+    const p = performance.now();
+    this.anchorSong = this.songTime(p);
+    this.anchorPerf = p;
     getCtx().suspend();
   }
   resume() {
     if (!this.paused) return;
     this.paused = false;
+    const p = performance.now();
+    this.anchorPerf = p;
+    // 再開直後はオーディオ側の時刻情報が古いことがあるので少し待ってから合わせる
+    this.holdSyncUntil = p + 400;
     getCtx().resume();
     this.pressed = [false, false, false, false];
   }
@@ -323,6 +344,7 @@ export class Game {
     if (this.ended) return;
     this.raf = requestAnimationFrame(this.loop);
     if (this.paused) return;
+    this.syncClock(perfNow);
     const t = this.songTime(perfNow);
     this.update(t);
     if (!this.ended) this.render(t, perfNow);

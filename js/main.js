@@ -47,7 +47,11 @@ let diff = DIFFS.includes(load('diff', 'normal')) ? load('diff', 'normal') : 'no
 // 起動後に全曲をバックグラウンドで順に合成しておく
 async function warmup() {
   const order = [entries[sel], ...entries.filter((e, i) => i !== sel && !e.local)];
-  for (const e of order) { try { await e.load(); } catch (err) { console.error(err); } }
+  for (const e of order) {
+    // プレイ中は重い合成をしない(音飛び・カクつき防止)
+    while (state === 'game' || state === 'retry') await new Promise((r) => setTimeout(r, 500));
+    try { await e.load(); } catch (err) { console.error(err); }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -266,8 +270,14 @@ window.addEventListener('drop', (ev) => {
 // プレイ
 // ---------------------------------------------------------------------------
 let playing = null; // { entry, diff }
+let starting = false;
 async function startGame(entry = entries[sel], d = diff) {
-  if (state === 'game') return;
+  if (state === 'game' || starting) return;
+  starting = true;
+  try { await startGameInner(entry, d); } finally { starting = false; }
+}
+async function startGameInner(entry, d) {
+  document.activeElement?.blur?.();
   getCtx();
   stopPreview();
   if (!entry.buffer) {
@@ -374,8 +384,8 @@ window.addEventListener('keydown', (ev) => {
     return;
   }
   if (state === 'result') {
-    if (ev.key === 'Enter' || ev.key === 'Escape') quitGame();
-    else if (ev.code === 'KeyR') retry();
+    if (ev.key === 'Enter' || ev.key === 'Escape') { ev.preventDefault(); quitGame(); }
+    else if (ev.code === 'KeyR') { ev.preventDefault(); retry(); }
   }
 });
 window.addEventListener('keyup', (ev) => {
@@ -527,6 +537,10 @@ $('btn-s-reset').addEventListener('click', () => {
 for (const m of document.querySelectorAll('.overlay.modal')) {
   m.addEventListener('click', (ev) => { if (ev.target === m) closeModals(); });
 }
+
+// 想定外のエラーは画面に出す(不具合報告用)
+window.addEventListener('error', (ev) => toast('エラー: ' + (ev.message || ev.error), 6000));
+window.addEventListener('unhandledrejection', (ev) => toast('エラー: ' + (ev.reason?.message || ev.reason), 6000));
 
 // デバッグ用
 window.MLIDAR = { entries, get game() { return game; } };

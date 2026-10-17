@@ -25,7 +25,7 @@ export const bgmOut = () => (getCtx(), bgmGain);
 
 // 今スピーカーから出ている音のコンテキスト時刻(出力レイテンシ込み)
 export function nowAudio(perfNow = performance.now()) {
-  const c = getCtx();
+  const c = ctx || getCtx(); // getCtx() は suspend 中だと resume してしまうので直接参照
   if (c.getOutputTimestamp) {
     const ts = c.getOutputTimestamp();
     if (ts.performanceTime > 0 && ts.contextTime > 0) return ts.contextTime + (perfNow - ts.performanceTime) / 1000;
@@ -320,7 +320,7 @@ export async function renderEvents(events, duration, opts = {}) {
       for (let i = 0; i < n; i++) { L[off + i] += l[i]; R[off + i] += r[i]; }
     }
   };
-  await Promise.all([worker(), worker(), worker(), worker()]);
+  await Promise.all([worker(), worker()]);
 
   const oc = new OfflineAudioContext(2, total, SR);
   const mix = oc.createBuffer(2, total, SR);

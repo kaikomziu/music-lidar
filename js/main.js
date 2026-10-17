@@ -2,6 +2,7 @@ import SONGS from './songs/index.js';
 import { composeSong, candidatesFromEvents, generateChart, chartStats, DIFFS, hashStr } from './composer.js';
 import { getCtx, setVolumes, playPreview, stopPreview } from './audio.js';
 import { loadSongAudio } from './audio-cache.js';
+import { showLoading, hideLoading } from './loading.js';
 import { analyzeFile, hashFile } from './analyzer.js';
 import { buildScroll, dropNotesInStops, gimmickLabel } from './gimmick.js';
 import { jacketURL, clearJackets } from './jacket.js';
@@ -43,7 +44,7 @@ const entries = SONGS.map((def) => {
     buffer: null, rendering: null,
     load() {
       if (this.buffer) return Promise.resolve(this.buffer);
-      if (!this.rendering) this.rendering = loadSongAudio(def.id, events, duration, { sidechain: !!def.sidechain }).then((b) => (this.buffer = b));
+      if (!this.rendering) this.rendering = loadSongAudio(def.id, events, duration, { sidechain: !!def.sidechain }, (p) => { this.progress = p; }).then((b) => (this.buffer = b));
       return this.rendering;
     },
   };
@@ -329,14 +330,13 @@ async function loadFile(file) {
   if (!file) return;
   if (!/^audio\//.test(file.type) && !/\.(mp3|wav|ogg|m4a|flac|aac|opus|webm)$/i.test(file.name)) { toast('音声ファイルを選んでください'); return; }
   stopPreview();
-  $('loading-text').textContent = 'ANALYZING...';
-  overlay('loading', true);
+  showLoading({ title: file.name.replace(/\.[^.]+$/, ''), sub: '音声ファイルを解析して譜面を作っています', status: 'ANALYZING...' });
   try {
     const ab = await file.arrayBuffer();
     const hash = await hashFile(ab);
     const id = 'file-' + hash;
     const existing = entries.findIndex((e) => e.id === id);
-    if (existing >= 0) { overlay('loading', false); selectSong(existing, true); return; }
+    if (existing >= 0) { hideLoading(); selectSong(existing, true); return; }
     const { buffer, cands, bpm } = await analyzeFile(ab);
     const charts = {}, stats = {}, levels = {};
     for (const d of DIFFS) {
@@ -357,7 +357,7 @@ async function loadFile(file) {
     console.error(err);
     toast('このファイルは読み込めませんでした');
   } finally {
-    overlay('loading', false);
+    hideLoading();
   }
 }
 $('file-input').addEventListener('change', (ev) => { loadFile(ev.target.files[0]); ev.target.value = ''; });
@@ -387,12 +387,18 @@ async function startGameInner(entry, d, custom) {
   document.activeElement?.blur?.();
   getCtx();
   stopPreview();
+  // 読み込み中画面(準備済みでも曲名とTipsを少し見せる)
+  const isRetry = state === 'retry';
+  const label = custom ? (custom.kind === 'test' ? 'TEST PLAY' : `CUSTOM Lv${custom.level}`) : `${d.toUpperCase()} Lv${entry.levels[d]}`;
+  showLoading({
+    entry, title: custom ? custom.title : entry.title, sub: label,
+    status: entry.buffer ? 'READY' : '音源を準備中…(初回のみ少しかかります)',
+    getProgress: () => (entry.buffer ? 1 : entry.progress || 0),
+  });
   if (!entry.buffer) {
-    $('loading-text').textContent = 'SCANNING...';
-    overlay('loading', true);
-    try { await entry.load(); } catch (err) { console.error(err); toast('音源の生成に失敗しました'); overlay('loading', false); return; }
-    overlay('loading', false);
+    try { await entry.load(); } catch (err) { console.error(err); toast('音源の生成に失敗しました'); hideLoading(); return; }
   }
+  await hideLoading(isRetry ? 500 : 1400);
   playing = { entry, diff: d, custom };
   show('game');
   setVolumes(settings.bgm, settings.se);

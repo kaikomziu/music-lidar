@@ -63,13 +63,13 @@ async function writeCache(key, buf) {
   });
 }
 
-export async function loadSongAudio(id, events, duration, opts) {
+export async function loadSongAudio(id, events, duration, opts, onProgress = null) {
   const key = songKey(id, events, opts);
   try {
     const hit = await readCache(key);
-    if (hit) return hit;
+    if (hit) { onProgress?.(1); return hit; }
   } catch (e) { console.warn('audio cache read', e); }
-  const buf = await renderEvents(events, duration, opts);
+  const buf = await renderEvents(events, duration, opts, onProgress);
   writeCache(key, buf).catch((e) => console.warn('audio cache write', e));
   return buf;
 }

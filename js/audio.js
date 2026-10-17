@@ -352,7 +352,8 @@ function playDrum(S, e) {
   src.start(e.t);
 }
 
-export async function renderEvents(events, duration, opts = {}) {
+// onProgress(0〜1) で進み具合を知らせる
+export async function renderEvents(events, duration, opts = {}, onProgress = null) {
   sharedNoise ||= makeNoise(new OfflineAudioContext(1, 1, SR));
   sharedIR ||= makeIR(new OfflineAudioContext(2, 1, SR), 2.6, 2.6);
   await prepareDrums();
@@ -377,8 +378,10 @@ export async function renderEvents(events, duration, opts = {}) {
         const n = Math.min(src.length, total - off);
         for (let i = 0; i < n; i++) dst[off + i] += src[i];
       }
+      onProgress?.(0.85 * (++doneSegs / segs.length));
     }
   };
+  let doneSegs = 0;
   await Promise.all(Array.from({ length: workerCount() }, worker));
 
   // 仕上げ: 残響 → コンプ
@@ -398,7 +401,9 @@ export async function renderEvents(events, duration, opts = {}) {
   const wg = oc.createGain(); wg.gain.value = 0.75;
   w.connect(verb); verb.connect(wg); wg.connect(comp);
   d.start(); w.start();
-  return oc.startRendering();
+  const result = await oc.startRendering();
+  onProgress?.(1);
+  return result;
 }
 
 async function renderSegment(events, a, len, opts) {

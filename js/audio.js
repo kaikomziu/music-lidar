@@ -142,7 +142,27 @@ function send(S, node, amt) {
   node.connect(g); g.connect(S.verb);
 }
 
+function distCurve(k) {
+  const c = new Float32Array(1024);
+  for (let i = 0; i < 1024; i++) { const x = (i / 1023) * 2 - 1; c[i] = ((1 + k) * x) / (1 + k * Math.abs(x)); }
+  return c;
+}
+
 const VOICES = {
+  // 歪ませたキック(ハードコア/スピードコア用)
+  hardkick(S, e) {
+    const { oc } = S, t = e.t;
+    const o = osc(oc, 'sine', 220, t, t + 0.4);
+    o.frequency.setValueAtTime(240, t);
+    o.frequency.exponentialRampToValueAtTime(52, t + 0.07);
+    const pre = oc.createGain();
+    pre.gain.value = 3.2;
+    const ws = oc.createWaveShaper();
+    ws.curve = S.dist || (S.dist = distCurve(30));
+    const lp = filt(oc, 'lowpass', 3200, 0.7);
+    const g = env(oc, t, 0.5 * e.vel, 0.002, 0.06, 0.2);
+    o.connect(pre); pre.connect(ws); ws.connect(lp); lp.connect(g); g.connect(S.drums);
+  },
   kick(S, e) {
     const { oc } = S, t = e.t;
     const o = osc(oc, 'sine', 160, t, t + 0.5);

@@ -27,7 +27,7 @@ const entries = SONGS.map((def) => {
   const cands = candidatesFromEvents(events);
   const charts = {}, stats = {};
   for (const d of DIFFS) {
-    charts[d] = generateChart(cands, d, duration, hashStr(def.id));
+    charts[d] = generateChart(cands, d, duration, hashStr(def.id), def.chart?.[d]);
     stats[d] = chartStats(charts[d]);
   }
   return {

@@ -33,7 +33,7 @@ export function composeSong(def) {
   const add = (type, beat, o = {}) => {
     events.push({ vel: 1, ...o, type, beat, t: beat * spb, dur: (o.dur || 0) * spb });
   };
-  const drumTypes = ['kick', 'snare', 'clap', 'hat', 'ohat', 'crash', 'ride'];
+  const drumTypes = ['kick', 'hardkick', 'snare', 'clap', 'hat', 'ohat', 'crash', 'ride'];
 
   const s = {
     bpm: def.bpm,
@@ -41,6 +41,7 @@ export function composeSong(def) {
     rng: mulberry32(hashStr(def.id)),
     bar: (n) => n * 4,
     kick: (b, vel = 1) => add('kick', b, { vel }),
+    hardkick: (b, vel = 1) => add('hardkick', b, { vel }),
     snare: (b, vel = 1) => add('snare', b, { vel }),
     clap: (b, vel = 1) => add('clap', b, { vel }),
     hat: (b, vel = 1) => add('hat', b, { vel }),
@@ -118,7 +119,7 @@ export function composeSong(def) {
 // 譜面候補。同じ時刻のイベントをまとめて「どれだけノーツに向いているか」のスコアを付ける
 // ---------------------------------------------------------------------------
 const KIND = {
-  kick: 'kick', snare: 'snare', clap: 'snare', hat: 'hat', ohat: 'hat', ride: 'hat', crash: 'crash',
+  kick: 'kick', hardkick: 'kick', snare: 'snare', clap: 'snare', hat: 'hat', ohat: 'hat', ride: 'hat', crash: 'crash',
   bass: 'bass', reese: 'bass', lead: 'melodic', square: 'melodic', pluck: 'melodic', bell: 'melodic', stab: 'stab',
 };
 
@@ -168,8 +169,9 @@ function lowerBound(arr, x) {
   return lo;
 }
 
-export function generateChart(cands, diff, duration, seed = 1) {
-  const P = PARAM[diff];
+// override: 曲ごとの調整 (例: { minGap: 0.07, maxNps: 12 })。曲ファイルの chart: { hard: {...} } から渡される
+export function generateChart(cands, diff, duration, seed = 1, override = null) {
+  const P = { ...PARAM[diff], ...(override || {}) };
   const rng = mulberry32((seed ^ hashStr(diff)) >>> 0);
 
   // 1) 重要度順に拾い、最小間隔と密度上限を守る
@@ -200,6 +202,7 @@ export function generateChart(cands, diff, duration, seed = 1) {
     if (k.has('crash')) n = diff === 'easy' ? 2 : Math.min(P.chordMax, 2 + (rng() < 0.5 ? 1 : 0));
     else if (diff !== 'easy' && k.size >= 2 && c.onBeat && rng() < P.chordP) n = diff === 'hard' && rng() < 0.2 ? 3 : 2;
     else if (diff === 'easy' && k.has('kick') && k.has('melodic') && c.onBeat && rng() < 0.08) n = 2;
+    n = Math.min(n, P.chordMax);
 
     let len = 0;
     if (k.has('melodic') && c.dur >= P.lnMin) {

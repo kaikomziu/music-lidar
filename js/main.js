@@ -28,7 +28,56 @@ let lastResult = null;
 // ---------------------------------------------------------------------------
 // 曲の準備
 // ---------------------------------------------------------------------------
+// 音源ファイルの曲(def.audio)。譜面は def.fixedCharts、音は fetch して展開
+function fileSongEntry(def) {
+  const charts = {}, stats = {};
+  const unpack = (arr) => arr.map(([t, lane, e]) => (e ? { t: t / 1000, lane, end: e / 1000 } : { t: t / 1000, lane }));
+  const scroll = buildScroll(def.gimmicks, def.bpm);
+  for (const d of DIFFS) {
+    charts[d] = dropNotesInStops(unpack(def.fixedCharts[d]), scroll.stops);
+    stats[d] = chartStats(charts[d]);
+  }
+  return {
+    id: def.id, title: def.title, artist: def.artist, genre: def.genre, bpm: def.bpm, offset: def.offset || 0, color: def.color,
+    levels: def.levels, charts, stats, local: false, duration: def.duration, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [],
+    previewAt: def.previewAt ?? def.duration * 0.3, credit: def.credit, creditUrl: def.creditUrl,
+    buffer: null, rendering: null,
+    load() {
+      if (this.buffer) return Promise.resolve(this.buffer);
+      if (!this.rendering) {
+        this.rendering = (async () => {
+          const res = await fetch(def.audio);
+          if (!res.ok) throw new Error('audio ' + res.status);
+          const total = +res.headers.get('content-length') || 0;
+          let ab;
+          if (total && res.body) {
+            const reader = res.body.getReader(), parts = [];
+            let got = 0;
+            for (;;) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              parts.push(value); got += value.length;
+              this.progress = 0.85 * (got / total);
+            }
+            const u8 = new Uint8Array(got);
+            let o = 0;
+            for (const p of parts) { u8.set(p, o); o += p.length; }
+            ab = u8.buffer;
+          } else ab = await res.arrayBuffer();
+          // AudioContext を使わずに展開(ユーザー操作前でも可)
+          const buf = await new OfflineAudioContext(2, 1, 44100).decodeAudioData(ab);
+          this.progress = 1;
+          return (this.buffer = buf);
+        })();
+        this.rendering.catch(() => { this.rendering = null; });
+      }
+      return this.rendering;
+    },
+  };
+}
+
 const entries = SONGS.map((def) => {
+  if (def.audio) return fileSongEntry(def);
   const { events, duration } = composeSong(def);
   const cands = candidatesFromEvents(events);
   const scroll = buildScroll(def.gimmicks, def.bpm);
@@ -269,6 +318,7 @@ function renderDetail() {
   $('d-index').textContent = `${String(sel + 1).padStart(2, '0')} / ${String(entries.length).padStart(2, '0')}`;
   $('d-title').textContent = e.title;
   $('d-meta').textContent = `${e.artist} ・ BPM ${Math.round(e.bpm)} ・ ${fmtTime(e.duration)}${e.gimmick ? ` ・ ギミック: ${e.gimmick}` : ''}`;
+  $('d-credit').innerHTML = e.credit ? `${esc(e.credit)}${e.creditUrl ? ` <a href="${esc(e.creditUrl)}" target="_blank" rel="noopener">${esc(e.creditUrl.replace(/^https?:\/\//, '').replace(/\/$/, ''))}</a>` : ''}` : '';
   $('diffs').innerHTML = DIFFS.map((d) => `
     <button class="diff-btn ${d}${d === diff ? ' sel' : ''}" data-d="${d}">
       <div class="dn">${d.toUpperCase()}</div><div class="dl">${e.levels[d]}</div><div class="dc">${e.stats[d].notes} notes</div>
@@ -408,6 +458,7 @@ async function startGameInner(entry, d, custom) {
     onEnd: (r) => onGameEnd(r),
     team: !custom && acc.isLoggedIn() ? acc.teamFx() : null,
     scroll: custom ? custom.scroll : entry.scroll,
+    offset: entry.offset || 0,
   });
   game.start(custom?.startFrom || 0);
 }

@@ -8,7 +8,8 @@ import cloudPoint from './cloud-point.js';
 import pulseGrid from './pulse-grid.js';
 import lidarRush from './lidar-rush.js';
 import freezeFrame from './freeze-frame.js';
+import shiningStar from './shining-star.js';
 import hyperScanBreaker from './hyper-scan-breaker.js';
 import overclockOmega from './overclock-omega.js';
 
-export default [firstLight, helloLane, cloudPoint, pulseGrid, lidarRush, freezeFrame, hyperScanBreaker, overclockOmega];
+export default [firstLight, helloLane, cloudPoint, pulseGrid, lidarRush, shiningStar, freezeFrame, hyperScanBreaker, overclockOmega];

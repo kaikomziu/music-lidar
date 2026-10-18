@@ -31,9 +31,11 @@ export function composeSong(def) {
   const spb = 60 / def.bpm;
   const events = [];
   const add = (type, beat, o = {}) => {
+    if (swing && Math.abs((((beat % 1) + 1) % 1) - 0.5) < 1e-6) beat += swing;
     events.push({ vel: 1, ...o, type, beat, t: beat * spb, dur: (o.dur || 0) * spb });
   };
-  const drumTypes = ['kick', 'hardkick', 'snare', 'clap', 'hat', 'ohat', 'crash', 'ride'];
+  const drumTypes = ['kick', 'hardkick', 'snare', 'clap', 'hat', 'ohat', 'crash', 'ride', 'chipkick', 'chipsnare', 'chiphat'];
+  let swing = 0; // 裏の8分を遅らせる量(拍)。1/6 で3連のハネ
 
   const s = {
     bpm: def.bpm,
@@ -42,6 +44,21 @@ export function composeSong(def) {
     bar: (n) => n * 4,
     kick: (b, vel = 1) => add('kick', b, { vel }),
     hardkick: (b, vel = 1) => add('hardkick', b, { vel }),
+    chipkick: (b, vel = 1) => add('chipkick', b, { vel }),
+    chipsnare: (b, vel = 1) => add('chipsnare', b, { vel }),
+    chiphat: (b, vel = 1) => add('chiphat', b, { vel }),
+    chip: (b, n, d, vel = 1, duty = 0.25) => add('chip', b, { midi: toMidi(n), dur: d, vel, duty }),
+    chipbass: (b, n, d, vel = 1) => add('chipbass', b, { midi: toMidi(n), dur: d, vel }),
+    keys: (b, n, d, vel = 1) => add('keys', b, { midi: toMidi(n), dur: d, vel }),
+    upright: (b, n, d, vel = 1) => add('upright', b, { midi: toMidi(n), dur: d, vel }),
+    supersaw: (b, n, d, vel = 1) => add('supersaw', b, { midi: toMidi(n), dur: d, vel }),
+    gtrlead: (b, n, d, vel = 1) => add('gtrlead', b, { midi: toMidi(n), dur: d, vel }),
+    slap: (b, n, d, vel = 1) => add('slap', b, { midi: toMidi(n), dur: d, vel }),
+    clav: (b, n, d, vel = 1) => add('clav', b, { midi: toMidi(n), dur: d, vel }),
+    guitar: (b, notes, d, vel = 1) => add('guitar', b, { midis: notes.map(toMidi), dur: d, vel }),
+    // rate = 1拍に何回揺れるか
+    wobble: (b, n, d, rate = 1, vel = 1) => add('wobble', b, { midi: toMidi(n), dur: d, vel, lfo: rate / spb }),
+    setSwing: (x) => { swing = x; },
     snare: (b, vel = 1) => add('snare', b, { vel }),
     clap: (b, vel = 1) => add('clap', b, { vel }),
     hat: (b, vel = 1) => add('hat', b, { vel }),
@@ -91,9 +108,9 @@ export function composeSong(def) {
       const flush = () => {
         if (!cur) return;
         if (cur.notes.length > 1) {
-          if (type === 'pad' || type === 'stab') s[type](cur.beat, cur.notes, cur.len * step, vel);
+          if (type === 'pad' || type === 'stab' || type === 'guitar') s[type](cur.beat, cur.notes, cur.len * step, vel);
           else for (const n of cur.notes) s[type](cur.beat, n, cur.len * step, vel);
-        } else if (type === 'pad' || type === 'stab') s[type](cur.beat, cur.notes, cur.len * step, vel);
+        } else if (type === 'pad' || type === 'stab' || type === 'guitar') s[type](cur.beat, cur.notes, cur.len * step, vel);
         else s[type](cur.beat, cur.notes[0], cur.len * step, vel);
         cur = null;
       };
@@ -119,6 +136,8 @@ export function composeSong(def) {
 // 譜面候補。同じ時刻のイベントをまとめて「どれだけノーツに向いているか」のスコアを付ける
 // ---------------------------------------------------------------------------
 const KIND = {
+  chipkick: 'kick', chipsnare: 'snare', chiphat: 'hat', chip: 'melodic', chipbass: 'bass', keys: 'melodic', upright: 'bass',
+  supersaw: 'melodic', gtrlead: 'melodic', slap: 'bass', clav: 'melodic', guitar: 'stab', wobble: 'melodic',
   kick: 'kick', hardkick: 'kick', snare: 'snare', clap: 'snare', hat: 'hat', ohat: 'hat', ride: 'hat', crash: 'crash',
   bass: 'bass', reese: 'bass', lead: 'melodic', square: 'melodic', pluck: 'melodic', bell: 'melodic', stab: 'stab',
 };

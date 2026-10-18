@@ -6,12 +6,22 @@
 // 曲ファイルの chart: { easy: {...}, hard: {...} } で譜面の密度などを曲ごとに調整できる(composer.js の PARAM 参照)。
 import firstLight from './first-light.js';
 import helloLane from './hello-lane.js';
+import neonHighway from './neon-highway.js';
+import discoMirrorball from './disco-mirrorball.js';
 import cloudPoint from './cloud-point.js';
+import pixelQuest from './pixel-quest.js';
 import pulseGrid from './pulse-grid.js';
+import blueNoteLane from './blue-note-lane.js';
+import stellarGate from './stellar-gate.js';
 import lidarRush from './lidar-rush.js';
-import freezeFrame from './freeze-frame.js';
 import shiningStar from './shining-star.js';
+import wubFracture from './wub-fracture.js';
+import overdriveRiot from './overdrive-riot.js';
+import freezeFrame from './freeze-frame.js';
 import hyperScanBreaker from './hyper-scan-breaker.js';
 import overclockOmega from './overclock-omega.js';
 
-export default [firstLight, helloLane, cloudPoint, pulseGrid, lidarRush, shiningStar, freezeFrame, hyperScanBreaker, overclockOmega];
+export default [
+  firstLight, helloLane, neonHighway, discoMirrorball, cloudPoint, pixelQuest, pulseGrid, blueNoteLane,
+  stellarGate, lidarRush, shiningStar, wubFracture, overdriveRiot, freezeFrame, hyperScanBreaker, overclockOmega,
+];

@@ -12,6 +12,7 @@ const BREAK =
 
 export default {
   id: 'pulse-grid',
+  urlId: 'v0r71l4ls', // 曲ページのURL (music/v0r71l4ls/)。公開後は変えない
   title: 'Pulse Grid',
   artist: 'MUSIC LiDAR',
   genre: 'HOUSE',

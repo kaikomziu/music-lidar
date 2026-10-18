@@ -7,6 +7,7 @@ const FILL = 'B4 D5 G5 D5 B4 D5 G5 D5';
 
 export default {
   id: 'hello-lane',
+  urlId: 'yfr75wjn2', // 曲ページのURL (music/yfr75wjn2/)。公開後は変えない
   title: 'Hello, Lane',
   artist: 'MUSIC LiDAR',
   genre: 'BEGINNER',

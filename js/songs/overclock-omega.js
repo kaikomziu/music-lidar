@@ -15,6 +15,7 @@ const BREAK = 'A5 - - - - - - - | F5 - - - - - - - | G5 - - - E5 - - - | C#5 - -
 
 export default {
   id: 'overclock-omega',
+  urlId: 'wdlpblwds', // 曲ページのURL (music/wdlpblwds/)。公開後は変えない
   title: 'Overclock Ω',
   artist: 'MUSIC LiDAR',
   genre: 'SPEEDCORE',

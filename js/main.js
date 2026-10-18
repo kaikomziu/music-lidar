@@ -10,7 +10,7 @@ import { Game, PointCloud, KEYS, DIFF_COLOR, visibleTime, IS_TOUCH, FX_LEVELS } 
 import { load, save, getSettings, setSettings, DEFAULT_SETTINGS, clientId, getBest, recordBest } from './storage.js';
 import { fetchRanking, submitScore } from './ranking.js';
 import * as acc from './account.js';
-import { initMeta, openAccount, renderHeader, gachaResultOpen, closeGacha } from './meta.js';
+import { initMeta, openAccount, renderHeader, gachaResultOpen, closeGacha, openScreen as openMetaScreen } from './meta.js';
 import { initMaker, openCharts, openEditor, makerKeydown } from './maker.js';
 import { fetchChartRanking, submitChartScore } from './maker-api.js';
 
@@ -174,10 +174,23 @@ setTimeout(() => warmup(), 300);
 // ---------------------------------------------------------------------------
 // 画面切り替え
 // ---------------------------------------------------------------------------
+// 画面ごとのURL(譜面メーカー・ガチャ・みんなの譜面)
+const SCREEN_URL = {
+  editor: ['maker/', '譜面メーカー'],
+  gacha: ['gacha/', 'ガチャ'],
+  charts: ['charts/', 'みんなの譜面'],
+};
 function show(name) {
   state = name;
   for (const s of document.querySelectorAll('.screen')) s.classList.toggle('active', s.id === name);
   document.body.classList.toggle('playing', name === 'game');
+  const su = SCREEN_URL[name];
+  if (su) {
+    try {
+      if (location.pathname !== ROOT_PATH + su[0]) history.replaceState(null, '', ROOT_PATH + su[0]);
+      document.title = `${su[1]}｜MUSIC LiDAR`;
+    } catch { /* file:// など */ }
+  } else if (name === 'select') syncUrl(entries[sel]);
 }
 
 function toast(msg, ms = 2600) {
@@ -194,16 +207,16 @@ const modalOpen = () => document.querySelector('.overlay.modal.on');
 // ---------------------------------------------------------------------------
 // タイトル
 // ---------------------------------------------------------------------------
-function enterFromTitle() {
+function enterFromTitle(opts = {}) {
   getCtx();
   setVolumes(settings.bgm, settings.se);
   show('select');
   renderList();
   selectSong(sel, true);
   warmup();
-  if (!acc.isLoggedIn() && !load('nameSkipped', false)) openAccount();
+  if (!opts.quiet && !acc.isLoggedIn() && !load('nameSkipped', false)) openAccount();
 }
-$('btn-start').addEventListener('click', enterFromTitle);
+$('btn-start').addEventListener('click', () => enterFromTitle());
 
 // タイトルのブートログ(飾り)
 (function bootLog() {
@@ -743,7 +756,26 @@ initMaker({
 $('btn-charts').addEventListener('click', () => openCharts());
 $('btn-maker').addEventListener('click', () => openEditor(entries[sel]));
 acc.onChange(() => { if (state === 'select') { renderList(); renderDetail(); } });
-acc.init();
+const accReady = acc.init();
+
+// 画面のURL(maker/ gacha/ charts/)で開いたときは、タイトルを飛ばしてその画面を開く
+(async function openFromScreenUrl() {
+  const screen = document.querySelector('meta[name="screen"]')?.content;
+  if (!screen) return;
+  if (screen === 'gacha' && !load('token', null)) {
+    // ガチャはログインが必要。ログインしていない人は普通のトップ扱い(曲URLと同じ)
+    try { history.replaceState(null, '', ROOT_PATH); document.title = 'MUSIC LiDAR｜ブラウザで遊べる無料4キー音ゲー(リズムゲーム)'; } catch { /* noop */ }
+    return;
+  }
+  enterFromTitle({ quiet: true });
+  if (screen === 'editor') openEditor(entries[sel]);
+  else if (screen === 'charts') openCharts();
+  else if (screen === 'gacha') {
+    await accReady;
+    if (acc.isLoggedIn()) openMetaScreen('gacha');
+    else { syncUrl(entries[sel]); toast('ガチャはログインすると使えます'); openAccount(); }
+  }
+})();
 
 // ---------------------------------------------------------------------------
 // 設定

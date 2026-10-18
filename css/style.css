@@ -662,3 +662,9 @@ body.playing::after { display: none; }
 .d-credit a { color: var(--accent); }
 .d-credit:empty { display: none; }
 .tele.br { pointer-events: auto; }
+
+/* タイトルの説明文(検索向け・控えめ表示) */
+.title-lead { font-family: var(--font-b); font-weight: 500; font-size: 13px; letter-spacing: 0.08em; color: rgba(200,215,255,0.65); margin: 22px 0 6px; animation: fadeUp 0.8s ease-out both 1.2s; }
+.title-links { margin: 0; font-size: 12px; animation: fadeUp 0.8s ease-out both 1.3s; }
+.title-links a { color: var(--cyan); }
+.title-noscript { position: absolute; bottom: 20px; left: 0; right: 0; text-align: center; color: var(--muted); }

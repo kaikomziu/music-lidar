@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>遊び方・収録曲｜MUSIC LiDAR(無料ブラウザ音ゲー)</title>
+<meta name="description" content="無料のブラウザ4キー音ゲー「MUSIC LiDAR」の遊び方ガイド。操作方法(D F J K/スマホはタップ)、判定とスコア、全9曲の収録曲リスト、ガチャ・編成・クエスト、自作譜面を投稿できる譜面メーカー、よくある質問をまとめています。">
+<link rel="canonical" href="https://kaikomziu.github.io/music-lidar/guide.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="MUSIC LiDAR">
+<meta property="og:title" content="遊び方・収録曲｜MUSIC LiDAR(無料ブラウザ音ゲー)">
+<meta property="og:description" content="インストール不要・無料で遊べる4キー音ゲー MUSIC LiDAR の遊び方と収録曲。">
+<meta property="og:url" content="https://kaikomziu.github.io/music-lidar/guide.html">
+<meta property="og:image" content="https://kaikomziu.github.io/music-lidar/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#02030a">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"MUSIC LiDAR は無料ですか?","acceptedAnswer":{"@type":"Answer","text":"はい、すべて無料です。インストールも不要で、ブラウザで開くだけで遊べます。ガチャもゲーム内のコインだけで引けます。"}},
+{"@type":"Question","name":"スマホでも遊べますか?","acceptedAnswer":{"@type":"Answer","text":"遊べます。画面を4つのレーンに分けてタップします。指を横にスライドすると隣のレーンへ移れます。"}},
+{"@type":"Question","name":"自分で譜面を作れますか?","acceptedAnswer":{"@type":"Answer","text":"譜面メーカーで作れます。グリッドをクリックして置く、曲に合わせて叩いて録音する、自動譜面を手直しする、の3つの方法があり、内蔵曲の譜面はみんなに公開できます。"}},
+{"@type":"Question","name":"手持ちの曲で遊べますか?","acceptedAnswer":{"@type":"Answer","text":"mp3やwavなどの音声ファイルを読み込むと、自動で譜面を作って遊べます。記録はその端末にだけ保存されます。"}}
+]}</script>
+<style>
+:root { --bg: #02030a; --text: #e6f0ff; --muted: #8a97c0; --line: rgba(110, 140, 255, 0.22); --cyan: #5ef2ff; --pink: #ff4fd8; }
+* { box-sizing: border-box; }
+body { margin: 0; background: radial-gradient(circle at 50% -10%, #0d1640, var(--bg) 60%) fixed, var(--bg); color: var(--text); font-family: 'Noto Sans JP', system-ui, sans-serif; line-height: 1.8; }
+a { color: var(--cyan); }
+.wrap { width: min(860px, 100%); margin: 0 auto; padding: 32px 16px 64px; }
+header { text-align: center; padding: 24px 0 8px; }
+.logo { font-family: Orbitron, 'Noto Sans JP', sans-serif; font-weight: 900; font-size: clamp(36px, 9vw, 64px); letter-spacing: 0.05em; margin: 0; text-shadow: 0 0 20px rgba(94, 242, 255, 0.6); }
+.logo small { display: block; font-size: 0.32em; letter-spacing: 0.5em; color: var(--muted); }
+.lead { color: var(--muted); margin: 8px 0 20px; }
+.play { display: inline-block; padding: 14px 34px; border: 1px solid var(--cyan); color: #fff; text-decoration: none; font-weight: 700; letter-spacing: 0.2em; background: rgba(94, 242, 255, 0.12); box-shadow: 0 0 20px rgba(94, 242, 255, 0.35); }
+.play:hover { background: rgba(94, 242, 255, 0.25); }
+img.hero { width: 100%; height: auto; border: 1px solid var(--line); margin: 24px 0 8px; }
+h2 { font-size: 22px; margin: 44px 0 12px; padding-left: 12px; border-left: 3px solid var(--cyan); }
+h3 { font-size: 16px; margin: 20px 0 6px; color: var(--cyan); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; }
+td.lv { font-family: Orbitron, sans-serif; white-space: nowrap; }
+kbd { display: inline-block; min-width: 28px; text-align: center; border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; background: rgba(10, 16, 40, 0.8); color: var(--cyan); font-weight: 700; }
+ul { padding-left: 1.3em; }
+.table-wrap { overflow-x: auto; }
+footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="logo"><small>MUSIC</small>LiDAR</p>
+    <h1 class="lead">無料・インストール不要で遊べるブラウザ4キー音ゲー(リズムゲーム)の遊び方と収録曲</h1>
+    <a class="play" href="./">▶ 今すぐ遊ぶ</a>
+    <img class="hero" src="og.png" width="1200" height="630" alt="MUSIC LiDAR のプレイ画面イメージ。奥から手前へ流れる4本のレーンと光るノーツ">
+  </header>
+
+  <h2>MUSIC LiDAR とは</h2>
+  <p>MUSIC LiDAR(ミュージック ライダー)は、ブラウザだけで遊べる無料の<strong>4キー音ゲー</strong>です。奥から手前へ流れてくるノーツを、判定ラインに重なったタイミングで叩きます。LiDAR(レーザーで周りを点群として測る技術)をイメージした、点群とネオンの世界観が特徴です。PC・スマホ・タブレットに対応し、アプリのインストールやアカウント登録なしですぐに遊べます。</p>
+
+  <h2>遊び方・操作方法</h2>
+  <h3>パソコン</h3>
+  <p>左のレーンから <kbd>D</kbd> <kbd>F</kbd> <kbd>J</kbd> <kbd>K</kbd> キーで叩きます。選曲画面では <kbd>↑</kbd><kbd>↓</kbd> で曲、<kbd>←</kbd><kbd>→</kbd> で難易度、<kbd>Enter</kbd> でプレイ。ゲーム中は <kbd>Esc</kbd> で一時停止、リザルト画面で <kbd>R</kbd> を押すとすぐにリトライできます。</p>
+  <h3>スマホ・タブレット</h3>
+  <p>画面を横に4分割したそれぞれのレーンをタップします。複数の指で同時押しもでき、指を横にスライドすると隣のレーンへ移れます。一時停止は左上の ❚❚ ボタンです。</p>
+  <h3>ノーツの種類</h3>
+  <ul>
+    <li><strong>通常ノーツ</strong>:タイミングよく1回叩く</li>
+    <li><strong>ロングノーツ</strong>:押し始めてから終わりまで押しっぱなしにする</li>
+    <li><strong>同時押し</strong>:2〜3レーンを同時に叩く</li>
+  </ul>
+  <h3>判定とスコア</h3>
+  <p>判定は PERFECT・GREAT・GOOD・MISS の4段階で、スコアは100万点満点。ランクは MAX / S+ / S / AA / A / B / C / D です。MISSなしでクリアすると FULL COMBO、すべて PERFECT なら ALL PERFECT。FAST / SLOW 表示で早押し・遅押しの癖も分かります。</p>
+  <h3>設定</h3>
+  <p>ハイスピード(ノーツの速さ)、BGM・タップ音の音量、レーン幅、判定ラインの位置、演出の強さ(オフ/控えめ/派手)を調整できます。</p>
+
+  <h2>収録曲(全9曲)</h2>
+  <p>初心者向けのやさしい曲から、BPM220の鬼畜曲、譜面が止まったり加速したりするギミック曲まで。各曲 EASY / NORMAL / HARD の3難易度です。</p>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>曲名</th><th>ジャンル</th><th>BPM</th><th>レベル(EASY / NORMAL / HARD)</th></tr></thead>
+    <tbody>
+      <tr><td>First Light</td><td>初心者向け</td><td>90</td><td class="lv">1 / 2 / 4</td></tr>
+      <tr><td>Hello, Lane</td><td>初心者向け</td><td>110</td><td class="lv">1 / 3 / 5</td></tr>
+      <tr><td>Cloud Point</td><td>チル</td><td>100</td><td class="lv">2 / 5 / 8</td></tr>
+      <tr><td>Pulse Grid</td><td>ハウス</td><td>126</td><td class="lv">3 / 6 / 9</td></tr>
+      <tr><td>LiDAR Rush</td><td>ドラムンベース</td><td>174</td><td class="lv">4 / 7 / 11</td></tr>
+      <tr><td>シャイニングスター(音楽:魔王魂)</td><td>ポップ</td><td>158</td><td class="lv">3 / 6 / 9</td></tr>
+      <tr><td>Freeze Frame</td><td>ギミック(停止・変速・隠し)</td><td>160</td><td class="lv">4 / 8 / 12</td></tr>
+      <tr><td>Hyper Scan Breaker</td><td>ハイパーコア</td><td>190</td><td class="lv">5 / 9 / 13</td></tr>
+      <tr><td>Overclock Ω</td><td>スピードコア</td><td>220</td><td class="lv">6 / 10 / 14</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>手持ちの音声ファイル(mp3・wav・oggなど)をドラッグ&ドロップすると、曲を解析して自動で譜面を作って遊ぶこともできます。</p>
+
+  <h2>オンラインランキング</h2>
+  <p>内蔵曲は曲・難易度ごとにオンラインランキングがあります。ランキングには、キャラの編成効果を含まない「素のスコア」が登録されるので、純粋な腕前で競えます。</p>
+
+  <h2>コイン・ガチャ・編成・クエスト</h2>
+  <p>名前とパスワードでアカウントを作ると、データがサーバーに保存され、別の端末からも続きを遊べます。</p>
+  <ul>
+    <li><strong>コイン</strong>:1曲遊ぶごとにスコアに応じてもらえます。</li>
+    <li><strong>ガチャ</strong>:コインでキャラ(全26種、★1〜★4)を引けます。10連は★2以上確定、100回で★4確定。</li>
+    <li><strong>編成</strong>:キャラを5人までドラッグ&ドロップで編成。スコアUP・判定サポート・コンボガード・コインUPのスキルがあり、リーダーは効果1.5倍。</li>
+    <li><strong>クエスト</strong>:毎日更新のデイリーミッションと、達成型の実績でコインがもらえます。</li>
+  </ul>
+
+  <h2>譜面メーカー(自作譜面の作成・投稿)</h2>
+  <p>ブラウザ上で譜面を作れるエディタを搭載しています。</p>
+  <ul>
+    <li>グリッドをクリック/タップしてノーツを配置(上へドラッグでロングノーツ)</li>
+    <li>曲を流しながら D F J K を叩いてリアルタイム録音</li>
+    <li>自動生成の譜面を読み込んで手直し</li>
+    <li>譜面停止・変速・隠し(サドゥン)のギミックを配置</li>
+    <li>途中からテストプレイ</li>
+  </ul>
+  <p>内蔵曲の譜面は「みんなの譜面」に投稿でき、他のプレイヤーが遊んだり、いいねしたりできます。譜面ごとのランキングもあります。</p>
+
+  <h2>よくある質問</h2>
+  <h3>無料ですか?</h3>
+  <p>すべて無料です。課金要素はありません。ガチャもゲーム内のコインだけで引けます。</p>
+  <h3>音と判定がずれる気がします</h3>
+  <p>Bluetoothイヤホンは遅延が大きいことがあります。有線イヤホンやスピーカーで試してみてください。iPhoneはマナーモードだと音が出ないことがあります。</p>
+  <h3>データはどこに保存されますか?</h3>
+  <p>ログインしない場合は端末のブラウザに、ログインした場合はサーバーに保存されます。</p>
+
+  <footer>
+    <p><a class="play" href="./">▶ MUSIC LiDAR で遊ぶ</a></p>
+    <p>「シャイニングスター」音楽:<a href="https://maou.audio/" rel="noopener">魔王魂</a> / その他の曲はブラウザ内で合成しているオリジナル曲です。</p>
+    <p>制作:kaikomziu ・ <a href="https://kaikomziu.github.io/game-links/">ほかの自作ゲーム一覧</a></p>
+  </footer>
+</div>
+</body>
+</html>

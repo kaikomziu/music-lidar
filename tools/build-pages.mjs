@@ -60,6 +60,14 @@ const SCREENS = [
     desc: 'MUSIC LiDAR のキャラガチャ。プレイで貯めたコインで★1〜★4の全26キャラを集め、5人編成でスコアUP・判定サポート・コンボガード・コインUPのスキルを発動。10連は★2以上確定、100回で★4確定。' },
   { dir: 'charts', screen: 'charts', title: 'みんなの譜面｜MUSIC LiDAR 無料ブラウザ音ゲー',
     desc: 'MUSIC LiDAR のプレイヤーが譜面メーカーで作って投稿した譜面を遊べます。新着・プレイ数・いいね順で探せて、譜面ごとのランキングも。無料のブラウザ4キー音ゲー。' },
+  { dir: 'quest', screen: 'quest', title: 'クエスト｜MUSIC LiDAR 無料ブラウザ音ゲー',
+    desc: 'MUSIC LiDAR のクエスト。毎日更新のデイリーミッションと、フルコンボやガチャ回数などの実績を達成してコインをもらおう。' },
+  { dir: 'team', screen: 'team', title: '編成｜MUSIC LiDAR 無料ブラウザ音ゲー',
+    desc: 'MUSIC LiDAR の編成。ガチャで集めたキャラをドラッグ&ドロップで5人まで編成し、スコアUP・判定サポート・コンボガード・コインUPのスキルを組み合わせよう。' },
+  // ここから下は検索に出さない画面
+  { dir: 'result', screen: 'result', noindex: true, title: 'リザルト｜MUSIC LiDAR', desc: 'MUSIC LiDAR のプレイ結果。' },
+  { dir: 'settings', screen: 'settings', noindex: true, title: '設定｜MUSIC LiDAR', desc: 'MUSIC LiDAR の設定。' },
+  { dir: 'account', screen: 'account', noindex: true, title: 'アカウント｜MUSIC LiDAR', desc: 'MUSIC LiDAR のログイン・新規登録。' },
 ];
 for (const sc of SCREENS) {
   const dir = path.join(root, sc.dir);
@@ -75,8 +83,9 @@ for (const sc of SCREENS) {
   h = setMeta(h, 'name', 'twitter:title', sc.title);
   h = setMeta(h, 'name', 'twitter:description', sc.desc);
   h = h.replace('<meta name="app-version"', `<meta name="screen" content="${sc.screen}">\n<meta name="app-version"`);
+  if (sc.noindex) h = h.replace('<meta name="screen"', '<meta name="robots" content="noindex">\n<meta name="screen"');
   fs.writeFileSync(path.join(dir, 'index.html'), h);
-  urls.splice(2, 0, url);
+  if (!sc.noindex) urls.splice(2, 0, url);
 }
 
 fs.writeFileSync(path.join(root, 'sitemap.xml'),

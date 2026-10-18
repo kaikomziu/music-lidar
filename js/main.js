@@ -175,22 +175,39 @@ setTimeout(() => warmup(), 300);
 // 画面切り替え
 // ---------------------------------------------------------------------------
 // 画面ごとのURL(譜面メーカー・ガチャ・みんなの譜面)
+// 画面・パネルごとのURL。選曲画面は曲ページのURL、タイトルはトップのURL
 const SCREEN_URL = {
   editor: ['maker/', '譜面メーカー'],
   gacha: ['gacha/', 'ガチャ'],
   charts: ['charts/', 'みんなの譜面'],
+  quest: ['quest/', 'クエスト'],
+  team: ['team/', '編成'],
+  result: ['result/', 'リザルト'],
+  settings: ['settings/', '設定'],
+  account: ['account/', 'アカウント'],
 };
+function setScreenUrl(key) {
+  const su = SCREEN_URL[key];
+  try {
+    if (su) {
+      if (location.pathname !== ROOT_PATH + su[0]) history.replaceState(null, '', ROOT_PATH + su[0]);
+      document.title = `${su[1]}｜MUSIC LiDAR`;
+    } else if (key === 'select' || key === 'game') syncUrl(entries[sel]);
+  } catch { /* file:// など */ }
+}
 function show(name) {
   state = name;
   for (const s of document.querySelectorAll('.screen')) s.classList.toggle('active', s.id === name);
   document.body.classList.toggle('playing', name === 'game');
-  const su = SCREEN_URL[name];
-  if (su) {
-    try {
-      if (location.pathname !== ROOT_PATH + su[0]) history.replaceState(null, '', ROOT_PATH + su[0]);
-      document.title = `${su[1]}｜MUSIC LiDAR`;
-    } catch { /* file:// など */ }
-  } else if (name === 'select') syncUrl(entries[sel]);
+  if (name !== 'game') setScreenUrl(name);
+}
+// 設定・アカウントのパネルを開いている間はそのURL、閉じたら元の画面のURLに戻す
+for (const [id, key] of [['settings', 'settings'], ['account-modal', 'account']]) {
+  new MutationObserver(() => {
+    if (state === 'title') return;
+    if ($(id).classList.contains('on')) setScreenUrl(key);
+    else if (!document.querySelector('#settings.on, #account-modal.on')) setScreenUrl(state);
+  }).observe($(id), { attributes: true, attributeFilter: ['class'] });
 }
 
 function toast(msg, ms = 2600) {
@@ -760,21 +777,26 @@ const accReady = acc.init();
 
 // 画面のURL(maker/ gacha/ charts/)で開いたときは、タイトルを飛ばしてその画面を開く
 (async function openFromScreenUrl() {
+  await Promise.resolve(); // このファイルの残り(設定など)を読み終えてから動かす
   const screen = document.querySelector('meta[name="screen"]')?.content;
   if (!screen) return;
-  if (screen === 'gacha' && !load('token', null)) {
-    // ガチャはログインが必要。ログインしていない人は普通のトップ扱い(曲URLと同じ)
+  const needLogin = ['gacha', 'quest', 'team'].includes(screen);
+  if (needLogin && !load('token', null)) {
+    // ガチャ・クエスト・編成はログインが必要。ログインしていない人は普通のトップ扱い(曲URLと同じ)
     try { history.replaceState(null, '', ROOT_PATH); document.title = 'MUSIC LiDAR｜ブラウザで遊べる無料4キー音ゲー(リズムゲーム)'; } catch { /* noop */ }
     return;
   }
   enterFromTitle({ quiet: true });
   if (screen === 'editor') openEditor(entries[sel]);
   else if (screen === 'charts') openCharts();
-  else if (screen === 'gacha') {
+  else if (screen === 'settings') openSettings();
+  else if (screen === 'account') openAccount();
+  else if (needLogin) {
     await accReady;
-    if (acc.isLoggedIn()) openMetaScreen('gacha');
-    else { syncUrl(entries[sel]); toast('ガチャはログインすると使えます'); openAccount(); }
+    if (acc.isLoggedIn()) openMetaScreen(screen);
+    else { syncUrl(entries[sel]); openAccount(); }
   }
+  // result/ はプレイ結果が残っていないので選曲画面のまま
 })();
 
 // ---------------------------------------------------------------------------

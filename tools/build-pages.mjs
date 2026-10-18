@@ -52,7 +52,34 @@ for (const s of songs) {
   urls.push(url);
 }
 
+// 画面ごとのページ(譜面メーカー・ガチャ・みんなの譜面)
+const SCREENS = [
+  { dir: 'maker', screen: 'editor', title: '譜面メーカー｜MUSIC LiDAR 無料ブラウザ音ゲー',
+    desc: 'MUSIC LiDAR の譜面メーカー。ブラウザだけで4キー音ゲーの譜面を作れます。クリックで配置、曲に合わせて叩いて録音(ズレは自動補正)、自動譜面の手直し、譜面停止・変速などのギミック、テストプレイ、みんなへの投稿に対応。無料・PC/スマホ対応。' },
+  { dir: 'gacha', screen: 'gacha', title: 'ガチャ｜MUSIC LiDAR 無料ブラウザ音ゲー',
+    desc: 'MUSIC LiDAR のキャラガチャ。プレイで貯めたコインで★1〜★4の全26キャラを集め、5人編成でスコアUP・判定サポート・コンボガード・コインUPのスキルを発動。10連は★2以上確定、100回で★4確定。' },
+  { dir: 'charts', screen: 'charts', title: 'みんなの譜面｜MUSIC LiDAR 無料ブラウザ音ゲー',
+    desc: 'MUSIC LiDAR のプレイヤーが譜面メーカーで作って投稿した譜面を遊べます。新着・プレイ数・いいね順で探せて、譜面ごとのランキングも。無料のブラウザ4キー音ゲー。' },
+];
+for (const sc of SCREENS) {
+  const dir = path.join(root, sc.dir);
+  fs.mkdirSync(dir, { recursive: true });
+  const url = `${SITE}${sc.dir}/`;
+  let h = base.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n<base href="../">');
+  h = h.replace(/<title>[^<]*<\/title>/, `<title>${esc(sc.title)}</title>`);
+  h = setMeta(h, 'name', 'description', sc.desc);
+  h = h.replace(/<link rel="canonical" href="[^"]*">/, `<link rel="canonical" href="${url}">`);
+  h = setMeta(h, 'property', 'og:title', sc.title);
+  h = setMeta(h, 'property', 'og:description', sc.desc);
+  h = setMeta(h, 'property', 'og:url', url);
+  h = setMeta(h, 'name', 'twitter:title', sc.title);
+  h = setMeta(h, 'name', 'twitter:description', sc.desc);
+  h = h.replace('<meta name="app-version"', `<meta name="screen" content="${sc.screen}">\n<meta name="app-version"`);
+  fs.writeFileSync(path.join(dir, 'index.html'), h);
+  urls.splice(2, 0, url);
+}
+
 fs.writeFileSync(path.join(root, 'sitemap.xml'),
   '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
   urls.map((u) => `  <url><loc>${u}</loc><lastmod>${today}</lastmod></url>`).join('\n') + '\n</urlset>\n');
-console.log(`song pages: ${songs.length} / sitemap: ${urls.length} urls`);
+console.log(`song pages: ${songs.length} / screen pages: ${SCREENS.length} / sitemap: ${urls.length} urls`);

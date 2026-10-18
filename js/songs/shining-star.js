@@ -5,6 +5,7 @@ import data from './shining-star.data.js';
 
 export default {
   id: 'shining-star',
+  urlId: 'fa9luwwkr', // 曲ページのURL (music/fa9luwwkr/)。公開後は変えない
   title: 'シャイニングスター',
   artist: '魔王魂',
   genre: 'POP',

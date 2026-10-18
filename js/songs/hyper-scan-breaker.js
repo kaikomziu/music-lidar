@@ -19,6 +19,7 @@ const MELO = 'B5 - - - G5 - - - | E6 - - - D6 - C6 - | B5 - - - D6 - - - | A5 - 
 
 export default {
   id: 'hyper-scan-breaker',
+  urlId: 'raerp0oqy', // 曲ページのURL (music/raerp0oqy/)。公開後は変えない
   title: 'Hyper Scan Breaker',
   artist: 'MUSIC LiDAR',
   genre: 'HYPERCORE',

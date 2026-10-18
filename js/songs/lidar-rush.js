@@ -20,6 +20,7 @@ const BREAK =
 
 export default {
   id: 'lidar-rush',
+  urlId: 'asn1c8ery', // 曲ページのURL (music/asn1c8ery/)。公開後は変えない
   title: 'LiDAR Rush',
   artist: 'MUSIC LiDAR',
   genre: 'DRUM & BASS',

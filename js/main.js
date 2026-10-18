@@ -39,7 +39,7 @@ function fileSongEntry(def) {
   }
   const onsets = onsetList(DIFFS.flatMap((d) => charts[d].map((n) => n.t)));
   return {
-    id: def.id, title: def.title, artist: def.artist, genre: def.genre, bpm: def.bpm, offset: def.offset || 0, color: def.color,
+    id: def.id, urlId: def.urlId, title: def.title, artist: def.artist, genre: def.genre, bpm: def.bpm, offset: def.offset || 0, color: def.color,
     levels: def.levels, charts, stats, local: false, duration: def.duration, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [],
     previewAt: def.previewAt ?? def.duration * 0.3, credit: def.credit, creditUrl: def.creditUrl, onsets,
     buffer: null, rendering: null,
@@ -97,7 +97,7 @@ const entries = SONGS.map((def) => {
     stats[d] = chartStats(charts[d]);
   }
   return {
-    id: def.id, title: def.title, artist: def.artist, genre: def.genre, bpm: def.bpm, color: def.color,
+    id: def.id, urlId: def.urlId, title: def.title, artist: def.artist, genre: def.genre, bpm: def.bpm, color: def.color,
     levels: def.levels, charts, stats, local: false, duration, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [],
     previewAt: (def.preview ?? 32) * 60 / def.bpm, onsets,
     buffer: null, rendering: null,
@@ -110,6 +110,22 @@ const entries = SONGS.map((def) => {
 });
 
 let sel = Math.max(0, Math.min(entries.length - 1, load('sel', 0)));
+// 曲ページ(music/<urlId>/)から来たらその曲を選んだ状態で始める
+const ROOT_PATH = new URL('./', document.baseURI).pathname;
+const urlSongId = document.querySelector('meta[name="song-id"]')?.content;
+if (urlSongId) {
+  const i = entries.findIndex((e) => e.id === urlSongId);
+  if (i >= 0) sel = i;
+}
+const songUrl = (e) => (e?.urlId ? `${location.origin}${ROOT_PATH}music/${e.urlId}/` : `${location.origin}${ROOT_PATH}`);
+// 選んだ曲に合わせてアドレスバーを曲ページのURLにする(共有しやすいように)
+function syncUrl(e) {
+  try {
+    const path = e?.urlId ? `${ROOT_PATH}music/${e.urlId}/` : ROOT_PATH;
+    if (location.pathname !== path) history.replaceState(null, '', path);
+    document.title = e?.urlId ? `${e.title}｜MUSIC LiDAR` : 'MUSIC LiDAR｜ブラウザで遊べる無料4キー音ゲー(リズムゲーム)';
+  } catch { /* file:// など */ }
+}
 let diff = DIFFS.includes(load('diff', 'normal')) ? load('diff', 'normal') : 'normal';
 
 // 起動後に全曲をバックグラウンドで順に合成しておく
@@ -289,6 +305,7 @@ function selectSong(i, force = false) {
   if (i === sel && !force) return;
   sel = i;
   save('sel', entries[i].local ? 0 : i);
+  syncUrl(entries[i]);
   for (const c of $('song-list').querySelectorAll('.song-card[data-i]')) c.classList.toggle('sel', +c.dataset.i === i);
   $('song-list').querySelector(`.song-card[data-i="${i}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
   renderDetail();
@@ -384,6 +401,24 @@ function loadRanking(force = false) {
 }
 $('btn-rank-reload').addEventListener('click', () => loadRanking(true));
 $('btn-play').addEventListener('click', () => startGame());
+// この曲のURLを共有
+$('btn-share').addEventListener('click', async () => {
+  const e = entries[sel];
+  if (!e.urlId) { toast('読み込んだ曲は共有できません'); return; }
+  const url = songUrl(e), text = `MUSIC LiDAR で「${e.title}」をプレイしよう!`;
+  try {
+    if (navigator.share && IS_TOUCH) { await navigator.share({ title: `${e.title}｜MUSIC LiDAR`, text, url }); return; }
+    await navigator.clipboard.writeText(url);
+    toast('この曲のURLをコピーしました: ' + url, 3500);
+  } catch (err) {
+    if (err?.name !== 'AbortError') prompt('この曲のURL', url);
+  }
+});
+// 曲ページで開いたときはタイトル画面に曲名を出す
+if (urlSongId && entries[sel]?.id === urlSongId) {
+  $('title-song').textContent = `♪ ${entries[sel].title}`;
+  $('title-song').hidden = false;
+}
 
 // --- 曲ファイル読み込み ---
 async function loadFile(file) {

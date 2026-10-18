@@ -27,3 +27,7 @@ assert (n1, n2, n3, n4) == (1, 1, 1, 1), (n1, n2, n3, n4)
 html_path.write_text(html, encoding='utf-8', newline='\n')
 (root / 'version.json').write_text(json.dumps({'v': v}) + '\n', encoding='utf-8', newline='\n')
 print('version', v, '/', len(js), 'modules')
+
+# 曲ごとのページ(music/<urlId>/)とサイトマップを作り直す
+import subprocess
+subprocess.run(['node', str(root / 'tools' / 'build-pages.mjs')], check=True)

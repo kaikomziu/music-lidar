@@ -18,6 +18,7 @@ const MEL_BREAK = 'D5 - - - - - - - | F5 - - - E5 - - - | G5 - - - - - - - | E5 
 
 export default {
   id: 'cloud-point',
+  urlId: 'az7t658wr', // 曲ページのURL (music/az7t658wr/)。公開後は変えない
   title: 'Cloud Point',
   artist: 'MUSIC LiDAR',
   genre: 'CHILL',

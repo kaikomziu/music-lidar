@@ -25,6 +25,7 @@ const FINAL =
 
 export default {
   id: 'freeze-frame',
+  urlId: 'h21dslg1j', // 曲ページのURL (music/h21dslg1j/)。公開後は変えない
   title: 'Freeze Frame',
   artist: 'MUSIC LiDAR',
   genre: 'GIMMICK',

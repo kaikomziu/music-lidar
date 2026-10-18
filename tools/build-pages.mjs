@@ -1,0 +1,58 @@
+// 曲ごとのページ music/<urlId>/index.html と sitemap.xml を作る(tools/release.py から呼ばれる)
+// - 中身は index.html と同じゲーム。<base href="../../"> で css/js/audio はルートを参照する
+// - タイトル・説明・共有画像(og)を曲ごとに差し替える。music/<urlId>/og.png があればそれを使う
+import fs from 'node:fs';
+import path from 'node:path';
+import { pathToFileURL, fileURLToPath } from 'node:url';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const SITE = 'https://kaikomziu.github.io/music-lidar/';
+const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+
+const songs = (await import(pathToFileURL(path.join(root, 'js/songs/index.js')).href)).default;
+const base = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+function setMeta(html, attr, key, value) {
+  const re = new RegExp(`(<meta ${attr}="${key}" content=")[^"]*(">)`);
+  if (!re.test(html)) throw new Error('meta not found: ' + key);
+  return html.replace(re, `$1${esc(value)}$2`);
+}
+
+const seen = new Set();
+const urls = [SITE, SITE + 'guide.html'];
+for (const s of songs) {
+  if (!s.urlId || !/^[a-z0-9]{6,16}$/.test(s.urlId)) throw new Error('urlId がない/不正: ' + s.id);
+  if (seen.has(s.urlId)) throw new Error('urlId が重複: ' + s.urlId);
+  seen.add(s.urlId);
+  const dir = path.join(root, 'music', s.urlId);
+  fs.mkdirSync(dir, { recursive: true });
+  const url = `${SITE}music/${s.urlId}/`;
+  const lv = s.levels;
+  const title = `${s.title}(${s.genre} / BPM ${Math.round(s.bpm)})｜MUSIC LiDAR 無料ブラウザ音ゲー`;
+  const desc = `「${s.title}」${s.artist && s.artist !== 'MUSIC LiDAR' ? `(${s.artist})` : ''}をブラウザで今すぐプレイ。` +
+    `EASY Lv${lv.easy} / NORMAL Lv${lv.normal} / HARD Lv${lv.hard}。MUSIC LiDAR はインストール不要・無料の4キー音ゲー(リズムゲーム)。PC・スマホ対応。` +
+    (s.credit ? ` ${s.credit}` : '');
+  const og = fs.existsSync(path.join(dir, 'og.png')) ? `${url}og.png` : `${SITE}og.png`;
+
+  let h = base.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n<base href="../../">');
+  h = h.replace(/<title>[^<]*<\/title>/, `<title>${esc(title)}</title>`);
+  h = setMeta(h, 'name', 'description', desc);
+  h = h.replace(/<link rel="canonical" href="[^"]*">/, `<link rel="canonical" href="${url}">`);
+  h = setMeta(h, 'property', 'og:title', title);
+  h = setMeta(h, 'property', 'og:description', desc);
+  h = setMeta(h, 'property', 'og:url', url);
+  h = setMeta(h, 'property', 'og:image', og);
+  h = setMeta(h, 'name', 'twitter:title', title);
+  h = setMeta(h, 'name', 'twitter:description', desc);
+  h = setMeta(h, 'name', 'twitter:image', og);
+  h = h.replace('<meta name="app-version"', `<meta name="song-id" content="${esc(s.id)}">\n<meta name="app-version"`);
+  h = h.replace(/<h1 class="title-lead">[^<]*<\/h1>/, `<h1 class="title-lead">「${esc(s.title)}」をプレイ ― 無料・インストール不要のブラウザ音ゲー</h1>`);
+  fs.writeFileSync(path.join(dir, 'index.html'), h);
+  urls.push(url);
+}
+
+fs.writeFileSync(path.join(root, 'sitemap.xml'),
+  '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+  urls.map((u) => `  <url><loc>${u}</loc><lastmod>${today}</lastmod></url>`).join('\n') + '\n</urlset>\n');
+console.log(`song pages: ${songs.length} / sitemap: ${urls.length} urls`);

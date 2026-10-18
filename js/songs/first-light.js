@@ -6,6 +6,7 @@ const MEL_B = 'C5 - D5 E5 | D5 - - - | C5 - D5 E5 | A4 - - - | F5 - E5 D5 | E5 -
 
 export default {
   id: 'first-light',
+  urlId: 'gqrdkmxno', // 曲ページのURL (music/gqrdkmxno/)。公開後は変えない
   title: 'First Light',
   artist: 'MUSIC LiDAR',
   genre: 'BEGINNER',

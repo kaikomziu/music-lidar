@@ -670,3 +670,9 @@ body.playing::after { display: none; }
 .title-noscript { position: absolute; bottom: 20px; left: 0; right: 0; text-align: center; color: var(--muted); }
 
 .rec-bias { font-family: var(--font-d); font-size: 11px; color: var(--muted); }
+
+/* 曲ページ・共有 */
+.share-btn { display: block; width: 100%; margin: -6px 0 12px; padding: 8px; border-radius: 4px; border: 1px dashed var(--panel-line); background: transparent; color: var(--muted); font-size: 12px; }
+.share-btn:hover { color: var(--accent); border-color: var(--accent); }
+.title-song { font-family: var(--font-d); font-weight: 700; font-size: 18px; color: #fff; margin: -26px 0 30px; text-shadow: 0 0 12px var(--cyan); animation: fadeUp 0.8s ease-out both 0.8s; }
+.title-song[hidden] { display: none; }

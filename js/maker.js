@@ -115,13 +115,13 @@ export async function openEditor(entry, opts = {}) {
   const d = opts.chart ? null : load('draft:' + entry.id, null);
   if (opts.chart) {
     const c = opts.chart;
-    Object.assign(ed, { notes: c.notes, gimmicks: c.gimmicks || [], title: c.title, level: c.level, chartId: c.id, bpm: entry.bpm, offset: 0 });
+    Object.assign(ed, { notes: c.notes, gimmicks: c.gimmicks || [], title: c.title, level: c.level, chartId: c.id, bpm: entry.bpm, offset: entry.offset || 0 });
   } else if (d) {
     Object.assign(ed, { notes: api.unpackNotes(d.notes || []), gimmicks: d.gimmicks || [], title: d.title || '', level: d.level || 5, chartId: d.chartId || null, bpm: d.bpm || entry.bpm, offset: d.offset || 0 });
   } else {
     Object.assign(ed, { notes: [], gimmicks: [], title: '', level: Math.min(15, entry.levels?.normal || 5), chartId: null, bpm: entry.bpm, offset: 0 });
   }
-  if (!entry.local) { ed.bpm = entry.bpm; ed.offset = 0; }
+  if (!entry.local) { ed.bpm = entry.bpm; ed.offset = entry.offset || 0; }
   ed.cur = 0;
   $('ed-song').innerHTML = ui.entries.map((e) => `<option value="${e.id}">${ui.esc(e.title)}${e.local ? '(読込曲・投稿不可)' : ''}</option>`).join('');
   $('ed-song').value = entry.id;

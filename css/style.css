@@ -657,3 +657,8 @@ body.playing::after { display: none; }
   .ld-body { gap: 14px; }
 }
 .ld-card { font-family: var(--font-b); letter-spacing: normal; color: var(--text); }
+
+.d-credit { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.d-credit a { color: var(--accent); }
+.d-credit:empty { display: none; }
+.tele.br { pointer-events: auto; }

@@ -21,3 +21,10 @@ ES modules を使うので http サーバー経由で開く:
 ```
 python -m http.server 8765
 ```
+
+## クレジット
+
+- 「シャイニングスター」 音楽: [魔王魂](https://maou.audio/)(フリー音楽素材。`audio/shining-star.mp3`)
+- そのほかの内蔵曲はブラウザ内でその場で合成しているオリジナル曲です。
+
+音源ファイルを使う曲は `js/songs/shining-star.js` のように `audio` / `bpm` / `offset` / `fixedCharts` を指定して追加できます。

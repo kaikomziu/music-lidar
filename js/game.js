@@ -108,8 +108,9 @@ export class PointCloud {
 
 // ---------------------------------------------------------------------------
 export class Game {
-  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd, team, scroll }) {
+  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd, team, scroll, offset }) {
     this.scroll = scroll || NO_SCROLL;
+    this.offset = offset || 0; // 1拍目の位置(秒)。拍線をそろえる
     this.nowS = 0;
     this.canvas = canvas;
     this.g = canvas.getContext('2d');
@@ -422,9 +423,9 @@ export class Game {
     }
     // 拍線
     const spb = 60 / this.bpm;
-    const firstBeat = Math.ceil(t / spb);
+    const firstBeat = Math.ceil((t - this.offset) / spb);
     for (let b = firstBeat; b < firstBeat + 400; b++) {
-      const z = this.zOf(b * spb);
+      const z = this.zOf(this.offset + b * spb);
       if (z > Z_FAR) break;
       const [x0, y] = this.proj(G, -2, z), [x1] = this.proj(G, 2, z);
       g.strokeStyle = `rgba(120,140,255,${(b % 4 === 0 ? 0.28 : 0.1) * Math.min(1, (Z_FAR - z) / 6)})`;

@@ -16,6 +16,7 @@ const ed = {
   playing: false, rec: false, undo: [], redo: [],
   src: null, playStartCur: 0, playStartCtx: 0, lastGuide: 0,
   placing: null, scrub: null, held: [null, null, null, null], raf: 0, gEdit: null,
+  recFix: 'music', recBias: 0,
 };
 
 const spb = () => 60 / ed.bpm;
@@ -23,6 +24,43 @@ const beatOf = (t) => (t - ed.offset) / spb();
 const timeOfBeat = (b) => ed.offset + b * spb();
 const snapT = (t) => Math.max(0, timeOfBeat(Math.round(beatOf(t) * ed.snap) / ed.snap));
 const stepT = () => spb() / ed.snap;
+
+// --- 録音のズレ補正 ---
+// 曲の音(onsets)の中で raw にいちばん近い時刻
+function nearestOnset(raw) {
+  const o = ed.entry?.onsets;
+  if (!o?.length) return null;
+  let lo = 0, hi = o.length - 1;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (o[m] < raw) lo = m + 1; else hi = m; }
+  let best = o[lo];
+  if (lo > 0 && Math.abs(o[lo - 1] - raw) < Math.abs(best - raw)) best = o[lo - 1];
+  return best;
+}
+const MUSIC_WIN = 0.075; // これより近い曲の音には吸着する
+// 押した時刻(クセを差し引いた後)→ 置く時刻
+function fixTime(t, mode = ed.recFix) {
+  if (mode === 'off') return Math.max(0, t);
+  if (mode === 'music') {
+    const o = nearestOnset(t);
+    if (o != null && Math.abs(o - t) <= MUSIC_WIN) return o;
+  }
+  return snapT(t);
+}
+// 押すタイミングのクセを学習(曲の音か拍との差の移動平均)
+function learnBias(raw) {
+  const o = nearestOnset(raw);
+  let target = o != null && Math.abs(o - raw) < 0.12 ? o : null;
+  if (target == null) { const g = snapT(raw); if (Math.abs(g - raw) < stepT() / 3) target = g; }
+  if (target == null) return;
+  const d = raw - target;
+  ed.recBias = Math.max(-0.15, Math.min(0.15, ed.recBias * 0.8 + d * 0.2));
+  save('edRecBias', ed.recBias);
+  showBias();
+}
+function showBias() {
+  const ms = Math.round(ed.recBias * 1000);
+  $('ed-bias').textContent = `クセ ${ms > 0 ? '+' : ms < 0 ? '−' : '±'}${Math.abs(ms)}ms${ms > 8 ? '(遅め)' : ms < -8 ? '(早め)' : ''}`;
+}
 const duration = () => ed.entry?.buffer?.duration || ed.entry?.duration || 120;
 
 // ---------------------------------------------------------------------------
@@ -68,6 +106,13 @@ export function initMaker(api_) {
   $('ed-offset').addEventListener('change', () => { ed.offset = +$('ed-offset').value || 0; changed(false); });
   $('ed-pos').addEventListener('input', () => { if (ed.playing) stopPlay(); ed.cur = (+$('ed-pos').value / 1000) * duration(); });
   $('ed-post').addEventListener('click', post);
+  ed.recFix = load('edRecFix', 'music');
+  ed.recBias = load('edRecBias', 0);
+  $('ed-recfix').value = ed.recFix;
+  showBias();
+  $('ed-recfix').addEventListener('change', () => { ed.recFix = $('ed-recfix').value; save('edRecFix', ed.recFix); });
+  $('ed-bias-reset').addEventListener('click', () => { ed.recBias = 0; save('edRecBias', 0); showBias(); ui.toast('押すクセの学習をリセットしました'); });
+  $('ed-fixall').addEventListener('click', fixAll);
 
   // ギミック編集パネル
   $('gp-type').addEventListener('change', syncGimmickForm);
@@ -251,8 +296,10 @@ function toggleRec(on = !ed.rec) {
 const playTime = (perf = performance.now()) => ed.playStartCur + Math.max(0, nowAudio(perf) - ed.playStartCtx);
 
 function recPress(lane, ev) {
-  const t = snapT(playTime(ev.timeStamp));
-  ed.held[lane] = { t, raw: playTime(ev.timeStamp) };
+  const raw = playTime(ev.timeStamp);
+  const t = fixTime(raw - ed.recBias);
+  learnBias(raw);
+  ed.held[lane] = { t, raw };
   ed.notes = ed.notes.filter((n) => !(n.lane === lane && Math.abs(n.t - t) < 0.001));
   ed.notes.push({ t, lane });
   playTap();
@@ -264,11 +311,35 @@ function recRelease(ev) {
   const h = ed.held[lane];
   ed.held[lane] = null;
   if (!ed.playing) return;
-  const end = snapT(playTime(ev.timeStamp));
-  if (playTime(ev.timeStamp) - h.raw > 0.25 && end > h.t) {
+  const rawEnd = playTime(ev.timeStamp);
+  const end = ed.recFix === 'off' ? rawEnd - ed.recBias : snapT(rawEnd - ed.recBias);
+  if (rawEnd - h.raw > 0.25 && end > h.t) {
     const n = ed.notes.find((x) => x.lane === lane && Math.abs(x.t - h.t) < 0.001);
     if (n) { n.end = end; changed(); }
   }
+}
+
+// 置いてあるノーツ全部をまとめて補正
+function fixAll() {
+  if (!ed.notes.length) { ui.toast('補正するノーツがありません'); return; }
+  const mode = ed.recFix === 'off' ? 'music' : ed.recFix;
+  pushUndo();
+  let moved = 0;
+  const seen = new Set(), out = [];
+  for (const n of ed.notes) {
+    const t = fixTime(n.t, mode);
+    if (Math.abs(t - n.t) > 0.0005) moved++;
+    const key = n.lane + ':' + Math.round(t * 1000);
+    if (seen.has(key)) continue; // 補正で重なったものは1つに
+    seen.add(key);
+    const m = { t, lane: n.lane };
+    if (n.end) { const e = snapT(n.end); if (e > t) m.end = e; }
+    out.push(m);
+  }
+  const merged = ed.notes.length - out.length;
+  ed.notes = out;
+  changed();
+  ui.toast(`${moved}個のノーツを${mode === 'music' ? '曲の音' : '拍'}に合わせました${merged ? `(重なった${merged}個はまとめました)` : ''}。元に戻すで戻せます`, 4000);
 }
 
 // ---------------------------------------------------------------------------
@@ -696,3 +767,6 @@ async function onChartAction(ev) {
     b.disabled = false;
   }
 }
+
+// デバッグ・検証用(読み取りのみ)
+export const editorDebug = () => ({ notes: ed.notes, recBias: ed.recBias, recFix: ed.recFix, playing: ed.playing, rec: ed.rec, now: ed.playing ? playTime() : ed.cur, onsets: ed.entry?.onsets });

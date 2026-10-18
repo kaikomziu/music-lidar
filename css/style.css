@@ -668,3 +668,5 @@ body.playing::after { display: none; }
 .title-links { margin: 0; font-size: 12px; animation: fadeUp 0.8s ease-out both 1.3s; }
 .title-links a { color: var(--cyan); }
 .title-noscript { position: absolute; bottom: 20px; left: 0; right: 0; text-align: center; color: var(--muted); }
+
+.rec-bias { font-family: var(--font-d); font-size: 11px; color: var(--muted); }

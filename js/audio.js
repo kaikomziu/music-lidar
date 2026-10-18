@@ -142,6 +142,15 @@ function send(S, node, amt) {
   node.connect(g); g.connect(S.verb);
 }
 
+// パルス波(8bit音源用)。duty=0.125/0.25/0.5 など
+function pulseWave(S, duty) {
+  const key = 'pw' + duty;
+  if (S[key]) return S[key];
+  const N = 48, re = new Float32Array(N), im = new Float32Array(N);
+  for (let n = 1; n < N; n++) re[n] = (2 / (n * Math.PI)) * Math.sin(n * Math.PI * duty);
+  return (S[key] = S.oc.createPeriodicWave(re, im));
+}
+
 function distCurve(k) {
   const c = new Float32Array(1024);
   for (let i = 0; i < 1024; i++) { const x = (i / 1023) * 2 - 1; c[i] = ((1 + k) * x) / (1 + k * Math.abs(x)); }
@@ -162,6 +171,147 @@ const VOICES = {
     const lp = filt(oc, 'lowpass', 3200, 0.7);
     const g = env(oc, t, 0.5 * e.vel, 0.002, 0.06, 0.2);
     o.connect(pre); pre.connect(ws); ws.connect(lp); lp.connect(g); g.connect(S.drums);
+  },
+
+  // ---- ここから「いろんなジャンル」用の音色 ----
+  // 8bit: パルス波(duty で音色が変わる)
+  chip(S, e) {
+    const { oc } = S, t = e.t, end = t + e.dur + 0.05;
+    const o = oc.createOscillator();
+    o.setPeriodicWave(pulseWave(S, e.duty || 0.25));
+    o.frequency.value = mtof(e.midi);
+    o.start(t); o.stop(end);
+    const g = env(oc, t, 0.075 * e.vel, 0.002, Math.max(0, e.dur * 0.92 - 0.002), 0.03);
+    o.connect(g); g.connect(S.music); send(S, g, 0.08);
+  },
+  chipbass(S, e) {
+    const { oc } = S, t = e.t, end = t + e.dur + 0.04;
+    const o = osc(oc, 'triangle', mtof(e.midi), t, end);
+    const g = env(oc, t, 0.32 * e.vel, 0.002, Math.max(0, e.dur * 0.9), 0.02);
+    o.connect(g); g.connect(S.music);
+  },
+  chipkick(S, e) {
+    const { oc } = S, t = e.t;
+    const o = osc(oc, 'triangle', 180, t, t + 0.25);
+    o.frequency.setValueAtTime(190, t);
+    o.frequency.exponentialRampToValueAtTime(45, t + 0.09);
+    const g = env(oc, t, 0.7 * e.vel, 0.001, 0.02, 0.15);
+    o.connect(g); g.connect(S.drums);
+  },
+  chipsnare(S, e) {
+    const { oc } = S, t = e.t;
+    const n = noise(S, t, 0.2), f = filt(oc, 'bandpass', 3200, 0.5), g = env(oc, t, 0.32 * e.vel, 0.001, 0.01, 0.12);
+    n.connect(f); f.connect(g); g.connect(S.drums);
+    const o = oc.createOscillator();
+    o.setPeriodicWave(pulseWave(S, 0.5)); o.frequency.value = 220; o.start(t); o.stop(t + 0.08);
+    const g2 = env(oc, t, 0.08 * e.vel, 0.001, 0, 0.05);
+    o.connect(g2); g2.connect(S.drums);
+  },
+  chiphat(S, e) {
+    const { oc } = S, t = e.t;
+    const n = noise(S, t, 0.05), f = filt(oc, 'highpass', 9000), g = env(oc, t, 0.14 * e.vel, 0.001, 0, 0.03);
+    n.connect(f); f.connect(g); g.connect(S.drums);
+  },
+  // エレピ(ジャズ・ファンク)
+  keys(S, e) {
+    const { oc } = S, t = e.t, f0 = mtof(e.midi);
+    const len = Math.max(0.5, e.dur + 0.6);
+    [[1, 0.13, 1], [2, 0.04, 0.6], [3, 0.012, 0.35], [7, 0.01, 0.04]].forEach(([r, a, dm]) => {
+      const o = osc(oc, 'sine', f0 * r, t, t + len + 0.1);
+      const g = env(oc, t, a * e.vel, 0.004, 0, len * dm);
+      o.connect(g); g.connect(S.music); send(S, g, 0.25);
+    });
+  },
+  upright(S, e) {
+    const { oc } = S, t = e.t, f0 = mtof(e.midi), end = t + e.dur + 0.2;
+    const lp = filt(oc, 'lowpass', 900, 0.8);
+    const g = oc.createGain();
+    const v = 0.42 * e.vel;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(v, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(v * 0.45, t + 0.18);
+    g.gain.setValueAtTime(v * 0.45, t + Math.max(0.2, e.dur));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(0.2, e.dur) + 0.12);
+    osc(oc, 'sine', f0, t, end).connect(lp);
+    const o2 = osc(oc, 'triangle', f0 * 2, t, end), g2 = oc.createGain();
+    g2.gain.value = 0.25; o2.connect(g2); g2.connect(lp);
+    lp.connect(g); g.connect(S.music);
+  },
+  // トランスのスーパーソウ
+  supersaw(S, e) {
+    const { oc } = S, t = e.t, f0 = mtof(e.midi), end = t + e.dur + 0.4;
+    const lp = filt(oc, 'lowpass', 5200, 0.7);
+    const g = env(oc, t, 0.05 * e.vel, 0.012, Math.max(0, e.dur - 0.02), 0.28);
+    for (const d of [-26, -15, -7, 0, 7, 15, 26]) osc(oc, 'sawtooth', f0, t, end, d).connect(lp);
+    lp.connect(g); g.connect(S.music); send(S, g, 0.45);
+  },
+  // 歪んだギターのコード(パワーコード)。dur が短いとブリッジミュート
+  guitar(S, e) {
+    const { oc } = S, t = e.t, end = t + e.dur + 0.15;
+    const pre = oc.createGain(); pre.gain.value = 2.5;
+    const ws = oc.createWaveShaper(); ws.curve = S.dist60 || (S.dist60 = distCurve(60));
+    const lp = filt(oc, 'lowpass', e.dur < 0.2 ? 1300 : 3300, 1);
+    const hp = filt(oc, 'highpass', 90, 0.7);
+    const g = env(oc, t, 0.11 * e.vel, 0.003, Math.max(0, e.dur - 0.03), e.dur < 0.2 ? 0.05 : 0.12);
+    for (const m of e.midis) {
+      osc(oc, 'sawtooth', mtof(m), t, end, -7).connect(pre);
+      osc(oc, 'sawtooth', mtof(m), t, end, 7).connect(pre);
+    }
+    pre.connect(ws); ws.connect(hp); hp.connect(lp); lp.connect(g); g.connect(S.music); send(S, g, 0.15);
+  },
+  gtrlead(S, e) {
+    const { oc } = S, t = e.t, f0 = mtof(e.midi), end = t + e.dur + 0.2;
+    const pre = oc.createGain(); pre.gain.value = 3;
+    const ws = oc.createWaveShaper(); ws.curve = S.dist60 || (S.dist60 = distCurve(60));
+    const lp = filt(oc, 'lowpass', 4200, 1.2);
+    const g = env(oc, t, 0.075 * e.vel, 0.005, Math.max(0, e.dur - 0.03), 0.15);
+    const o1 = osc(oc, 'sawtooth', f0, t, end), o2 = osc(oc, 'square', f0, t, end, 5);
+    if (e.dur > 0.3) { // 伸ばす音にビブラート
+      const lfo = osc(oc, 'sine', 5.5, t + 0.2, end), lg = oc.createGain();
+      lg.gain.value = 18; lfo.connect(lg); lg.connect(o1.detune); lg.connect(o2.detune);
+    }
+    o1.connect(pre); o2.connect(pre); pre.connect(ws); ws.connect(lp); lp.connect(g); g.connect(S.music); send(S, g, 0.3);
+  },
+  // ファンク: スラップベースとクラビネット
+  slap(S, e) {
+    const { oc } = S, t = e.t, f0 = mtof(e.midi), end = t + e.dur + 0.1;
+    const lp = filt(oc, 'lowpass', 3000, 6);
+    lp.frequency.setValueAtTime(3200, t);
+    lp.frequency.exponentialRampToValueAtTime(320, t + 0.09);
+    const hold = Math.min(e.dur, 0.14);
+    const g = env(oc, t, 0.32 * e.vel, 0.002, hold, 0.08);
+    osc(oc, 'sawtooth', f0, t, end).connect(lp);
+    lp.connect(g); g.connect(S.music);
+    const sub = osc(oc, 'sine', f0, t, end), g2 = env(oc, t, 0.3 * e.vel, 0.002, hold, 0.08);
+    sub.connect(g2); g2.connect(S.music);
+  },
+  clav(S, e) {
+    const { oc } = S, t = e.t, f0 = mtof(e.midi), end = t + e.dur + 0.05;
+    const hp = filt(oc, 'highpass', 400, 0.7), lp = filt(oc, 'lowpass', 4000, 3);
+    lp.frequency.setValueAtTime(4500, t);
+    lp.frequency.exponentialRampToValueAtTime(1400, t + 0.06);
+    const g = env(oc, t, 0.075 * e.vel, 0.001, Math.max(0, e.dur * 0.6), 0.03);
+    const o = oc.createOscillator();
+    o.setPeriodicWave(pulseWave(S, 0.2)); o.frequency.value = f0; o.start(t); o.stop(end);
+    o.connect(hp); hp.connect(lp); lp.connect(g); g.connect(S.music); send(S, g, 0.12);
+  },
+  // ダブステップのワブルベース。e.lfo = 揺れの速さ(Hz)
+  wobble(S, e) {
+    const { oc } = S, t = e.t, f0 = mtof(e.midi), end = t + e.dur + 0.1;
+    const lp = filt(oc, 'lowpass', 300, 9);
+    const lfo = osc(oc, 'sine', e.lfo || 4, t, end), depth = oc.createGain();
+    depth.gain.value = 1500;
+    lfo.connect(depth); depth.connect(lp.frequency);
+    lp.frequency.setValueAtTime(1600, t);
+    const pre = oc.createGain(); pre.gain.value = 1.8;
+    const ws = oc.createWaveShaper(); ws.curve = S.dist60 || (S.dist60 = distCurve(60));
+    const g = env(oc, t, 0.13 * e.vel, 0.005, Math.max(0, e.dur - 0.03), 0.06);
+    osc(oc, 'sawtooth', f0, t, end, -10).connect(lp);
+    osc(oc, 'sawtooth', f0, t, end, 10).connect(lp);
+    osc(oc, 'square', f0 / 2, t, end).connect(lp);
+    lp.connect(pre); pre.connect(ws); ws.connect(g); g.connect(S.music);
+    const sub = osc(oc, 'sine', f0 / 2, t, end), g2 = env(oc, t, 0.34 * e.vel, 0.005, Math.max(0, e.dur - 0.03), 0.06);
+    sub.connect(g2); g2.connect(S.music);
   },
   kick(S, e) {
     const { oc } = S, t = e.t;
@@ -326,7 +476,7 @@ function workerCount() {
 }
 
 // ドラムは毎回ノードを組むと重いので、1音ずつ先に録っておいてサンプルとして鳴らす
-const DRUM_LEN = { kick: 0.45, hardkick: 0.4, snare: 0.25, clap: 0.26, hat: 0.07, ohat: 0.34, ride: 0.5, crash: 1.8 };
+const DRUM_LEN = { kick: 0.45, hardkick: 0.4, snare: 0.25, clap: 0.26, hat: 0.07, ohat: 0.34, ride: 0.5, crash: 1.8, chipkick: 0.26, chipsnare: 0.2, chiphat: 0.05 };
 const DRUM_SEND = { snare: 0.25, clap: 0.3, crash: 0.4 };
 let drumSamples = null;
 async function prepareDrums() {

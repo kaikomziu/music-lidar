@@ -37,10 +37,11 @@ function fileSongEntry(def) {
     charts[d] = dropNotesInStops(unpack(def.fixedCharts[d]), scroll.stops);
     stats[d] = chartStats(charts[d]);
   }
+  const onsets = onsetList(DIFFS.flatMap((d) => charts[d].map((n) => n.t)));
   return {
     id: def.id, title: def.title, artist: def.artist, genre: def.genre, bpm: def.bpm, offset: def.offset || 0, color: def.color,
     levels: def.levels, charts, stats, local: false, duration: def.duration, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [],
-    previewAt: def.previewAt ?? def.duration * 0.3, credit: def.credit, creditUrl: def.creditUrl,
+    previewAt: def.previewAt ?? def.duration * 0.3, credit: def.credit, creditUrl: def.creditUrl, onsets,
     buffer: null, rendering: null,
     load() {
       if (this.buffer) return Promise.resolve(this.buffer);
@@ -76,10 +77,19 @@ function fileSongEntry(def) {
   };
 }
 
+// 譜面メーカーの録音補正用: 音が鳴る時刻の一覧(昇順・近いものはまとめる)
+function onsetList(times) {
+  const s = [...times].sort((a, b) => a - b), out = [];
+  for (const t of s) if (!out.length || t - out[out.length - 1] > 0.012) out.push(t);
+  return out;
+}
+const NOT_ONSET = new Set(['pad', 'riser', 'downer']);
+
 const entries = SONGS.map((def) => {
   if (def.audio) return fileSongEntry(def);
   const { events, duration } = composeSong(def);
   const cands = candidatesFromEvents(events);
+  const onsets = onsetList(events.filter((e) => !NOT_ONSET.has(e.type)).map((e) => e.t));
   const scroll = buildScroll(def.gimmicks, def.bpm);
   const charts = {}, stats = {};
   for (const d of DIFFS) {
@@ -89,7 +99,7 @@ const entries = SONGS.map((def) => {
   return {
     id: def.id, title: def.title, artist: def.artist, genre: def.genre, bpm: def.bpm, color: def.color,
     levels: def.levels, charts, stats, local: false, duration, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [],
-    previewAt: (def.preview ?? 32) * 60 / def.bpm,
+    previewAt: (def.preview ?? 32) * 60 / def.bpm, onsets,
     buffer: null, rendering: null,
     load() {
       if (this.buffer) return Promise.resolve(this.buffer);
@@ -397,7 +407,7 @@ async function loadFile(file) {
     }
     const title = file.name.replace(/\.[^.]+$/, '');
     entries.push({
-      id, title, artist: 'LOCAL FILE', genre: 'IMPORT', bpm, color: '#ffd25e', levels, charts, stats, local: true,
+      id, title, artist: 'LOCAL FILE', genre: 'IMPORT', bpm, color: '#ffd25e', levels, charts, stats, local: true, onsets: onsetList(cands.map((c) => c.t)),
       duration: buffer.duration, previewAt: buffer.duration * 0.35, buffer, load() { return Promise.resolve(buffer); },
     });
     renderList();

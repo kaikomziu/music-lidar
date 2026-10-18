@@ -113,7 +113,15 @@ let sel = Math.max(0, Math.min(entries.length - 1, load('sel', 0)));
 // 曲ページ(music/<urlId>/)から来たらその曲を選んだ状態で始める
 const ROOT_PATH = new URL('./', document.baseURI).pathname;
 const urlSongId = document.querySelector('meta[name="song-id"]')?.content;
-if (urlSongId) {
+// ログインしていない人が曲URLを開いたときは、普通のトップ(タイトル画面・トップURL)として扱う
+const openedBySongUrl = !!urlSongId && !!load('token', null);
+if (urlSongId && !openedBySongUrl) {
+  try {
+    history.replaceState(null, '', ROOT_PATH + location.search.replace(/([?&])v=[^&]*&?/, '$1').replace(/[?&]$/, '') + location.hash);
+    document.title = 'MUSIC LiDAR｜ブラウザで遊べる無料4キー音ゲー(リズムゲーム)';
+  } catch { /* file:// など */ }
+}
+if (openedBySongUrl) {
   const i = entries.findIndex((e) => e.id === urlSongId);
   if (i >= 0) sel = i;
 }
@@ -415,7 +423,7 @@ $('btn-share').addEventListener('click', async () => {
   }
 });
 // 曲ページで開いたときはタイトル画面に曲名を出す
-if (urlSongId && entries[sel]?.id === urlSongId) {
+if (openedBySongUrl && entries[sel]?.id === urlSongId) {
   $('title-song').textContent = `♪ ${entries[sel].title}`;
   $('title-song').hidden = false;
 }

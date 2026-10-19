@@ -749,3 +749,21 @@ body.playing::after { display: none; }
   .chart-row { grid-template-columns: auto auto 1fr; }
   .cr-jacket { width: 44px; height: 44px; }
 }
+
+/* バージョン・更新履歴 */
+.ver-chip { position: relative; font-family: var(--font-d); font-size: 11px; letter-spacing: 0.06em; color: var(--muted); }
+.ver-new { position: absolute; top: -7px; right: -8px; font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 3px; background: #ff4f6e; color: #fff; letter-spacing: 0.05em; animation: blink 1.2s steps(2) infinite; }
+.ver-new[hidden] { display: none; }
+.title-ver { font-family: var(--font-d); font-size: 10px; color: rgba(160, 180, 230, 0.6); margin-left: 4px; }
+.changelog-box { width: min(620px, 100%); }
+.changelog-box h2 { margin-top: 4px; }
+.cl-list { list-style: none; padding: 0; margin: 8px 0 0; max-height: min(62vh, 560px); overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.cl-item { position: relative; padding: 10px 12px 10px 16px; border-left: 2px solid var(--panel-line); background: rgba(0, 0, 0, 0.25); border-radius: 0 4px 4px 0; }
+.cl-item.latest { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, rgba(0, 0, 0, 0.25)); }
+.cl-item.unseen::after { content: 'NEW'; position: absolute; top: 10px; right: 10px; font-family: var(--font-d); font-size: 9px; font-weight: 800; color: #ff8a9a; }
+.cl-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+.cl-ver { font-family: var(--font-d); font-weight: 800; font-size: 15px; color: #fff; }
+.cl-item.latest .cl-ver { color: var(--accent); text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 60%, transparent); }
+.cl-date { font-family: var(--font-d); font-size: 11px; color: var(--muted); }
+.cl-tag { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 3px; border: 1px solid var(--accent); color: var(--accent); }
+.cl-item ul { margin: 0; padding-left: 1.2em; font-size: 13px; line-height: 1.7; }

@@ -6,6 +6,7 @@ import { showLoading, hideLoading } from './loading.js';
 import { analyzeFile, hashFile } from './analyzer.js';
 import { buildScroll, dropNotesInStops, gimmickLabel } from './gimmick.js';
 import { jacketURL, clearJackets } from './jacket.js';
+import { CHANGELOG, VERSION } from './changelog.js';
 import { Game, PointCloud, KEYS, DIFF_COLOR, visibleTime, IS_TOUCH, FX_LEVELS } from './game.js';
 import { load, save, getSettings, setSettings, DEFAULT_SETTINGS, clientId, getBest, recordBest } from './storage.js';
 import { fetchRanking, submitScore } from './ranking.js';
@@ -185,6 +186,7 @@ const SCREEN_URL = {
   result: ['result/', 'リザルト'],
   settings: ['settings/', '設定'],
   account: ['account/', 'アカウント'],
+  changelog: ['changelog/', '更新履歴'],
 };
 function setScreenUrl(key) {
   const su = SCREEN_URL[key];
@@ -209,11 +211,11 @@ function show(name) {
   if (name !== 'game') setScreenUrl(name);
 }
 // 設定・アカウントのパネルを開いている間はそのURL、閉じたら元の画面のURLに戻す
-for (const [id, key] of [['settings', 'settings'], ['account-modal', 'account']]) {
+for (const [id, key] of [['settings', 'settings'], ['account-modal', 'account'], ['changelog', 'changelog']]) {
   new MutationObserver(() => {
     if (state === 'title') return;
     if ($(id).classList.contains('on')) setScreenUrl(key);
-    else if (!document.querySelector('#settings.on, #account-modal.on')) setScreenUrl(state);
+    else if (!document.querySelector('#settings.on, #account-modal.on, #changelog.on')) setScreenUrl(state);
   }).observe($(id), { attributes: true, attributeFilter: ['class'] });
 }
 
@@ -242,10 +244,31 @@ function enterFromTitle(opts = {}) {
 }
 $('btn-start').addEventListener('click', () => enterFromTitle());
 
+// ---------------------------------------------------------------------------
+// バージョン表記・更新履歴
+// ---------------------------------------------------------------------------
+$('ver-label').textContent = 'v' + VERSION;
+$('title-ver').textContent = 'v' + VERSION;
+$('ver-new').hidden = load('seenVersion', null) === VERSION;
+function openChangelog() {
+  const seen = load('seenVersion', null);
+  const seenIdx = CHANGELOG.findIndex((c) => c.version === seen);
+  $('cl-current').textContent = 'CURRENT v' + VERSION;
+  $('cl-list').innerHTML = CHANGELOG.map((c, i) => `<li class="cl-item ${i === 0 ? 'latest' : ''} ${seen && (seenIdx < 0 || i < seenIdx) ? 'unseen' : ''}">
+    <div class="cl-head"><span class="cl-ver">v${c.version}</span><span class="cl-date">${c.date}</span>${i === 0 ? '<span class="cl-tag">最新</span>' : ''}</div>
+    <ul>${c.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul></li>`).join('');
+  overlay('changelog', true);
+  save('seenVersion', VERSION);
+  $('ver-new').hidden = true;
+}
+$('btn-version').addEventListener('click', openChangelog);
+$('btn-cl-close').addEventListener('click', () => overlay('changelog', false));
+$('title-changelog').addEventListener('click', (ev) => { ev.preventDefault(); enterFromTitle({ quiet: true }); openChangelog(); });
+
 // タイトルのブートログ(飾り)
 (function bootLog() {
   const v = document.querySelector('meta[name="app-version"]')?.content || 'dev';
-  $('tt-ver').textContent = 'BUILD ' + v;
+  $('tt-ver').textContent = `VER ${VERSION} / BUILD ${v}`;
   const lines = ['INIT AUDIO ENGINE', `LOAD ${entries.length} TRACKS`, 'CALIBRATE LIDAR ARRAY', 'SYNC CLOCK', 'READY'];
   const el = $('tt-boot');
   let i = 0;
@@ -767,6 +790,7 @@ canvas.addEventListener('touchcancel', touchEnd);
 function closeModals() {
   if ($('settings').classList.contains('on')) closeSettings();
   overlay('account-modal', false);
+  overlay('changelog', false);
 }
 function backToSelect() {
   show('select');
@@ -800,6 +824,7 @@ const accReady = acc.init();
   else if (screen === 'charts') openCharts();
   else if (screen === 'settings') openSettings();
   else if (screen === 'account') openAccount();
+  else if (screen === 'changelog') openChangelog();
   else if (needLogin) {
     await accReady;
     if (acc.isLoggedIn()) openMetaScreen(screen);

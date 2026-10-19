@@ -108,7 +108,10 @@ export class PointCloud {
 
 // ---------------------------------------------------------------------------
 export class Game {
-  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd, team, scroll, offset }) {
+  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd, team, scroll, offset, jacket, label }) {
+    this.label = label || String(diff || '').toUpperCase();
+    if (jacket) { this.jacketImg = new Image(); this.jacketImg.src = jacket; }
+    this.introAt = performance.now();
     this.scroll = scroll || NO_SCROLL;
     this.offset = offset || 0; // 1拍目の位置(秒)。拍線をそろえる
     this.nowS = 0;
@@ -140,7 +143,7 @@ export class Game {
     this.tSum = 0; this.tCombo = 0; this.tMaxCombo = 0;
     this.pressed = [false, false, false, false];
     this.pressT = [-9, -9, -9, -9];
-    this.fx = { lasers: [], scans: [], parts: [], judge: null, comboPop: 0 };
+    this.fx = { lasers: [], scans: [], parts: [], judge: null, comboPop: 0, flash: [-1e9, -1e9, -1e9, -1e9], finishAt: 0 };
     this.paused = false;
     this.ended = false;
     this.v = settings.hs * 4.4;
@@ -151,6 +154,7 @@ export class Game {
   // startFrom: 曲の途中から始める(譜面メーカーのテストプレイ用)。ノーツは呼び出し側で絞っておく
   start(startFrom = 0) {
     const ctx = getCtx();
+    this.introAt = performance.now();
     const first = this.notes.length ? this.notes[0].t - startFrom : 2;
     this.leadIn = Math.max(1.6, this.T + 0.6 - first);
     this.src = ctx.createBufferSource();
@@ -265,6 +269,7 @@ export class Game {
       if (d < 0) { this.fast++; tag = 'FAST'; } else { this.slow++; tag = 'SLOW'; }
     }
     this.fx.judge = { res, tag, at: performance.now() };
+    if (this.judged === this.total && this.total > 0 && !this.fx.finishAt) this.fx.finishAt = performance.now();
     if (res !== 'MISS') this.spawnHit(lane, res);
   }
 
@@ -356,6 +361,7 @@ export class Game {
 
   spawnHit(lane, res) {
     const now = performance.now();
+    this.fx.flash[lane] = now;
     const F = this.F;
     const beam = !!this.settings.hitBeam;
     if (beam && F.laser > 0) this.fx.lasers.push({ lane, at: now, res });
@@ -393,12 +399,22 @@ export class Game {
     const energy = (0.35 + Math.min(1, this.tCombo / 60) * 0.65) * F.pulse;
     this.cloud.draw(g, W, H, Math.max(0, t), this.bpm, energy, this.color, F.cloud);
 
-    // レーン床
+    // レーン床(始まりは奥へ伸びていく)
     const zNear = Z_J * 0.82;
+    const intro = Math.min(1, (perfNow - this.introAt) / 750);
+    const zLim = zNear + (Z_FAR - zNear) * (1 - Math.pow(1 - intro, 3));
     g.save();
-    this.quad(G, -2.06, 2.06, zNear, Z_FAR);
-    g.fillStyle = 'rgba(3,6,18,0.93)';
+    this.quad(G, -2.06, 2.06, zNear, zLim);
+    const [, fy0] = this.proj(G, 0, zNear), [, fy1] = this.proj(G, 0, zLim);
+    const floorGr = g.createLinearGradient(0, fy0, 0, fy1);
+    floorGr.addColorStop(0, 'rgba(8,12,32,0.95)'); floorGr.addColorStop(1, 'rgba(3,5,16,0.9)');
+    g.fillStyle = floorGr;
     g.fill();
+    for (let l = 1; l < 4; l += 2) { // 1本おきに少しだけ明るく
+      this.quad(G, l - 2, l - 1, zNear, zLim);
+      g.fillStyle = 'rgba(120,140,255,0.025)';
+      g.fill();
+    }
     for (let l = 0; l < 4; l++) {
       const u0 = l - 2, u1 = u0 + 1;
       if (this.pressed[l]) {
@@ -413,7 +429,7 @@ export class Game {
     g.globalCompositeOperation = 'lighter';
     for (let i = 0; i <= 4; i++) {
       const u = i - 2;
-      const [x0, y0] = this.proj(G, u, zNear), [x1, y1] = this.proj(G, u, Z_FAR);
+      const [x0, y0] = this.proj(G, u, zNear), [x1, y1] = this.proj(G, u, zLim);
       const gr = g.createLinearGradient(x0, y0, x1, y1);
       const edge = i === 0 || i === 4;
       gr.addColorStop(0, edge ? 'rgba(94,242,255,0.9)' : 'rgba(150,170,255,0.35)');
@@ -421,12 +437,25 @@ export class Game {
       g.strokeStyle = gr; g.lineWidth = edge ? 2.2 : 1;
       g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
     }
-    // 拍線
+    // 両脇のレール: 流れる速さに合わせて手前へ流れる目印
     const spb = 60 / this.bpm;
+    const railStart = Math.ceil((t - this.offset) / (spb / 2));
+    for (let k = railStart; k < railStart + 200; k++) {
+      const z = this.zOf(this.offset + k * spb / 2);
+      if (z > zLim) break;
+      if (z < zNear) continue;
+      const a = 0.5 * Math.min(1, (zLim - z) / 6) * (k % 2 ? 0.5 : 1);
+      for (const [ua, ub] of [[-2.32, -2.16], [2.16, 2.32]]) {
+        this.quad(G, ua, ub, z, z + 0.45);
+        g.fillStyle = `rgba(94,242,255,${a})`;
+        g.fill();
+      }
+    }
+    // 拍線
     const firstBeat = Math.ceil((t - this.offset) / spb);
     for (let b = firstBeat; b < firstBeat + 400; b++) {
       const z = this.zOf(this.offset + b * spb);
-      if (z > Z_FAR) break;
+      if (z > zLim) break;
       const [x0, y] = this.proj(G, -2, z), [x1] = this.proj(G, 2, z);
       g.strokeStyle = `rgba(120,140,255,${(b % 4 === 0 ? 0.28 : 0.1) * Math.min(1, (Z_FAR - z) / 6)})`;
       g.lineWidth = 1;
@@ -492,24 +521,41 @@ export class Game {
       g.restore();
     }
 
-    // 判定ライン
+    // 判定ラインの下のキー(押すと光る)
     g.save();
+    for (let l = 0; l < 4; l++) {
+      const c = LANE_COLORS[l], on = this.pressed[l];
+      const flash = Math.max(0, 1 - (perfNow - this.fx.flash[l]) / 160);
+      this.quad(G, l - 2 + 0.06, l - 1 - 0.06, Z_J * 0.915, Z_J * 0.985);
+      const [, ky0] = this.proj(G, 0, Z_J * 0.915), [, ky1] = this.proj(G, 0, Z_J * 0.985);
+      const kg = g.createLinearGradient(0, ky1, 0, ky0);
+      if (on) { kg.addColorStop(0, hexA(c, 0.95)); kg.addColorStop(1, hexA(c, 0.45)); }
+      else { kg.addColorStop(0, 'rgba(30,40,80,0.9)'); kg.addColorStop(1, 'rgba(10,14,34,0.9)'); }
+      g.fillStyle = kg; g.fill();
+      g.strokeStyle = hexA(c, on ? 1 : 0.45); g.lineWidth = 1.2; g.stroke();
+      if (flash > 0) { g.fillStyle = `rgba(255,255,255,${flash * 0.7})`; g.fill(); }
+      if (!IS_TOUCH) {
+        const [kx0] = this.proj(G, l - 2, Z_J * 0.95), [kx1] = this.proj(G, l - 1, Z_J * 0.95);
+        g.font = `700 ${Math.round(G.laneW * 0.15)}px "Orbitron", sans-serif`;
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillStyle = on ? '#fff' : 'rgba(170,190,255,0.5)';
+        g.fillText(KEY_LABELS[l], (kx0 + kx1) / 2, (ky0 + ky1) / 2);
+      }
+    }
+    // 判定ライン(光が左右に走る)
     g.globalCompositeOperation = 'lighter';
     const [jx0, jy] = this.proj(G, -2.06, Z_J), [jx1] = this.proj(G, 2.06, Z_J);
     g.shadowColor = '#7ff9ff'; g.shadowBlur = F.judgeGlow;
     g.strokeStyle = 'rgba(220,255,255,0.95)'; g.lineWidth = 3;
     g.beginPath(); g.moveTo(jx0, jy); g.lineTo(jx1, jy); g.stroke();
     g.shadowBlur = 0;
-    for (let l = 0; l < 4; l++) {
-      const [x0, y0] = this.proj(G, l - 2 + 0.08, Z_J), [x1] = this.proj(G, l - 1 - 0.08, Z_J);
-      g.fillStyle = this.pressed[l] ? hexA(LANE_COLORS[l], 0.9) : 'rgba(140,160,255,0.18)';
-      g.fillRect(x0, y0 + 6, x1 - x0, 5);
-      if (IS_TOUCH) continue;
-      g.font = `600 ${Math.round(G.laneW * 0.16)}px "Orbitron", sans-serif`;
-      g.textAlign = 'center';
-      g.fillStyle = this.pressed[l] ? '#fff' : 'rgba(170,190,255,0.35)';
-      g.fillText(KEY_LABELS[l], (x0 + x1) / 2, y0 + 32);
-    }
+    g.strokeStyle = 'rgba(94,242,255,0.35)'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(jx0, jy - 5); g.lineTo(jx1, jy - 5); g.stroke();
+    const sx = jx0 + (jx1 - jx0) * ((perfNow / 1700) % 1);
+    const sh = g.createLinearGradient(sx - 60, 0, sx + 60, 0);
+    sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(0.5, 'rgba(255,255,255,0.9)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
+    g.strokeStyle = sh; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(Math.max(jx0, sx - 60), jy); g.lineTo(Math.min(jx1, sx + 60), jy); g.stroke();
     g.restore();
 
     // パーティクル
@@ -552,11 +598,20 @@ export class Game {
         gr.addColorStop(1, failed ? base + '0)' : hexA(c, 0.05));
         g.fillStyle = gr;
         g.fill();
-        if (n.holding) {
-          g.save(); g.globalCompositeOperation = 'lighter';
-          g.strokeStyle = hexA(c, 0.8); g.lineWidth = 2; g.stroke();
-          g.restore();
+        g.save();
+        g.globalCompositeOperation = 'lighter';
+        g.strokeStyle = failed ? 'rgba(140,140,160,0.4)' : hexA(c, n.holding ? 0.9 : 0.5);
+        g.lineWidth = n.holding ? 2 : 1.2;
+        g.stroke();
+        if (!failed) { // 帯の中を光が流れる
+          const step = 1.4, ph = ((performance.now() / 1000) * (n.holding ? 9 : 4)) % step;
+          for (let z = zhc + step - ph; z < zt; z += step) {
+            this.quad(G, u0 + 0.14, u1 - 0.14, z, Math.min(zt, z + 0.18));
+            g.fillStyle = `rgba(255,255,255,${(n.holding ? 0.4 : 0.18) * Math.min(1, (Z_FAR - z) / 5)})`;
+            g.fill();
+          }
         }
+        g.restore();
       }
       // 終端
       if (zt < Z_FAR) {
@@ -582,12 +637,17 @@ export class Game {
     g.save();
     g.globalAlpha = alpha * behind;
     this.quad(G, u0, u1, z, z + 0.55);
+    const [, yb] = this.proj(G, 0, z), [, yt] = this.proj(G, 0, z + 0.55);
+    const ng = g.createLinearGradient(0, yt, 0, yb);
+    ng.addColorStop(0, '#ffffff'); ng.addColorStop(0.3, c); ng.addColorStop(1, hexA(c, 0.55));
     g.shadowColor = c; g.shadowBlur = this.F.glow;
-    g.fillStyle = c;
+    g.fillStyle = ng;
     g.fill();
     g.shadowBlur = 0;
-    this.quad(G, u0 + 0.12, u1 - 0.12, z + 0.14, z + 0.38);
-    g.fillStyle = 'rgba(255,255,255,0.85)';
+    g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 1;
+    g.stroke();
+    this.quad(G, u0 + 0.16, u1 - 0.16, z + 0.2, z + 0.32);
+    g.fillStyle = 'rgba(255,255,255,0.9)';
     g.fill();
     g.restore();
   }
@@ -596,31 +656,59 @@ export class Game {
     const g = this.g;
     const { W, H } = G;
     const small = W < 700;
+    const tc = this.tCounts;
+    // フルコンボ/オールパーフェクトが続いているか
+    const status = tc.MISS === 0 ? (tc.GREAT === 0 && tc.GOOD === 0 ? 'AP' : 'FC') : '';
+    const stColor = status === 'AP' ? '#ffd25e' : status === 'FC' ? '#7ff9ff' : this.color;
+
     // 進行バー
     const p = Math.max(0, Math.min(1, t / this.endAt));
     g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(0, 0, W, 3);
-    g.fillStyle = this.color; g.fillRect(0, 0, W * p, 3);
+    g.fillStyle = stColor; g.fillRect(0, 0, W * p, 3);
+    g.fillStyle = '#fff'; g.fillRect(W * p - 2, 0, 2, 3);
 
     g.save();
     g.textBaseline = 'top';
-    // 左上: 曲名
+    // 左上: ジャケット・曲名・難易度
+    let x = 14;
+    const js = small ? 36 : 46;
+    if (this.jacketImg?.complete && this.jacketImg.naturalWidth) {
+      g.drawImage(this.jacketImg, x, 12, js, js);
+      g.strokeStyle = hexA(this.color, 0.8); g.lineWidth = 1; g.strokeRect(x + 0.5, 12.5, js - 1, js - 1);
+      x += js + 10;
+    }
     g.textAlign = 'left';
-    g.fillStyle = 'rgba(220,235,255,0.9)';
-    g.font = `700 ${small ? 13 : 16}px "Orbitron", sans-serif`;
-    g.fillText(this.title, 16, 16);
-    g.font = `600 ${small ? 11 : 12}px "Orbitron", sans-serif`;
-    g.fillStyle = DIFF_COLOR[this.diff];
-    g.fillText(this.diff.toUpperCase(), 16, small ? 34 : 38);
-    // 右上: スコア
+    g.fillStyle = 'rgba(230,240,255,0.95)';
+    g.font = `700 ${small ? 13 : 16}px "Orbitron", "Noto Sans JP", sans-serif`;
+    g.fillText(this.title, x, 14);
+    g.font = `700 ${small ? 10 : 11}px "Orbitron", sans-serif`;
+    const lw = g.measureText(this.label).width + 14;
+    const dc = DIFF_COLOR[this.diff] || this.color;
+    g.strokeStyle = dc; g.lineWidth = 1;
+    g.strokeRect(x + 0.5, (small ? 33 : 38) + 0.5, lw, small ? 15 : 17);
+    g.fillStyle = dc;
+    g.fillText(this.label, x + 7, (small ? 33 : 38) + (small ? 3 : 4));
+
+    // 右上: スコア・精度・FC/AP
     g.textAlign = 'right';
-    g.font = `700 ${small ? 20 : 30}px "Orbitron", sans-serif`;
+    g.font = `700 ${small ? 9 : 10}px "Orbitron", sans-serif`;
+    g.fillStyle = 'rgba(160,180,230,0.7)';
+    g.fillText('S C O R E', W - 16, 10);
+    g.font = `800 ${small ? 20 : 30}px "Orbitron", sans-serif`;
     g.fillStyle = '#fff';
     g.shadowColor = this.color; g.shadowBlur = this.F.glow;
-    g.fillText(String(this.teamScore).padStart(7, '0'), W - 16, 14);
+    g.fillText(String(this.teamScore).padStart(7, '0'), W - 16, small ? 22 : 24);
     g.shadowBlur = 0;
-    g.font = `600 ${small ? 11 : 14}px "Orbitron", sans-serif`;
+    g.font = `600 ${small ? 11 : 13}px "Orbitron", sans-serif`;
     g.fillStyle = 'rgba(200,220,255,0.85)';
-    g.fillText(this.accuracy.toFixed(2) + '%', W - 16, small ? 40 : 50);
+    const accY = small ? 46 : 60;
+    g.fillText(this.accuracy.toFixed(2) + '%', W - 16, accY);
+    if (status) {
+      const aw = g.measureText(this.accuracy.toFixed(2) + '%').width;
+      g.font = `800 ${small ? 10 : 11}px "Orbitron", sans-serif`;
+      g.fillStyle = stColor;
+      g.fillText(status, W - 26 - aw, accY + 1);
+    }
     g.restore();
 
     // コンボ
@@ -632,12 +720,17 @@ export class Game {
       g.textAlign = 'center'; g.textBaseline = 'middle';
       g.translate(G.cx, midY);
       g.scale(s, s);
-      g.font = `800 ${Math.round(G.laneW * 0.62)}px "Orbitron", sans-serif`;
-      g.fillStyle = 'rgba(255,255,255,0.22)';
+      const fs = Math.round(G.laneW * 0.62);
+      g.font = `900 ${fs}px "Orbitron", sans-serif`;
+      const cg = g.createLinearGradient(0, -fs / 2, 0, fs / 2);
+      cg.addColorStop(0, 'rgba(255,255,255,0.4)'); cg.addColorStop(1, hexA(stColor, 0.22));
+      g.fillStyle = cg;
       g.fillText(this.tCombo, 0, 0);
-      g.font = `700 ${Math.round(G.laneW * 0.13)}px "Orbitron", sans-serif`;
-      g.fillStyle = 'rgba(255,255,255,0.35)';
-      g.fillText('COMBO', 0, G.laneW * 0.45);
+      g.strokeStyle = 'rgba(255,255,255,0.12)'; g.lineWidth = 1;
+      g.strokeText(this.tCombo, 0, 0);
+      g.font = `700 ${Math.round(G.laneW * 0.12)}px "Orbitron", sans-serif`;
+      g.fillStyle = hexA(stColor, 0.55);
+      g.fillText('C O M B O', 0, G.laneW * 0.45);
       g.restore();
     }
     // 判定
@@ -650,25 +743,54 @@ export class Game {
       g.translate(G.cx, G.J - Math.min(140, (G.J - midY) * 0.55));
       g.scale(s, s);
       g.globalAlpha = 1 - Math.max(0, k - 0.6) / 0.4;
-      g.font = `800 ${Math.round(Math.min(34, G.laneW * 0.3))}px "Orbitron", sans-serif`;
+      g.font = `900 ${Math.round(Math.min(34, G.laneW * 0.3))}px "Orbitron", sans-serif`;
+      g.lineWidth = 4; g.strokeStyle = 'rgba(2,3,10,0.85)';
+      g.strokeText(j.res, 0, 0);
       g.fillStyle = JUDGE_COLOR[j.res];
       g.shadowColor = JUDGE_COLOR[j.res]; g.shadowBlur = this.F.judgeGlow;
       g.fillText(j.res, 0, 0);
       if (j.tag) {
         g.shadowBlur = 0;
-        g.font = `700 12px "Orbitron", sans-serif`;
+        g.font = `800 12px "Orbitron", sans-serif`;
         g.fillStyle = j.tag === 'FAST' ? '#6fb8ff' : j.tag === 'GUARD' ? '#ffd25e' : '#ff9a5c';
         g.fillText(j.tag, 0, 24);
       }
       g.restore();
     }
-    // カウントダウン
-    if (t < 0) {
+    // READY → GO
+    if (t < 0.25) {
       g.save();
       g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.font = '700 18px "Orbitron", sans-serif';
-      g.fillStyle = `rgba(200,240,255,${0.5 + 0.5 * Math.sin(perfNow / 120)})`;
-      g.fillText('READY', G.cx, H * 0.4);
+      if (t < -0.6) {
+        g.font = '800 22px "Orbitron", sans-serif';
+        g.fillStyle = `rgba(200,240,255,${0.55 + 0.45 * Math.sin(perfNow / 110)})`;
+        g.fillText('R E A D Y', G.cx, H * 0.4);
+      } else {
+        const k = Math.min(1, (t + 0.6) / 0.85);
+        g.globalAlpha = 1 - Math.max(0, k - 0.6) / 0.4;
+        g.translate(G.cx, H * 0.4);
+        g.scale(1 + k * 0.6, 1 + k * 0.6);
+        g.font = '900 34px "Orbitron", sans-serif';
+        g.fillStyle = '#fff'; g.shadowColor = this.color; g.shadowBlur = 24;
+        g.fillText('GO!', 0, 0);
+      }
+      g.restore();
+    }
+    // 最後のノーツの後: FULL COMBO / ALL PERFECT
+    if (this.fx.finishAt && status) {
+      const k = Math.min(1, (perfNow - this.fx.finishAt) / 450);
+      const text = status === 'AP' ? 'ALL PERFECT' : 'FULL COMBO';
+      g.save();
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      const y = H * 0.42, bw = W * k;
+      g.fillStyle = hexA(stColor, 0.14);
+      g.fillRect(G.cx - bw / 2, y - 34, bw, 68);
+      g.fillStyle = hexA(stColor, 0.8);
+      g.fillRect(G.cx - bw / 2, y - 35, bw, 1.5); g.fillRect(G.cx - bw / 2, y + 34, bw, 1.5);
+      g.beginPath(); g.rect(G.cx - bw / 2, y - 40, bw, 80); g.clip();
+      g.font = `900 ${small ? 28 : 40}px "Orbitron", sans-serif`;
+      g.fillStyle = '#fff'; g.shadowColor = stColor; g.shadowBlur = 26;
+      g.fillText(text.split('').join(' '), G.cx, y);
       g.restore();
     }
   }

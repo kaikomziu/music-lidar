@@ -6,6 +6,7 @@ import * as acc from './account.js';
 import { LANE_COLORS, KEYS } from './game.js';
 import * as api from './maker-api.js';
 import { openAccount } from './meta.js';
+import { jacketURL } from './jacket.js';
 
 const $ = (id) => document.getElementById(id);
 let ui = null;
@@ -704,6 +705,7 @@ function renderCharts() {
   const songTitle = (id) => ui.entries.find((e) => e.id === id)?.title || id;
   const color = (id) => ui.entries.find((e) => e.id === id)?.color || '#5ef2ff';
   list.innerHTML = chartRows.map((c) => `<li class="chart-row" data-id="${c.id}" style="--c:${color(c.song)}">
+    ${(() => { const e = ui.entries.find((x) => x.id === c.song); return e ? `<img class="cr-jacket" src="${jacketURL(e, 96)}" alt="">` : ''; })()}
     <div class="cr-lv"><small>Lv</small>${c.level}</div>
     <div class="cr-main">
       <div class="cr-title">${ui.esc(c.title)}</div>

@@ -196,6 +196,13 @@ function setScreenUrl(key) {
   } catch { /* file:// など */ }
 }
 function show(name) {
+  // 画面が変わるときはスキャン線のワイプ演出(プレイ開始・終了時は読み込み画面やリザルト演出があるので除く)
+  if (name !== state && name !== 'game' && state !== 'game' && !(state === 'title' && name === 'title')) {
+    const w = $('wipe');
+    w.classList.remove('go'); void w.offsetWidth; w.classList.add('go');
+    clearTimeout(show.wt);
+    show.wt = setTimeout(() => w.classList.remove('go'), 600); // アニメが止まっていても必ず消す
+  }
   state = name;
   for (const s of document.querySelectorAll('.screen')) s.classList.toggle('active', s.id === name);
   document.body.classList.toggle('playing', name === 'game');
@@ -542,6 +549,8 @@ async function startGameInner(entry, d, custom) {
     team: !custom && acc.isLoggedIn() ? acc.teamFx() : null,
     scroll: custom ? custom.scroll : entry.scroll,
     offset: entry.offset || 0,
+    jacket: jacketURL(entry, 128),
+    label: custom ? (custom.kind === 'test' ? 'TEST PLAY' : `CUSTOM Lv${custom.level}`) : `${d.toUpperCase()} Lv${entry.levels[d]}`,
   });
   game.start(custom?.startFrom || 0);
 }

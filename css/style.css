@@ -676,3 +676,76 @@ body.playing::after { display: none; }
 .share-btn:hover { color: var(--accent); border-color: var(--accent); }
 .title-song { font-family: var(--font-d); font-weight: 700; font-size: 18px; color: #fff; margin: -26px 0 30px; text-shadow: 0 0 12px var(--cyan); animation: fadeUp 0.8s ease-out both 0.8s; }
 .title-song[hidden] { display: none; }
+
+/* ================= 洗練ネオン v3: メニュー画面・切り替え ================= */
+/* 画面切り替えのワイプ */
+.wipe { position: fixed; inset: 0; z-index: 46; pointer-events: none; visibility: hidden; }
+.wipe.go { visibility: visible; animation: wipeShow 0.5s linear forwards; }
+.wipe::before { content: ''; position: absolute; inset: 0; background: rgba(2, 3, 10, 0.92);
+  background-image: repeating-linear-gradient(0deg, rgba(94, 242, 255, 0.05) 0 1px, transparent 1px 4px); }
+.wipe::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: #bff9ff; box-shadow: 0 0 18px #5ef2ff, 0 0 40px #5ef2ff; }
+.wipe.go::before { animation: wipeCurtain 0.45s cubic-bezier(0.5, 0, 0.3, 1) forwards; }
+.wipe.go::after { animation: wipeLine 0.45s cubic-bezier(0.5, 0, 0.3, 1) forwards; }
+@keyframes wipeCurtain { from { clip-path: inset(0 0 0 0); } to { clip-path: inset(100% 0 0 0); } }
+@keyframes wipeLine { from { top: 0; opacity: 1; } 90% { opacity: 1; } to { top: 100%; opacity: 0; } }
+@keyframes wipeShow { to { visibility: hidden; } }
+.screen.active .meta-body > *, .screen.active .select-body > * { animation: screenIn 0.4s ease-out both; }
+.screen.active .meta-body > *:nth-child(2), .screen.active .select-body > *:nth-child(2) { animation-delay: 0.05s; }
+.screen.active .meta-body > *:nth-child(3) { animation-delay: 0.1s; }
+.screen.active .meta-body > *:nth-child(n+4) { animation-delay: 0.14s; }
+@keyframes screenIn { from { opacity: 0; transform: translateY(10px); } }
+@media (prefers-reduced-motion: reduce) { .wipe.go { display: none; } .screen.active .meta-body > *, .screen.active .select-body > * { animation: none; } }
+
+/* メニュー画面のヘッダー */
+.screen.meta .topbar { border-bottom: 1px solid var(--panel-line); background: linear-gradient(180deg, rgba(8, 12, 30, 0.85), rgba(8, 12, 30, 0.35)); margin-bottom: 12px; }
+.screen.meta .meta-title { position: relative; padding-left: 14px; }
+.screen.meta .meta-title::before { content: ''; position: absolute; left: 0; top: 50%; width: 6px; height: 6px; margin-top: -3px; background: var(--accent); box-shadow: 0 0 10px var(--accent); transform: rotate(45deg); }
+
+/* 角ブラケット(カード類) */
+.quest, .chart-row, .slot, .fx-tile, .team-guide, .unit-card {
+  --hc: color-mix(in srgb, var(--accent) 55%, transparent); --hl: 10px;
+  background-image:
+    linear-gradient(var(--hc), var(--hc)), linear-gradient(var(--hc), var(--hc)),
+    linear-gradient(var(--hc), var(--hc)), linear-gradient(var(--hc), var(--hc));
+  background-size: var(--hl) 1.5px, 1.5px var(--hl), var(--hl) 1.5px, 1.5px var(--hl);
+  background-position: 0 0, 0 0, 100% 100%, 100% 100%;
+  background-repeat: no-repeat;
+}
+.fx-tile { --hc: var(--k); }
+
+/* クエスト */
+.quest { position: relative; border-radius: 4px; overflow: hidden; transition: transform 0.15s, border-color 0.15s; }
+.quest::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); opacity: 0.6; }
+.quest.ready { animation: questReady 1.8s ease-in-out infinite; }
+.quest.ready::before { background: #ffd25e; opacity: 1; box-shadow: 0 0 10px #ffd25e; }
+@keyframes questReady { 50% { box-shadow: 0 0 22px rgba(255, 210, 94, 0.35); } }
+.quest:hover { transform: translateX(3px); }
+.q-bar { height: 6px; border-radius: 0; background: rgba(255, 255, 255, 0.06); }
+.q-bar span { border-radius: 0; background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 60%, transparent), var(--accent)); box-shadow: 0 0 8px var(--accent); }
+.quest.ready .q-bar span { background: linear-gradient(90deg, #ffb84d, #ffe39a); box-shadow: 0 0 10px #ffd25e; }
+.q-claim:not([disabled]) { background: linear-gradient(180deg, rgba(255, 210, 94, 0.35), rgba(255, 210, 94, 0.12)); box-shadow: 0 0 14px rgba(255, 210, 94, 0.35); color: #fff; clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); border-radius: 0; }
+.q-reward { color: #ffe39a; text-shadow: 0 0 10px rgba(255, 210, 94, 0.5); }
+.q-tab { border-radius: 4px; }
+
+/* 編成 */
+.slot { border-radius: 6px; }
+.slot.leader.filled { box-shadow: 0 0 24px rgba(255, 210, 94, 0.18) inset; }
+.slot.leader .slot-tag { text-shadow: 0 0 8px #ffd25e; }
+.unit-card { border-radius: 6px; transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s; }
+.unit-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4), 0 0 14px color-mix(in srgb, var(--accent) 25%, transparent); }
+.fx-tile { border-radius: 4px; }
+.fx-tile:not(.off) .fx-val { text-shadow: 0 0 12px var(--k); }
+.kind-tab, .f-chip { border-radius: 4px; }
+
+/* みんなの譜面 */
+.chart-row { grid-template-columns: auto auto 1fr auto; border-radius: 4px; border-left-width: 1px; transition: transform 0.15s, box-shadow 0.15s; }
+.chart-row:hover { transform: translateX(3px); box-shadow: 0 0 18px color-mix(in srgb, var(--c) 22%, transparent); }
+.cr-jacket { width: 56px; height: 56px; border-radius: 3px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 60%, transparent); }
+.cr-lv { border: 1px solid color-mix(in srgb, var(--c) 60%, transparent); padding: 6px 4px; border-radius: 3px; background: color-mix(in srgb, var(--c) 10%, transparent); }
+.cr-actions .cr-play { clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); border-radius: 0; }
+.cr-btn { border-radius: 3px; }
+.cr-rank { grid-column: 1 / -1; }
+@media (max-width: 760px) {
+  .chart-row { grid-template-columns: auto auto 1fr; }
+  .cr-jacket { width: 44px; height: 44px; }
+}

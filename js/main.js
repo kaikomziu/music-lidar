@@ -14,6 +14,7 @@ import * as acc from './account.js';
 import { initMeta, openAccount, renderHeader, gachaResultOpen, closeGacha, openScreen as openMetaScreen } from './meta.js';
 import { initMaker, openCharts, openEditor, makerKeydown } from './maker.js';
 import { fetchChartRanking, submitChartScore } from './maker-api.js';
+import { fxText } from './units.js';
 import { initLive, openLive, backToRoom } from './live.js';
 
 const $ = (id) => document.getElementById(id);
@@ -189,6 +190,7 @@ const SCREEN_URL = {
   account: ['account/', 'アカウント'],
   changelog: ['changelog/', '更新履歴'],
   live: ['live/', 'みんなでライブ'],
+  home: ['home/', 'ホーム'],
 };
 function setScreenUrl(key) {
   const su = SCREEN_URL[key];
@@ -235,12 +237,13 @@ const modalOpen = () => document.querySelector('.overlay.modal.on');
 // ---------------------------------------------------------------------------
 // タイトル
 // ---------------------------------------------------------------------------
+let enteredOnce = false;
 function enterFromTitle(opts = {}) {
   getCtx();
   setVolumes(settings.bgm, settings.se);
-  show('select');
-  renderList();
-  selectSong(sel, true);
+  // 曲ページから来たときは最初だけ、その曲の選曲画面へ。普段はホーム(モード選択)へ
+  if (openedBySongUrl && !enteredOnce && !opts.home) goSelect(); else goHome();
+  enteredOnce = true;
   warmup();
   if (!opts.quiet && !acc.isLoggedIn() && !load('nameSkipped', false)) openAccount();
 }
@@ -730,12 +733,23 @@ window.addEventListener('keydown', (ev) => {
     return;
   }
   if (state === 'title' && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); enterFromTitle(); return; }
+  if (state === 'home') {
+    const onBtn = document.activeElement?.tagName === 'BUTTON';
+    if (homeLiveOpen()) {
+      if (ev.key === 'Escape' || ev.key === 'Backspace') { ev.preventDefault(); $('h-live-back').click(); }
+      else if (ev.key === '1') { ev.preventDefault(); goSelect(); }
+      else if (ev.key === '2') { ev.preventDefault(); $('btn-live').click(); }
+      else if (ev.key === 'Enter' && !onBtn) { ev.preventDefault(); goSelect(); }
+    } else if (ev.key === 'Enter' && !onBtn) { ev.preventDefault(); homeLive(true); }
+    return;
+  }
   if (state === 'select') {
     const view = visibleSongs();
     const pos = view.indexOf(sel);
     if (ev.key === 'ArrowDown' && view.length) { ev.preventDefault(); selectSong(view[(pos + 1) % view.length]); }
     else if (ev.key === 'ArrowUp' && view.length) { ev.preventDefault(); selectSong(view[(pos - 1 + view.length) % view.length]); }
     else if (ev.key === '/' ) { ev.preventDefault(); $('song-search').focus(); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); goHome(true); }
     else if (ev.key === 'ArrowRight') { ev.preventDefault(); setDiff(DIFFS[Math.min(2, DIFFS.indexOf(diff) + 1)]); }
     else if (ev.key === 'ArrowLeft') { ev.preventDefault(); setDiff(DIFFS[Math.max(0, DIFFS.indexOf(diff) - 1)]); }
     else if (ev.key === 'Enter') { ev.preventDefault(); startGame(); }
@@ -744,7 +758,7 @@ window.addEventListener('keydown', (ev) => {
   if (state === 'editor' || state === 'charts') { makerKeydown(ev); return; }
   if (state === 'live') { if (ev.key === 'Escape') { $('live-back').click(); } return; }
   if (state === 'quest' || state === 'gacha' || state === 'team') {
-    if (ev.key === 'Escape') { if (gachaResultOpen()) closeGacha(); else backToSelect(); }
+    if (ev.key === 'Escape') { if (gachaResultOpen()) closeGacha(); else goHome(); }
     return;
   }
   if (state === 'result') {
@@ -811,25 +825,62 @@ function closeModals() {
   overlay('account-modal', false);
   overlay('changelog', false);
 }
-function backToSelect() {
+function goSelect() {
+  homeLive(false);
   show('select');
   renderList();
   selectSong(sel, true);
 }
-initMeta({ show: (n) => { stopPreview(); show(n); }, toast, back: backToSelect, current: () => state });
+const backToSelect = goSelect;
+
+// ---------------------------------------------------------------------------
+// ホーム(モード選択)
+// ---------------------------------------------------------------------------
+function goHome(liveMenu = false) {
+  stopPreview();
+  show('home');
+  homeLive(liveMenu);
+  renderHome();
+}
+function homeLive(on) {
+  $('home-main').hidden = on;
+  $('home-live').hidden = !on;
+  $('h-live').classList.toggle('open', on);
+  if (on) setTimeout(() => { if (state === 'home') $('btn-solo').focus({ preventScroll: true }); }, 30);
+}
+const homeLiveOpen = () => !$('home-live').hidden;
+function renderHome() {
+  const s = acc.getState();
+  const jk = $('h-jackets');
+  if (!jk.childElementCount) {
+    const pick = entries.filter((e) => !e.local).slice(0, 16);
+    jk.innerHTML = pick.map((e) => `<img src="${jacketURL(e, 128)}" alt="">`).join('');
+  }
+  $('h-player').innerHTML = s
+    ? `<span class="hp-hi">WELCOME BACK</span><b>${esc(s.name)}</b><span class="hp-sep"></span><span class="coin-ico">◎</span>${s.coins.toLocaleString()}<span class="hp-sep"></span><span class="muted">編成: ${esc(fxText(acc.teamFx()))}</span>`
+    : `<span class="hp-hi">GUEST</span><span class="muted">ログインすると 編成・ガチャ・クエスト・みんなでライブ が遊べます(はじめに 1000 コイン)</span><button class="btn-line hp-login" id="hp-login">ログイン / 新規登録</button>`;
+  $('hp-login')?.addEventListener('click', () => openAccount());
+  for (const t of document.querySelectorAll('#home .need-login')) t.classList.toggle('locked', !s);
+  $('h-team').textContent = s ? fxText(acc.teamFx()) : 'キャラ5人でスキルを組み合わせる';
+}
+$('h-live').addEventListener('click', () => homeLive(true));
+$('h-live-back').addEventListener('click', () => { homeLive(false); $('h-live').focus({ preventScroll: true }); });
+$('btn-solo').addEventListener('click', goSelect);
+for (const b of document.querySelectorAll('[data-home]')) b.addEventListener('click', () => goHome());
+initMeta({ show: (n) => { stopPreview(); show(n); }, toast, back: () => goHome(), current: () => state });
 initMaker({
-  entries, show: (n) => { stopPreview(); show(n); }, toast, back: backToSelect, current: () => state, overlay,
+  entries, show: (n) => { stopPreview(); show(n); }, toast, back: () => goHome(), current: () => state, overlay,
   play: (entry, custom) => startGame(entry, custom.kind, custom), rankRows, myRankId, esc,
   selectedEntry: () => entries[sel],
 });
 $('btn-charts').addEventListener('click', () => openCharts());
 initLive({
-  entries, show: (n) => { stopPreview(); show(n); }, toast, back: backToSelect, current: () => state, esc, jacketURL, openAccount,
+  entries, show: (n) => { stopPreview(); show(n); }, toast, back: () => goHome(true), current: () => state, esc, jacketURL, openAccount,
   diffColor: DIFF_COLOR, selected: () => entries[sel], diff: () => diff,
   startLive: (entry, d, hooks) => startGame(entry, d, null, hooks),
 });
 $('btn-maker').addEventListener('click', () => openEditor(entries[sel]));
-acc.onChange(() => { if (state === 'select') { renderList(); renderDetail(); } });
+acc.onChange(() => { if (state === 'select') { renderList(); renderDetail(); } if (state === 'home') renderHome(); });
 const accReady = acc.init();
 
 // 画面のURL(maker/ gacha/ charts/)で開いたときは、タイトルを飛ばしてその画面を開く
@@ -849,6 +900,7 @@ const accReady = acc.init();
   else if (screen === 'settings') openSettings();
   else if (screen === 'account') openAccount();
   else if (screen === 'changelog') openChangelog();
+  // home/ はホームのまま
   else if (needLogin) {
     await accReady;
     if (acc.isLoggedIn()) { if (screen === 'live') openLive(); else openMetaScreen(screen); }
@@ -926,7 +978,7 @@ function closeSettings() {
   previewGame = null;
   overlay('settings', false);
 }
-$('btn-settings').addEventListener('click', openSettings);
+for (const b of document.querySelectorAll('[data-settings]')) b.addEventListener('click', openSettings);
 $('btn-s-close').addEventListener('click', closeSettings);
 $('btn-s-reset').addEventListener('click', () => {
   settings = { ...DEFAULT_SETTINGS };

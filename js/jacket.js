@@ -25,6 +25,7 @@ const STYLE = {
   BEGINNER: 'sunrise', CHILL: 'clouds', HOUSE: 'equalizer', 'DRUM & BASS': 'terrain', POP: 'stars',
   GIMMICK: 'glitch', HYPERCORE: 'tunnel', SPEEDCORE: 'tunnel', CHIPTUNE: 'pixel', JAZZ: 'vinyl',
   TRANCE: 'rays', 'ROCK / METAL': 'lightning', 'FUNK / DISCO': 'mirrorball', DUBSTEP: 'wobble', SYNTHWAVE: 'retrosun',
+  'LO-FI HIP HOP': 'rain', 'CITY POP': 'skyline', 'FUTURE BASS': 'prism', TECHNO: 'strobe', 'BOSSA NOVA': 'palms', HARDSTYLE: 'shards',
 };
 
 function draw(g, e, S) {
@@ -303,6 +304,108 @@ const ART = {
     floor(S * 0.62, S / 2, 0.55);
     g.globalCompositeOperation = 'lighter';
     for (let i = 0; i < 120; i++) { g.fillStyle = `rgba(255,255,255,${rng() * 0.6})`; g.fillRect(rng() * S, rng() * S * 0.45, u, u); }
+  },
+  // 雨の窓と、にじむ街の灯り(ローファイ)
+  rain(g, { S, u, rng, col, glowAt }) {
+    g.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 26; i++) { // ぼけた灯り
+      const x = rng() * S, y = S * (0.35 + rng() * 0.4), rad = S * (0.02 + rng() * 0.06);
+      const gr = g.createRadialGradient(x, y, 0, x, y, rad);
+      const warm = rng() < 0.4;
+      gr.addColorStop(0, warm ? 'rgba(255,190,120,0.35)' : col(0.35)); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = gr; g.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+    }
+    g.globalCompositeOperation = 'source-over';
+    g.strokeStyle = 'rgba(200,220,255,0.18)'; g.lineWidth = Math.max(1, u);
+    for (let i = 0; i < 90; i++) { const x = rng() * S, y = rng() * S, l = S * (0.03 + rng() * 0.06); g.beginPath(); g.moveTo(x, y); g.lineTo(x - l * 0.15, y + l); g.stroke(); }
+    for (let i = 0; i < 40; i++) { // 窓の水滴
+      const x = rng() * S, y = rng() * S, rr = S * (0.004 + rng() * 0.01);
+      g.fillStyle = 'rgba(220,235,255,0.35)'; g.beginPath(); g.arc(x, y, rr, 0, 7); g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.6)'; g.fillRect(x - rr * 0.4, y - rr * 0.5, Math.max(1, rr * 0.4), Math.max(1, rr * 0.4));
+    }
+    g.strokeStyle = 'rgba(10,12,24,0.9)'; g.lineWidth = S * 0.025; // 窓枠
+    g.beginPath(); g.moveTo(S * 0.5, 0); g.lineTo(S * 0.5, S); g.moveTo(0, S * 0.3); g.lineTo(S, S * 0.3); g.stroke();
+  },
+  // 夜のビル街と月(シティポップ)
+  skyline(g, { S, u, rng, col, glowAt }) {
+    const sky = g.createLinearGradient(0, 0, 0, S);
+    sky.addColorStop(0, '#120a2a'); sky.addColorStop(0.7, col(0.35)); sky.addColorStop(1, '#ffb38a');
+    g.fillStyle = sky; g.fillRect(0, 0, S, S);
+    glowAt(S * 0.72, S * 0.26, S * 0.18, 0.45);
+    g.fillStyle = '#fff3d6'; g.beginPath(); g.arc(S * 0.72, S * 0.26, S * 0.07, 0, 7); g.fill();
+    let x = 0;
+    while (x < S) {
+      const w = S * (0.06 + rng() * 0.08), h = S * (0.18 + rng() * 0.4);
+      g.fillStyle = '#0a0818'; g.fillRect(x, S - h, w, h);
+      for (let wy = S - h + S * 0.02; wy < S - S * 0.02; wy += S * 0.03) for (let wx = x + S * 0.012; wx < x + w - S * 0.012; wx += S * 0.022) {
+        if (rng() < 0.35) { g.fillStyle = rng() < 0.5 ? 'rgba(255,214,140,0.85)' : col(0.8); g.fillRect(wx, wy, S * 0.01, S * 0.012); }
+      }
+      x += w + S * 0.006;
+    }
+    g.fillStyle = 'rgba(255,255,255,0.7)';
+    for (let i = 0; i < 40; i++) g.fillRect(rng() * S, rng() * S * 0.4, u, u);
+  },
+  // きらきらの多面体のかけら(フューチャーベース)
+  prism(g, { S, u, rng, col, glowAt }) {
+    glowAt(S / 2, S * 0.45, S * 0.5, 0.3);
+    g.globalCompositeOperation = 'lighter';
+    const hues = ['rgba(255,157,240,', 'rgba(140,200,255,', 'rgba(255,230,150,', 'rgba(170,255,230,'];
+    for (let i = 0; i < 34; i++) {
+      const cx = S * (0.15 + rng() * 0.7), cy = S * (0.1 + rng() * 0.6), rad = S * (0.04 + rng() * 0.14), rot = rng() * 7, n = 3 + Math.floor(rng() * 2);
+      g.beginPath();
+      for (let k = 0; k <= n; k++) { const a = rot + (k / n) * Math.PI * 2; g.lineTo(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad); }
+      g.fillStyle = hues[i % 4] + (0.06 + rng() * 0.12) + ')'; g.fill();
+      g.strokeStyle = hues[i % 4] + '0.6)'; g.lineWidth = Math.max(1, u); g.stroke();
+    }
+    for (let i = 0; i < 70; i++) { const x = rng() * S, y = rng() * S * 0.8, l = S * 0.015 * rng(); g.fillStyle = 'rgba(255,255,255,0.8)'; g.fillRect(x - l, y, l * 2, u); g.fillRect(x, y - l, u, l * 2); }
+  },
+  // 暗い倉庫に差し込むストロボと格子(テクノ)
+  strobe(g, { S, u, rng, col, floor }) {
+    floor(S * 0.66, S / 2, 0.2);
+    g.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 7; i++) {
+      const x = S * (0.1 + i * 0.13), spread = S * (0.05 + rng() * 0.08);
+      const gr = g.createLinearGradient(x, 0, x, S * 0.7);
+      gr.addColorStop(0, col(0.5)); gr.addColorStop(1, col(0));
+      g.fillStyle = gr; g.beginPath(); g.moveTo(x - S * 0.004, 0); g.lineTo(x + S * 0.004, 0); g.lineTo(x + spread, S * 0.7); g.lineTo(x - spread, S * 0.7); g.fill();
+    }
+    for (let k = 1; k <= 6; k++) { const m = S * 0.07 * k; g.strokeStyle = col(0.08 + 0.04 * k); g.lineWidth = Math.max(1, u * 1.5); g.strokeRect(S / 2 - m, S * 0.38 - m * 0.6, m * 2, m * 1.2); }
+  },
+  // 夕日と海とヤシの木(ボサノバ)
+  palms(g, { S, u, rng, col }) {
+    const sky = g.createLinearGradient(0, 0, 0, S * 0.62);
+    sky.addColorStop(0, '#1a0f30'); sky.addColorStop(1, col(0.75));
+    g.fillStyle = sky; g.fillRect(0, 0, S, S * 0.62);
+    g.fillStyle = '#ffe9a8'; g.beginPath(); g.arc(S * 0.5, S * 0.6, S * 0.14, Math.PI, 0); g.fill();
+    g.fillStyle = '#0b1530'; g.fillRect(0, S * 0.6, S, S * 0.4);
+    for (let i = 0; i < 14; i++) { const y = S * (0.62 + i * 0.022), w = S * (0.25 - i * 0.012); g.fillStyle = `rgba(255,220,150,${0.5 - i * 0.03})`; g.fillRect(S / 2 - w / 2 + (rng() - 0.5) * S * 0.04, y, w, Math.max(1, u * 1.5)); }
+    const palm = (x, h, lean) => {
+      g.strokeStyle = '#05060f'; g.lineWidth = S * 0.018; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(x, S * 0.62); g.quadraticCurveTo(x + lean * 0.5, S * 0.62 - h * 0.5, x + lean, S * 0.62 - h); g.stroke();
+      g.fillStyle = '#05060f';
+      for (let k = 0; k < 7; k++) {
+        const a = -Math.PI / 2 + (k - 3) * 0.5, tx = x + lean, ty = S * 0.62 - h;
+        g.beginPath(); g.moveTo(tx, ty);
+        g.quadraticCurveTo(tx + Math.cos(a) * S * 0.12, ty + Math.sin(a) * S * 0.08 - S * 0.03, tx + Math.cos(a) * S * 0.18, ty + Math.sin(a) * S * 0.06 + S * 0.05);
+        g.quadraticCurveTo(tx + Math.cos(a) * S * 0.1, ty + Math.sin(a) * S * 0.05, tx, ty); g.fill();
+      }
+    };
+    palm(S * 0.14, S * 0.42, S * 0.05); palm(S * 0.86, S * 0.34, -S * 0.06);
+  },
+  // 鋭いかけらが飛び散る(ハードスタイル)
+  shards(g, { S, u, rng, col, glowAt }) {
+    glowAt(S / 2, S * 0.45, S * 0.35, 0.5);
+    g.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 40; i++) {
+      const a = rng() * Math.PI * 2, r0 = S * (0.05 + rng() * 0.1), r1 = r0 + S * (0.1 + rng() * 0.35), w = 0.03 + rng() * 0.06;
+      const cx = S / 2, cy = S * 0.45;
+      g.beginPath();
+      g.moveTo(cx + Math.cos(a - w) * r0, cy + Math.sin(a - w) * r0);
+      g.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
+      g.lineTo(cx + Math.cos(a + w) * r0, cy + Math.sin(a + w) * r0);
+      g.fillStyle = rng() < 0.2 ? 'rgba(255,255,255,0.5)' : col(0.15 + rng() * 0.35); g.fill();
+    }
+    g.fillStyle = 'rgba(255,255,255,0.9)'; g.beginPath(); g.arc(S / 2, S * 0.45, S * 0.03, 0, 7); g.fill();
   },
   // ここから下は特定ジャンル以外(読み込み曲など)
   rings(g, { S, rng, fast, dot }) {

@@ -2,6 +2,13 @@
 // 大きな機能追加 = 2つ目の数字を上げる / 不具合修正や小さな改善 = 3つ目の数字を上げる
 export const CHANGELOG = [
   {
+    version: '1.21.0', date: '2026-10-20',
+    notes: [
+      '新曲6曲を追加(全22曲): Rainy Window(ローファイ・ヒップホップ)、Midnight Avenue(シティポップ)、Sunset Bossa(ボサノバ)、Iron Pulse(テクノ)、Sky Prism(フューチャーベース)、Hard Reflector(ハードスタイル)',
+      '新しいジャンルのジャケット絵柄(雨の窓・夜のビル街・ヤシの木の夕日・ストロボ・きらきらのかけら・飛び散る破片)',
+    ],
+  },
+  {
     version: '1.20.0', date: '2026-10-20',
     notes: [
       'みんなでライブ: 難易度(EASY/NORMAL/HARD)を人ごとに選べるように。メンバー一覧と結果に各自の難易度を表示',

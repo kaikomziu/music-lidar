@@ -920,3 +920,5 @@ body.live #btn-p-retry, body.live #btn-retry { display: none; }
 }
 @media (max-width: 860px) { .home-main .h-tile:last-child { grid-column: 1 / -1; min-height: 96px; } }
 body.touch .h-go { display: none; }
+.lm-diff { font-style: normal; font-family: var(--font-d); font-size: 9px; font-weight: 800; color: var(--dc); border: 1px solid var(--dc); border-radius: 3px; padding: 0 4px; margin-left: auto; margin-right: 8px; white-space: nowrap; }
+.lv-list .lm-diff { margin: 0 0 0 6px; vertical-align: 1px; }

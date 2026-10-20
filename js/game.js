@@ -153,16 +153,23 @@ export class Game {
   }
 
   // startFrom: 曲の途中から始める(譜面メーカーのテストプレイ用)。ノーツは呼び出し側で絞っておく
-  start(startFrom = 0) {
+  // syncAt: みんなでライブ用。曲の頭(0秒)を鳴らす performance.now() の時刻。過ぎていたらその位置から途中で始める
+  start(startFrom = 0, syncAt = null) {
     const ctx = getCtx();
     this.introAt = performance.now();
     const first = this.notes.length ? this.notes[0].t - startFrom : 2;
     this.leadIn = Math.max(1.6, this.T + 0.6 - first);
+    if (syncAt != null) {
+      this.live = true;
+      const lead = (syncAt - performance.now()) / 1000;
+      if (lead >= 0.3) { this.leadIn = lead; startFrom = 0; }
+      else { this.leadIn = 0.3; startFrom = 0.3 - lead; }
+    }
     this.src = ctx.createBufferSource();
     this.src.buffer = this.buffer;
     this.src.connect(bgmOut());
     this.startAt = ctx.currentTime + this.leadIn - startFrom;
-    this.src.start(ctx.currentTime + this.leadIn, startFrom);
+    this.src.start(ctx.currentTime + this.leadIn, Math.min(startFrom, Math.max(0, this.buffer.duration - 0.05)));
     // 表示・判定用の時計。performance.now() で滑らかに進め、オーディオ時計に少しずつ合わせる
     const p = performance.now();
     this.anchorPerf = p;
@@ -767,6 +774,19 @@ export class Game {
         g.font = '800 22px "Orbitron", sans-serif';
         g.fillStyle = `rgba(200,240,255,${0.55 + 0.45 * Math.sin(perfNow / 110)})`;
         g.fillText('R E A D Y', G.cx, H * 0.4);
+        if (this.live && t < -1.1) {
+          // みんなでライブ: 全員そろって始まるまでのカウントダウン
+          const n = Math.ceil(-t - 0.6);
+          const k = (-t - 0.6) % 1;
+          g.font = `900 ${Math.round(48 + k * 20)}px "Orbitron", sans-serif`;
+          g.fillStyle = `rgba(255,255,255,${0.35 + 0.65 * k})`;
+          g.shadowColor = this.color; g.shadowBlur = 20;
+          g.fillText(String(n), G.cx, H * 0.4 + 56);
+          g.shadowBlur = 0;
+          g.font = '700 11px "Orbitron", "Noto Sans JP", sans-serif';
+          g.fillStyle = 'rgba(255,120,160,0.9)';
+          g.fillText('MULTI LIVE ・ 全員同時にスタート', G.cx, H * 0.4 - 34);
+        }
       } else {
         const k = Math.min(1, (t + 0.6) / 0.85);
         g.globalAlpha = 1 - Math.max(0, k - 0.6) / 0.4;

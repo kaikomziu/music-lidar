@@ -108,7 +108,8 @@ export class PointCloud {
 
 // ---------------------------------------------------------------------------
 export class Game {
-  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd, team, scroll, offset, jacket, label }) {
+  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd, team, scroll, offset, jacket, label, rivals }) {
+    this.rivals = rivals || null; // みんなでライブ: () => [{ name, combo, me, done }]
     this.label = label || String(diff || '').toUpperCase();
     if (jacket) { this.jacketImg = new Image(); this.jacketImg.src = jacket; }
     this.introAt = performance.now();
@@ -711,6 +712,7 @@ export class Game {
     }
     g.restore();
 
+    if (this.rivals) this.drawRivals(g, W, small, perfNow);
     // コンボ
     const midY = G.J - (G.J - G.H * 0.06) * 0.5;
     if (this.tCombo >= 3) {
@@ -793,6 +795,42 @@ export class Game {
       g.fillText(text.split('').join(' '), G.cx, y);
       g.restore();
     }
+  }
+
+  // みんなでライブ: 左側にみんなのコンボ(数秒おきに更新)
+  drawRivals(g, W, small, perfNow) {
+    const list = this.rivals();
+    if (!list.length) return;
+    const rows = list.slice().sort((a, b) => b.combo - a.combo).slice(0, 8);
+    const x = 14, y0 = small ? 60 : 72, rh = small ? 15 : 18, w = small ? 120 : 160;
+    g.save();
+    g.textBaseline = 'middle';
+    g.fillStyle = 'rgba(4,8,22,0.55)';
+    g.fillRect(x, y0, w, 16 + rows.length * rh + 4);
+    g.fillStyle = hexA(this.color, 0.8); g.fillRect(x, y0, 2, 16 + rows.length * rh + 4);
+    g.font = `700 ${small ? 8 : 9}px "Orbitron", sans-serif`;
+    g.fillStyle = `rgba(255,90,140,${0.6 + 0.4 * Math.sin(perfNow / 300)})`;
+    g.textAlign = 'left';
+    g.beginPath(); g.arc(x + 11, y0 + 9, 2.5, 0, Math.PI * 2); g.fill();
+    g.fillText('LIVE', x + 17, y0 + 9);
+    g.fillStyle = 'rgba(160,180,230,0.7)';
+    g.textAlign = 'right';
+    g.fillText('COMBO', x + w - 8, y0 + 9);
+    rows.forEach((r, i) => {
+      const y = y0 + 16 + i * rh + rh / 2;
+      if (r.me) { g.fillStyle = hexA(this.color, 0.16); g.fillRect(x + 2, y - rh / 2, w - 2, rh); }
+      g.textAlign = 'left';
+      g.font = `${r.me ? 700 : 500} ${small ? 10 : 12}px "Noto Sans JP", sans-serif`;
+      g.fillStyle = r.me ? '#fff' : 'rgba(210,225,255,0.85)';
+      let name = r.name;
+      while (name.length > 1 && g.measureText(name).width > w - 64) name = name.slice(0, -1);
+      g.fillText((i + 1) + ' ' + (name !== r.name ? name + '…' : name), x + 8, y);
+      g.textAlign = 'right';
+      g.font = `800 ${small ? 10 : 12}px "Orbitron", sans-serif`;
+      g.fillStyle = r.done ? '#ffd25e' : r.me ? this.color : '#9fe8ff';
+      g.fillText(r.done ? 'FIN' : String(r.combo), x + w - 8, y);
+    });
+    g.restore();
   }
 
   // 現在の画面座標から、どのレーンか

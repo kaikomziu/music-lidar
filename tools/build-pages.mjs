@@ -66,6 +66,8 @@ const SCREENS = [
     desc: 'MUSIC LiDAR の編成。ガチャで集めたキャラをドラッグ&ドロップで5人まで編成し、スコアUP・判定サポート・コンボガード・コインUPのスキルを組み合わせよう。' },
   { dir: 'changelog', screen: 'changelog', title: '更新履歴｜MUSIC LiDAR 無料ブラウザ音ゲー',
     desc: 'MUSIC LiDAR の更新履歴。新曲の追加、新機能、見た目の刷新、不具合の修正などをバージョンごとにまとめています。' },
+  { dir: 'live', screen: 'live', title: 'みんなでライブ｜MUSIC LiDAR 無料ブラウザ音ゲー',
+    desc: 'MUSIC LiDAR の「みんなでライブ」。最大8人で同じ曲を同時にプレイし、プレイ中はみんなのコンボがリアルタイムに見える。最後は編成の効果込みのスコアで順位を競う、ブラウザで遊べる無料のオンライン音ゲー。' },
   // ここから下は検索に出さない画面
   { dir: 'result', screen: 'result', noindex: true, title: 'リザルト｜MUSIC LiDAR', desc: 'MUSIC LiDAR のプレイ結果。' },
   { dir: 'settings', screen: 'settings', noindex: true, title: '設定｜MUSIC LiDAR', desc: 'MUSIC LiDAR の設定。' },

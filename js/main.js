@@ -14,6 +14,7 @@ import * as acc from './account.js';
 import { initMeta, openAccount, renderHeader, gachaResultOpen, closeGacha, openScreen as openMetaScreen } from './meta.js';
 import { initMaker, openCharts, openEditor, makerKeydown } from './maker.js';
 import { fetchChartRanking, submitChartScore } from './maker-api.js';
+import { initLive, openLive, backToRoom } from './live.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -187,6 +188,7 @@ const SCREEN_URL = {
   settings: ['settings/', '設定'],
   account: ['account/', 'アカウント'],
   changelog: ['changelog/', '更新履歴'],
+  live: ['live/', 'みんなでライブ'],
 };
 function setScreenUrl(key) {
   const su = SCREEN_URL[key];
@@ -541,12 +543,13 @@ window.addEventListener('drop', (ev) => {
 let playing = null; // { entry, diff }
 let starting = false;
 // custom: 譜面メーカーの譜面 { kind: 'custom'|'test', notes, scroll, title, level, chartId, startFrom, onExit(result?) }
-async function startGame(entry = entries[sel], d = diff, custom = null) {
+// live: みんなでライブのつなぎ口 { attach(game), rivals(), finish(r), quit() }
+async function startGame(entry = entries[sel], d = diff, custom = null, live = null) {
   if (state === 'game' || starting) return;
   starting = true;
-  try { await startGameInner(entry, d, custom); } finally { starting = false; }
+  try { await startGameInner(entry, d, custom, live); } finally { starting = false; }
 }
-async function startGameInner(entry, d, custom) {
+async function startGameInner(entry, d, custom, live) {
   document.activeElement?.blur?.();
   getCtx();
   stopPreview();
@@ -562,7 +565,8 @@ async function startGameInner(entry, d, custom) {
     try { await entry.load(); } catch (err) { console.error(err); toast('音源の生成に失敗しました'); hideLoading(); return; }
   }
   await hideLoading(isRetry ? 500 : 1400);
-  playing = { entry, diff: d, custom };
+  playing = { entry, diff: d, custom, live };
+  document.body.classList.toggle('live', !!live);
   show('game');
   setVolumes(settings.bgm, settings.se);
   game = new Game(canvas, {
@@ -574,12 +578,22 @@ async function startGameInner(entry, d, custom) {
     offset: entry.offset || 0,
     jacket: jacketURL(entry, 128),
     label: custom ? (custom.kind === 'test' ? 'TEST PLAY' : `CUSTOM Lv${custom.level}`) : `${d.toUpperCase()} Lv${entry.levels[d]}`,
+    rivals: live ? () => live.rivals() : null,
   });
+  live?.attach(game);
   game.start(custom?.startFrom || 0);
 }
 
 function quitGame() {
   overlay('pause', false);
+  if (playing?.live) {
+    const live = playing.live, inGame = !!game;
+    game?.destroy();
+    game = null;
+    document.body.classList.remove('live');
+    if (inGame) live.quit(); else backToRoom();
+    return;
+  }
   game?.destroy();
   game = null;
   if (playing?.custom) { stopPreview(); playing.custom.onExit(null); return; }
@@ -589,6 +603,7 @@ function quitGame() {
 }
 
 function retry() {
+  if (playing?.live) return; // ライブ中はリトライなし
   overlay('pause', false);
   game?.destroy();
   game = null;
@@ -614,6 +629,9 @@ function onGameEnd(r) {
   game = null;
   lastResult = r;
   if (custom?.kind === 'test') { custom.onExit(r); return; }
+  $('r-live').hidden = !playing.live;
+  $('btn-back').innerHTML = playing.live ? 'ルームへ <small>ENTER</small>' : '選曲へ <small>ENTER</small>';
+  if (playing.live) playing.live.finish(r);
   const isNew = custom ? false : recordBest(entry.id, d, r);
   show('result');
   document.documentElement.style.setProperty('--accent', entry.color);
@@ -724,6 +742,7 @@ window.addEventListener('keydown', (ev) => {
     return;
   }
   if (state === 'editor' || state === 'charts') { makerKeydown(ev); return; }
+  if (state === 'live') { if (ev.key === 'Escape') { $('live-back').click(); } return; }
   if (state === 'quest' || state === 'gacha' || state === 'team') {
     if (ev.key === 'Escape') { if (gachaResultOpen()) closeGacha(); else backToSelect(); }
     return;
@@ -804,6 +823,11 @@ initMaker({
   selectedEntry: () => entries[sel],
 });
 $('btn-charts').addEventListener('click', () => openCharts());
+initLive({
+  entries, show: (n) => { stopPreview(); show(n); }, toast, back: backToSelect, current: () => state, esc, jacketURL, openAccount,
+  diffColor: DIFF_COLOR, selected: () => entries[sel], diff: () => diff,
+  startLive: (entry, d, hooks) => startGame(entry, d, null, hooks),
+});
 $('btn-maker').addEventListener('click', () => openEditor(entries[sel]));
 acc.onChange(() => { if (state === 'select') { renderList(); renderDetail(); } });
 const accReady = acc.init();
@@ -813,7 +837,7 @@ const accReady = acc.init();
   await Promise.resolve(); // このファイルの残り(設定など)を読み終えてから動かす
   const screen = document.querySelector('meta[name="screen"]')?.content;
   if (!screen) return;
-  const needLogin = ['gacha', 'quest', 'team'].includes(screen);
+  const needLogin = ['gacha', 'quest', 'team', 'live'].includes(screen);
   if (needLogin && !load('token', null)) {
     // ガチャ・クエスト・編成はログインが必要。ログインしていない人は普通のトップ扱い(曲URLと同じ)
     try { history.replaceState(null, '', ROOT_PATH); document.title = 'MUSIC LiDAR｜ブラウザで遊べる無料4キー音ゲー(リズムゲーム)'; } catch { /* noop */ }
@@ -827,7 +851,7 @@ const accReady = acc.init();
   else if (screen === 'changelog') openChangelog();
   else if (needLogin) {
     await accReady;
-    if (acc.isLoggedIn()) openMetaScreen(screen);
+    if (acc.isLoggedIn()) { if (screen === 'live') openLive(); else openMetaScreen(screen); }
     else { syncUrl(entries[sel]); openAccount(); }
   }
   // result/ はプレイ結果が残っていないので選曲画面のまま

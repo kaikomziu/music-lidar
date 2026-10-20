@@ -584,7 +584,9 @@ async function startGameInner(entry, d, custom, live) {
     rivals: live ? () => live.rivals() : null,
   });
   live?.attach(game);
-  game.start(custom?.startFrom || 0);
+  $('btn-p-quit').textContent = live ? 'ライブを抜ける' : '選曲へ';
+  $('btn-resume').innerHTML = live ? '戻る <small>ESC</small>' : '再開 <small>ESC</small>';
+  game.start(custom?.startFrom || 0, live ? live.syncAt : null);
 }
 
 function quitGame() {
@@ -728,7 +730,9 @@ window.addEventListener('keydown', (ev) => {
     const lane = KEYS.indexOf(ev.code);
     if (lane >= 0) { ev.preventDefault(); if (!ev.repeat) game.press(lane, ev.timeStamp); return; }
     if (ev.key === 'Escape') {
-      if (game.paused) { overlay('pause', false); game.resume(); } else { game.pause(); overlay('pause', true); }
+      // みんなでライブは止めない(全員同時に進むため)。メニューだけ出す
+      if (playing?.live) overlay('pause', !$('pause').classList.contains('on'));
+      else if (game.paused) { overlay('pause', false); game.resume(); } else { game.pause(); overlay('pause', true); }
     }
     return;
   }
@@ -774,9 +778,11 @@ window.addEventListener('keyup', (ev) => {
 function pauseGame() {
   if (state === 'game' && game && !game.paused) { game.pause(); overlay('pause', true); }
 }
-window.addEventListener('blur', pauseGame);
-document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
-$('btn-pause-game').addEventListener('click', pauseGame);
+// みんなでライブ中はよそ見しても止めない
+const autoPause = () => { if (!playing?.live) pauseGame(); };
+window.addEventListener('blur', autoPause);
+document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
+$('btn-pause-game').addEventListener('click', () => { if (playing?.live && state === 'game') overlay('pause', true); else pauseGame(); });
 if (IS_TOUCH) {
   document.body.classList.add('touch');
   $('btn-start').textContent = 'TAP TO START';

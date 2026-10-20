@@ -5,6 +5,7 @@ import { load } from './storage.js';
 import * as acc from './account.js';
 
 const $ = (id) => document.getElementById(id);
+const LEAD_MS = 4000; // サーバーの開始時刻から曲の頭までの時間(全員この時刻に曲が始まる)
 const POLL_LOBBY = 5000, POLL_ROOM = 2500, POLL_GAME = 3000, POLL_RESULT = 3000;
 const ERR = { NO_ROOM: 'ルームが見つかりません(解散したか、コードが違います)', ROOM_FULL: 'ルームが満員です(8人まで)', NOT_HOST: 'ホストだけが操作できます' };
 const errText = (e) => ERR[e?.message] || acc.errText(e);
@@ -44,7 +45,7 @@ export function initLive(api) {
   $('live-leave').addEventListener('click', leaveRoom);
   $('live-start').addEventListener('click', startRound);
   $('live-song').addEventListener('change', () => configRoom($('live-song').value, room.diff));
-  $('live-diffs').addEventListener('click', (ev) => { const b = ev.target.closest('[data-diff]'); if (b && isHost()) configRoom(room.song, b.dataset.diff); });
+  $('live-diffs').addEventListener('click', (ev) => { const b = ev.target.closest('[data-diff]'); if (b && !b.disabled) setMyDiff(b.dataset.diff); });
   $('live-copy').addEventListener('click', () => {
     const text = `MUSIC LiDAR「みんなでライブ」ルームコード: ${room.code}`;
     navigator.clipboard?.writeText(room.code).then(() => ui.toast('ルームコードをコピーしました'), () => ui.toast(text));
@@ -174,22 +175,24 @@ function renderRoom() {
   $('live-jacket').src = e ? ui.jacketURL(e, 256) : '';
   $('live-title').textContent = e?.title || room.song;
   $('live-genre').textContent = e ? `${e.genre} ・ BPM ${Math.round(e.bpm)}` : '';
-  // 曲・難易度(ホストだけ変えられる)
+  // 曲はホストだけが変えられる。難易度は人ごとに選ぶ
   const sel = $('live-song');
   if (!sel.options.length) {
     sel.innerHTML = ui.entries.filter((x) => !x.local).map((x) => `<option value="${ui.esc(x.id)}">${ui.esc(x.title)}</option>`).join('');
   }
   if (document.activeElement !== sel) sel.value = room.song;
   sel.disabled = !host;
+  const my = me();
+  const lockDiff = room.status === 'play' && my?.in && !my.done;
   $('live-diffs').innerHTML = ['easy', 'normal', 'hard'].map((d) =>
-    `<button class="diff-btn ${d}${room.diff === d ? ' sel' : ''}" data-diff="${d}" ${host ? '' : 'disabled'}><div class="dn">${d.toUpperCase()}</div><div class="dl">${e ? e.levels[d] : '-'}</div><div class="dc">${e ? e.stats[d].notes + ' notes' : ''}</div></button>`).join('');
+    `<button class="diff-btn ${d}${my?.diff === d ? ' sel' : ''}" data-diff="${d}" ${lockDiff ? 'disabled' : ''}><div class="dn">${d.toUpperCase()}</div><div class="dl">${e ? e.levels[d] : '-'}</div><div class="dc">${e ? e.stats[d].notes + ' notes' : ''}</div></button>`).join('');
   // メンバー
   const playing = room.status === 'play';
   $('live-members').innerHTML = room.members.map((m) => {
     let st;
     if (playing && m.in) st = m.done ? `<span class="lm-st done">${(m.score ?? 0).toLocaleString()}</span>` : `<span class="lm-st play">ライブ中 ${m.combo} COMBO</span>`;
     else st = m.ready ? '<span class="lm-st ok">READY</span>' : '<span class="lm-st wait">準備中…</span>';
-    return `<li class="${m.id === room.me ? 'me' : ''}"><span class="lm-name">${m.id === room.host ? '<i class="lm-host">HOST</i>' : ''}${ui.esc(m.name)}</span>${st}</li>`;
+    return `<li class="${m.id === room.me ? 'me' : ''}"><span class="lm-name">${m.id === room.host ? '<i class="lm-host">HOST</i>' : ''}${ui.esc(m.name)}</span>${diffTag(m.diff)}${st}</li>`;
   }).join('');
   $('live-count').textContent = `${room.members.length}/8`;
   // スタート
@@ -199,11 +202,23 @@ function renderRoom() {
   btn.hidden = !host;
   btn.disabled = anyPlaying || !isReady();
   btn.innerHTML = anyPlaying ? 'ライブ中…' : !isReady() ? '音源を準備中…' : notReady ? `スタート <small>(準備中 ${notReady}人)</small>` : 'ライブ スタート!';
-  const cd = startTimer && room.start_at ? Math.max(0, Math.ceil((room.start_at - serverNow()) / 1000)) : 0;
+  const cd = 0;
   $('live-msg').textContent = cd ? `まもなく開始… ${cd}` :
     anyPlaying ? (me()?.in ? '' : '次の曲から参加できます。終わるまで待っていてね') :
     host ? (room.members.length < 2 ? 'ルームコードを友だちに教えて呼ぼう。1人でもスタートできます' : '全員そろったらスタート!') :
     'ホストがスタートするのを待っています…';
+}
+
+const diffTag = (d) => `<i class="lm-diff" style="--dc:${ui.diffColor[d] || '#fff'}">${String(d || '').toUpperCase()}${entryOf(room?.song) ? ' ' + entryOf(room.song).levels[d] : ''}</i>`;
+
+async function setMyDiff(d) {
+  if (!room || busy || me()?.diff === d) return;
+  const m = me();
+  if (m) { m.diff = d; renderRoom(); } // 先に見た目だけ変える
+  busy = true;
+  try { room = await call('mlidar_live_diff', { p_room: room.id, p_diff: d }); renderRoom(); }
+  catch (e) { ui.toast(errText(e)); }
+  finally { busy = false; }
 }
 
 async function configRoom(song, diff) {
@@ -222,7 +237,8 @@ async function startRound() {
   finally { busy = false; }
 }
 
-// サーバーの開始時刻に合わせて始める(読み込み画面の分だけ早めに呼ぶ)
+// 開始の合図が来たらすぐ読み込みに入り、曲の頭は全員「サーバーの開始時刻 + LEAD_MS」にそろえる
+// (読み込みが間に合わなかった人は、その時点の位置から途中参加になる)
 function checkStart() {
   if (!room || room.status !== 'play' || room.round <= playedRound) return;
   const m = me();
@@ -230,19 +246,13 @@ function checkStart() {
   playedRound = room.round;
   const e = entryOf(room.song);
   if (!e) return;
-  const diff = room.diff, round = room.round;
-  const wait = Math.max(0, room.start_at - serverNow() - 1500);
-  clearTimeout(startTimer);
-  const tick = setInterval(() => { if (mode === 'room' && ui.current() === 'live') renderRoom(); }, 250);
-  startTimer = setTimeout(() => {
-    clearInterval(tick); startTimer = 0;
-    if (!room || room.round !== round) return;
-    mode = 'game';
-    stop();
-    liveGame = { round, entry: e, diff, getCombo: () => 0, score: () => null };
-    ui.startLive(e, diff, liveHooks);
-    schedule(pollGame, POLL_GAME);
-  }, wait);
+  const diff = m.diff || room.diff, round = room.round;
+  mode = 'game';
+  stop();
+  liveGame = { round, entry: e, diff, getCombo: () => 0 };
+  liveHooks.syncAt = performance.now() + (room.start_at + LEAD_MS - serverNow());
+  ui.startLive(e, diff, liveHooks);
+  schedule(pollGame, POLL_GAME);
 }
 
 // ---------------------------------------------------------------------------
@@ -253,7 +263,7 @@ const liveHooks = {
   rivals() {
     if (!room) return [];
     return room.members.filter((m) => m.in).map((m) => ({
-      name: m.name, me: m.id === room.me, done: m.done,
+      name: m.name, me: m.id === room.me, done: m.done, diff: m.diff,
       combo: m.id === room.me && liveGame?.game && !liveGame.game.ended ? liveGame.game.tCombo : m.combo,
     }));
   },
@@ -319,7 +329,7 @@ function renderResult() {
     if (m.done && m.score !== prev) { rank = i + 1; prev = m.score; }
     const mark = m.ap ? '<i class="lv-mark ap">AP</i>' : m.fc ? '<i class="lv-mark fc">FC</i>' : '';
     return `<li class="${m.id === room.me ? 'me' : ''} ${m.done && rank === 1 && list.length > 1 ? 'win' : ''}">
-      <span class="rk">${m.done ? rank : '…'}</span><span class="nm">${ui.esc(m.name)}${mark}</span>
+      <span class="rk">${m.done ? rank : '…'}</span><span class="nm">${ui.esc(m.name)}${diffTag(m.diff)}${mark}</span>
       <span class="cb">${m.done ? `MAX ${m.max_combo ?? '-'}` : `${m.combo} COMBO`}</span>
       <span class="sc">${m.done ? (m.score ?? 0).toLocaleString() : 'プレイ中…'}</span></li>`;
   }).join('');

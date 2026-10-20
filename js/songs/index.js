@@ -20,8 +20,15 @@ import overdriveRiot from './overdrive-riot.js';
 import freezeFrame from './freeze-frame.js';
 import hyperScanBreaker from './hyper-scan-breaker.js';
 import overclockOmega from './overclock-omega.js';
+import rainyWindow from './rainy-window.js';
+import midnightAvenue from './midnight-avenue.js';
+import skyPrism from './sky-prism.js';
+import ironPulse from './iron-pulse.js';
+import sunsetBossa from './sunset-bossa.js';
+import hardReflector from './hard-reflector.js';
 
 export default [
-  firstLight, helloLane, neonHighway, discoMirrorball, cloudPoint, pixelQuest, pulseGrid, blueNoteLane,
-  stellarGate, lidarRush, shiningStar, wubFracture, overdriveRiot, freezeFrame, hyperScanBreaker, overclockOmega,
+  firstLight, helloLane, rainyWindow, neonHighway, discoMirrorball, sunsetBossa, midnightAvenue, cloudPoint, pixelQuest,
+  pulseGrid, ironPulse, blueNoteLane, stellarGate, skyPrism, lidarRush, shiningStar, wubFracture, overdriveRiot,
+  hardReflector, freezeFrame, hyperScanBreaker, overclockOmega,
 ];

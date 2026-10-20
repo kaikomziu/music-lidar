@@ -69,6 +69,7 @@ const SCREENS = [
   { dir: 'live', screen: 'live', title: 'みんなでライブ｜MUSIC LiDAR 無料ブラウザ音ゲー',
     desc: 'MUSIC LiDAR の「みんなでライブ」。最大8人で同じ曲を同時にプレイし、プレイ中はみんなのコンボがリアルタイムに見える。最後は編成の効果込みのスコアで順位を競う、ブラウザで遊べる無料のオンライン音ゲー。' },
   // ここから下は検索に出さない画面
+  { dir: 'home', screen: 'home', noindex: true, title: 'ホーム｜MUSIC LiDAR', desc: 'MUSIC LiDAR のホーム。ライブ・編成・ガチャ・クエスト・みんなの譜面・譜面メーカーを選べます。' },
   { dir: 'result', screen: 'result', noindex: true, title: 'リザルト｜MUSIC LiDAR', desc: 'MUSIC LiDAR のプレイ結果。' },
   { dir: 'settings', screen: 'settings', noindex: true, title: '設定｜MUSIC LiDAR', desc: 'MUSIC LiDAR の設定。' },
   { dir: 'account', screen: 'account', noindex: true, title: 'アカウント｜MUSIC LiDAR', desc: 'MUSIC LiDAR のログイン・新規登録。' },

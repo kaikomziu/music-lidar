@@ -23,6 +23,32 @@ export function setVolumes(bgm, se) {
 
 export const bgmOut = () => (getCtx(), bgmGain);
 
+// 静かな曲(オルゴール・ピアノなど)だけ音量を持ち上げて、ほかの曲と聞こえ方をそろえる
+// 平均の大きさ(RMS)が目標より小さいときだけ上げる。ピークが割れない範囲まで
+const loudCache = new WeakMap();
+export function loudnessGain(buffer) {
+  if (loudCache.has(buffer)) return loudCache.get(buffer);
+  let sum = 0, peak = 0, n = 0;
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+    const d = buffer.getChannelData(ch);
+    for (let i = 0; i < d.length; i += 16) { const v = d[i]; sum += v * v; n++; const a = Math.abs(v); if (a > peak) peak = a; }
+  }
+  const rms = Math.sqrt(sum / Math.max(1, n));
+  const g = rms > 0 && rms < 0.15 ? Math.max(1, Math.min(0.2 / rms, 0.95 / Math.max(peak, 1e-3), 4)) : 1;
+  loudCache.set(buffer, g);
+  return g;
+}
+// 曲を鳴らす出口(曲ごとの音量補正つき)
+export function bgmOutFor(buffer) {
+  const c = getCtx();
+  const g = loudnessGain(buffer);
+  if (g === 1) return bgmGain;
+  const node = c.createGain();
+  node.gain.value = g;
+  node.connect(bgmGain);
+  return node;
+}
+
 // 今スピーカーから出ている音のコンテキスト時刻(出力レイテンシ込み)
 export function nowAudio(perfNow = performance.now()) {
   const c = ctx || getCtx(); // getCtx() は suspend 中だと resume してしまうので直接参照
@@ -64,7 +90,7 @@ export function playPreview(buffer, offset = 0, length = 14) {
   src.loop = true;
   src.loopStart = Math.min(offset, buffer.duration - 1);
   src.loopEnd = Math.min(offset + length, buffer.duration);
-  src.connect(g); g.connect(bgmGain);
+  src.connect(g); g.connect(bgmOutFor(buffer));
   const t = c.currentTime;
   g.gain.setValueAtTime(0, t);
   g.gain.linearRampToValueAtTime(0.85, t + 0.6);

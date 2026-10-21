@@ -1,5 +1,5 @@
 // ゲーム本体: 判定・スコア・3D風レーン描画・LiDAR演出
-import { getCtx, bgmOut, nowAudio, playTap } from './audio.js';
+import { getCtx, bgmOut, bgmOutFor, nowAudio, playTap } from './audio.js';
 import { NO_SCROLL } from './gimmick.js';
 
 export const LANE_COLORS = ['#5ef2ff', '#ff4fd8', '#ff4fd8', '#5ef2ff'];
@@ -167,7 +167,7 @@ export class Game {
     }
     this.src = ctx.createBufferSource();
     this.src.buffer = this.buffer;
-    this.src.connect(bgmOut());
+    this.src.connect(bgmOutFor(this.buffer));
     this.startAt = ctx.currentTime + this.leadIn - startFrom;
     this.src.start(ctx.currentTime + this.leadIn, Math.min(startFrom, Math.max(0, this.buffer.duration - 0.05)));
     // 表示・判定用の時計。performance.now() で滑らかに進め、オーディオ時計に少しずつ合わせる

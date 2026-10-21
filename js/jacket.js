@@ -31,6 +31,9 @@ const STYLE = {
   'ACOUSTIC POP': 'cup', 'J-POP': 'ribbon', 'IDOL POP': 'hearts', 'WA-ROCK': 'sakura', 'DEEP HOUSE': 'equalizer', JUNGLE: 'terrain',
   FUNK: 'mirrorball', 'MUSIC BOX': 'gears', AMBIENT: 'aurora', 'BIG ROOM': 'strobe', TANGO: 'rose', CELTIC: 'knot', GABBER: 'shards',
   WALTZ: 'stars', BLUES: 'vinyl', 'KAWAII FUTURE BASS': 'prism',
+  MARCH: 'sunrise', 'KIDS POP': 'stars', SALSA: 'rays', SAMBA: 'palms', ARABIAN: 'dunes', CHINESE: 'lantern', AFROBEATS: 'rays',
+  GOSPEL: 'clouds', 'R&B': 'smoke', 'HIP HOP': 'skyline', 'LIQUID FUNK': 'clouds', HYPERPOP: 'glitch', BREAKCORE: 'glitch',
+  PSYTRANCE: 'tunnel', 'PROGRESSIVE HOUSE': 'aurora', MOOMBAHTON: 'palms', 'UK GARAGE': 'equalizer', METALCORE: 'lightning', PIANO: 'piano',
 };
 
 function draw(g, e, S) {
@@ -607,6 +610,42 @@ const ART = {
     g.fillStyle = 'rgba(255,230,160,0.8)'; gear(S * 0.62, S * 0.36, S * 0.09, 9, 0.2);
     g.fillStyle = 'rgba(255,255,255,0.8)';
     for (let i = 0; i < 30; i++) { const x = rng() * S, y = rng() * S * 0.8, l = S * 0.01; g.fillRect(x - l, y, l * 2, u); g.fillRect(x, y - l, u, l * 2); }
+  },
+  // 月と砂丘(アラビアン)
+  dunes(g, { S, u, rng, col, glowAt }) {
+    glowAt(S * 0.7, S * 0.25, S * 0.2, 0.4);
+    g.fillStyle = 'rgba(255,240,200,0.9)'; g.beginPath(); g.arc(S * 0.7, S * 0.25, S * 0.07, 0, 7); g.fill();
+    g.fillStyle = '#05060f'; g.beginPath(); g.arc(S * 0.73, S * 0.23, S * 0.06, 0, 7); g.fill();
+    for (let k = 0; k < 4; k++) {
+      g.fillStyle = k % 2 ? col(0.25 + k * 0.12) : `rgba(255,190,110,${0.15 + k * 0.1})`;
+      g.beginPath(); g.moveTo(0, S);
+      for (let x = 0; x <= S; x += S / 30) g.lineTo(x, S * (0.55 + k * 0.1) + Math.sin(x / S * 4 + k * 2) * S * 0.05);
+      g.lineTo(S, S); g.fill();
+    }
+    g.fillStyle = 'rgba(255,255,255,0.7)'; for (let i = 0; i < 60; i++) g.fillRect(rng() * S, rng() * S * 0.45, u, u);
+  },
+  // 赤いちょうちん(中華風)
+  lantern(g, { S, u, rng, col, glowAt }) {
+    const lamp = (x, y, r) => {
+      glowAt(x, y, r * 2.2, 0.35);
+      g.fillStyle = col(0.9); g.beginPath(); g.ellipse(x, y, r, r * 0.8, 0, 0, 7); g.fill();
+      g.strokeStyle = 'rgba(255,220,120,0.7)'; g.lineWidth = Math.max(1, u);
+      for (let k = -2; k <= 2; k++) { g.beginPath(); g.ellipse(x, y, r * Math.abs(k) / 2.5, r * 0.8, 0, 0, 7); g.stroke(); }
+      g.fillStyle = '#ffd25e'; g.fillRect(x - r * 0.35, y - r * 0.9, r * 0.7, r * 0.15); g.fillRect(x - r * 0.35, y + r * 0.75, r * 0.7, r * 0.15);
+      g.strokeStyle = '#ffd25e'; g.beginPath(); g.moveTo(x, y + r * 0.9); g.lineTo(x, y + r * 1.3); g.stroke();
+    };
+    g.strokeStyle = 'rgba(255,255,255,0.3)'; g.lineWidth = Math.max(1, u); g.beginPath(); g.moveTo(0, S * 0.15); g.quadraticCurveTo(S / 2, S * 0.3, S, S * 0.15); g.stroke();
+    lamp(S * 0.22, S * 0.32, S * 0.08); lamp(S * 0.5, S * 0.4, S * 0.11); lamp(S * 0.78, S * 0.32, S * 0.08);
+  },
+  // 鍵盤(ピアノ)
+  piano(g, { S, u, rng, col, glowAt }) {
+    glowAt(S / 2, S * 0.3, S * 0.4, 0.3);
+    g.save(); g.translate(S / 2, S * 0.62); g.transform(1, 0, -0.35, 0.55, 0, 0);
+    const n = 10, w = S * 1.1 / n;
+    for (let i = 0; i < n; i++) { g.fillStyle = 'rgba(235,240,255,0.9)'; g.fillRect(-S * 0.55 + i * w, -S * 0.3, w - S * 0.006, S * 0.6); }
+    for (let i = 0; i < n - 1; i++) { if (i % 7 === 2 || i % 7 === 6) continue; g.fillStyle = '#05060f'; g.fillRect(-S * 0.55 + (i + 1) * w - w * 0.3, -S * 0.3, w * 0.6, S * 0.36); }
+    g.restore();
+    g.fillStyle = col(0.6); for (let i = 0; i < 50; i++) { const x = rng() * S, y = rng() * S * 0.4; g.fillRect(x, y, Math.max(1, u), S * 0.02 * rng()); }
   },
   // ここから下は特定ジャンル以外(読み込み曲など)
   rings(g, { S, rng, fast, dot }) {

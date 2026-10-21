@@ -57,16 +57,40 @@ import gabberStorm from './gabber-storm.js';
 import spaceWaltz from './space-waltz.js';
 import bluesHighway from './blues-highway.js';
 import kawaiiBubble from './kawaii-bubble.js';
+import sunnyParade from './sunny-parade.js';
+import cottonCandy from './cotton-candy.js';
+import salsaFuego from './salsa-fuego.js';
+import sambaCarnival from './samba-carnival.js';
+import desertWind from './desert-wind.js';
+import dragonGate from './dragon-gate.js';
+import afroSunrise from './afro-sunrise.js';
+import gospelLight from './gospel-light.js';
+import velvetRnb from './velvet-rnb.js';
+import boomBapDays from './boom-bap-days.js';
+import liquidSky from './liquid-sky.js';
+import hyperpopGlitch from './hyperpop-glitch.js';
+import breakcoreCollapse from './breakcore-collapse.js';
+import psyForest from './psy-forest.js';
+import progAscent from './prog-ascent.js';
+import moombahHeat from './moombah-heat.js';
+import garageShuffle from './garage-shuffle.js';
+import metalcoreFury from './metalcore-fury.js';
+import pianoRain from './piano-rain.js';
+import timeTwister from './time-twister.js';
 
 export default [
   // やさしい曲
-  firstLight, helloLane, starLullaby, plaza1995, morningCoffee, polarNight, rainyWindow, islandSignal,
+  firstLight, helloLane, starLullaby, cottonCandy, plaza1995, sunnyParade, morningCoffee, pianoRain, polarNight, gospelLight,
+  rainyWindow, islandSignal,
   // ふつう
-  neonHighway, discoMirrorball, dembowLights, jazzCafe, spaceWaltz, bluesHighway, sunsetBossa, deepBlueCurrent, tangoNoir,
-  paperPlanes, midnightAvenue, funkyStation, cloudPoint, pixelQuest, pulseGrid, swingCircuit, lowOrbit, ironPulse,
+  neonHighway, discoMirrorball, dembowLights, afroSunrise, jazzCafe, spaceWaltz, bluesHighway, velvetRnb, boomBapDays,
+  sunsetBossa, deepBlueCurrent, tangoNoir, desertWind, sambaCarnival, moombahHeat, paperPlanes, midnightAvenue, funkyStation,
+  progAscent, dragonGate, cloudPoint, pixelQuest, pulseGrid, swingCircuit, lowOrbit, ironPulse, garageShuffle,
   // むずかしめ
-  sakuraLattice, lastHorizon, celticRun, bigRoomBlast, blueNoteLane, glitterIdol, stellarGate, skyPrism, kawaiiBubble,
-  lidarRush, shiningStar, wubFracture, offbeatSkater, nightDrift, neonSamurai, jungleLights, overdriveRiot, hardReflector,
+  sakuraLattice, lastHorizon, celticRun, bigRoomBlast, salsaFuego, blueNoteLane, glitterIdol, liquidSky, stellarGate, skyPrism,
+  kawaiiBubble, lidarRush, shiningStar, wubFracture, offbeatSkater, nightDrift, psyForest, neonSamurai, jungleLights,
+  overdriveRiot, hardReflector,
   // 鬼畜・ギミック
-  sugarRush, chipDungeon, circuitBreaker, mirageShift, freezeFrame, hyperScanBreaker, gabberStorm, finalProtocol, overclockOmega,
+  sugarRush, hyperpopGlitch, chipDungeon, circuitBreaker, mirageShift, freezeFrame, metalcoreFury, timeTwister, hyperScanBreaker,
+  gabberStorm, finalProtocol, breakcoreCollapse, overclockOmega,
 ];

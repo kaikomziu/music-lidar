@@ -2,6 +2,17 @@
 // 大きな機能追加 = 2つ目の数字を上げる / 不具合修正や小さな改善 = 3つ目の数字を上げる
 export const CHANGELOG = [
   {
+    version: '1.24.0', date: '2026-10-21',
+    notes: [
+      '新曲20曲を追加(全73曲)',
+      'やさしめ: Cotton Candy(キッズポップ)、Sunny Parade(マーチ)、Piano Rain(ピアノ)、Gospel Light(ゴスペル)、Velvet Night(R&B)、Boom Bap Days(ヒップホップ)',
+      'ふつう: Afro Sunrise(アフロビーツ)、Desert Wind(アラビアン)、Samba Carnival(サンバ)、Moombah Heat(ムーンバートン)、Ascent(プログレッシブハウス)、Dragon Gate(中華風)、Garage Shuffle(UKガラージ)',
+      'むずかしめ: Salsa Fuego(サルサ)、Liquid Sky(リキッドファンク)、Psy Forest(サイトランス)',
+      '鬼畜・ギミック: Hyperpop Glitch(ハイパーポップ)、Metalcore Fury(メタルコア)、Time Twister(ギミック)、Breakcore Collapse(ブレイクコア・Lv14)',
+      'ピアノやオルゴールなど静かな曲は、自動で音量を持ち上げてほかの曲と聞こえ方をそろえるように',
+    ],
+  },
+  {
     version: '1.23.0', date: '2026-10-21',
     notes: [
       '新曲20曲を追加(全53曲)',

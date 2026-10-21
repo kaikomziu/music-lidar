@@ -28,6 +28,9 @@ const STYLE = {
   'LO-FI HIP HOP': 'rain', 'CITY POP': 'skyline', 'FUTURE BASS': 'prism', TECHNO: 'strobe', 'BOSSA NOVA': 'palms', HARDSTYLE: 'shards',
   'WA-FUSION': 'sakura', EUROBEAT: 'speedlines', REGGAE: 'waves', TRAP: 'smoke', 'ELECTRO SWING': 'deco', 'HAPPY HARDCORE': 'hearts',
   REGGAETON: 'rays', 'SKA PUNK': 'checker', ORCHESTRAL: 'aurora', VAPORWAVE: 'vapor', 'BOSS BATTLE': 'eye',
+  'ACOUSTIC POP': 'cup', 'J-POP': 'ribbon', 'IDOL POP': 'hearts', 'WA-ROCK': 'sakura', 'DEEP HOUSE': 'equalizer', JUNGLE: 'terrain',
+  FUNK: 'mirrorball', 'MUSIC BOX': 'gears', AMBIENT: 'aurora', 'BIG ROOM': 'strobe', TANGO: 'rose', CELTIC: 'knot', GABBER: 'shards',
+  WALTZ: 'stars', BLUES: 'vinyl', 'KAWAII FUTURE BASS': 'prism',
 };
 
 function draw(g, e, S) {
@@ -539,6 +542,71 @@ const ART = {
     for (let k = 1; k < 4; k++) { g.beginPath(); g.arc(S / 2, S * 0.45, S * (0.2 + k * 0.08), 0, 7); g.stroke(); }
     for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; g.beginPath(); g.moveTo(S / 2 + Math.cos(a) * S * 0.25, S * 0.45 + Math.sin(a) * S * 0.25); g.lineTo(S / 2 + Math.cos(a) * S * 0.48, S * 0.45 + Math.sin(a) * S * 0.48); g.stroke(); }
     g.fillStyle = 'rgba(255,40,80,0.9)'; g.font = `800 ${Math.round(S * 0.045)}px Orbitron, sans-serif`; g.fillText('WARNING', S * 0.36, S * 0.82);
+  },
+  // 湯気の立つコーヒーカップ(アコースティック)
+  cup(g, { S, u, rng, col, glowAt }) {
+    glowAt(S * 0.5, S * 0.55, S * 0.4, 0.3);
+    g.fillStyle = col(0.9);
+    g.beginPath(); g.moveTo(S * 0.3, S * 0.45); g.lineTo(S * 0.66, S * 0.45); g.lineTo(S * 0.62, S * 0.7); g.quadraticCurveTo(S * 0.48, S * 0.76, S * 0.34, S * 0.7); g.closePath(); g.fill();
+    g.strokeStyle = col(0.9); g.lineWidth = S * 0.025; g.beginPath(); g.arc(S * 0.68, S * 0.54, S * 0.06, -1.3, 1.3); g.stroke();
+    g.fillStyle = 'rgba(255,255,255,0.2)'; g.beginPath(); g.ellipse(S * 0.48, S * 0.76, S * 0.26, S * 0.04, 0, 0, 7); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,0.45)'; g.lineWidth = Math.max(1, u * 2); g.lineCap = 'round';
+    for (let k = 0; k < 3; k++) { const x = S * (0.4 + k * 0.08); g.beginPath(); g.moveTo(x, S * 0.4); g.bezierCurveTo(x - S * 0.04, S * 0.32, x + S * 0.04, S * 0.26, x, S * 0.16); g.stroke(); }
+    g.fillStyle = 'rgba(255,230,180,0.6)'; for (let i = 0; i < 40; i++) g.fillRect(rng() * S, rng() * S * 0.4, u, u);
+  },
+  // 流れるリボンと音符(J-POP)
+  ribbon(g, { S, u, rng, col }) {
+    g.globalCompositeOperation = 'lighter';
+    for (let k = 0; k < 5; k++) {
+      g.strokeStyle = k % 2 ? col(0.5) : 'rgba(255,255,255,0.35)'; g.lineWidth = S * (0.02 + k * 0.006);
+      g.beginPath();
+      for (let x = -S * 0.1; x <= S * 1.1; x += S / 40) g.lineTo(x, S * (0.3 + k * 0.08) + Math.sin(x / S * 6 + k) * S * 0.08);
+      g.stroke();
+    }
+    g.globalCompositeOperation = 'source-over';
+    for (let i = 0; i < 9; i++) {
+      const x = S * (0.1 + rng() * 0.8), y = S * (0.12 + rng() * 0.55), r = S * (0.02 + rng() * 0.02);
+      g.fillStyle = 'rgba(255,255,255,0.85)'; g.beginPath(); g.ellipse(x, y, r * 1.2, r, -0.4, 0, 7); g.fill();
+      g.fillRect(x + r * 0.9, y - r * 4, Math.max(1, u * 2), r * 4);
+    }
+  },
+  // 赤いバラ(タンゴ)
+  rose(g, { S, u, rng, col, glowAt }) {
+    glowAt(S / 2, S * 0.42, S * 0.35, 0.4);
+    const cx = S / 2, cy = S * 0.42;
+    for (let k = 0; k < 7; k++) {
+      const r = S * (0.2 - k * 0.025), a0 = k * 1.1;
+      g.fillStyle = k % 2 ? col(0.85) : 'rgba(120,10,30,0.9)';
+      g.beginPath(); g.arc(cx + Math.cos(a0) * S * 0.01, cy + Math.sin(a0) * S * 0.01, r, a0, a0 + Math.PI * 1.6); g.fill();
+    }
+    g.strokeStyle = 'rgba(60,140,80,0.9)'; g.lineWidth = S * 0.015;
+    g.beginPath(); g.moveTo(cx, cy + S * 0.18); g.quadraticCurveTo(cx + S * 0.06, S * 0.75, cx - S * 0.02, S * 0.95); g.stroke();
+    g.fillStyle = 'rgba(60,140,80,0.9)'; g.beginPath(); g.ellipse(cx + S * 0.07, S * 0.7, S * 0.06, S * 0.025, -0.5, 0, 7); g.fill();
+  },
+  // ケルトの結び目(ケルト)
+  knot(g, { S, u, col, glowAt }) {
+    glowAt(S / 2, S * 0.45, S * 0.4, 0.3);
+    g.strokeStyle = col(0.9); g.lineWidth = S * 0.025;
+    for (let k = 0; k < 3; k++) {
+      const a = k * Math.PI * 2 / 3 - Math.PI / 2;
+      g.beginPath(); g.ellipse(S / 2 + Math.cos(a) * S * 0.09, S * 0.45 + Math.sin(a) * S * 0.09, S * 0.16, S * 0.07, a, 0, 7); g.stroke();
+    }
+    g.lineWidth = Math.max(1, u * 1.5); g.strokeStyle = col(0.5);
+    g.beginPath(); g.arc(S / 2, S * 0.45, S * 0.3, 0, 7); g.stroke();
+    g.beginPath(); g.arc(S / 2, S * 0.45, S * 0.33, 0, 7); g.stroke();
+  },
+  // オルゴールの歯車と星(オルゴール)
+  gears(g, { S, u, rng, col, glowAt }) {
+    glowAt(S / 2, S * 0.4, S * 0.4, 0.3);
+    const gear = (cx, cy, r, n, a0) => {
+      g.beginPath();
+      for (let i = 0; i <= n * 2; i++) { const a = a0 + (i / (n * 2)) * Math.PI * 2, rr = i % 2 ? r : r * 1.18; g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); }
+      g.fill(); g.fillStyle = '#05060f'; g.beginPath(); g.arc(cx, cy, r * 0.35, 0, 7); g.fill();
+    };
+    g.fillStyle = col(0.8); gear(S * 0.38, S * 0.45, S * 0.14, 12, 0);
+    g.fillStyle = 'rgba(255,230,160,0.8)'; gear(S * 0.62, S * 0.36, S * 0.09, 9, 0.2);
+    g.fillStyle = 'rgba(255,255,255,0.8)';
+    for (let i = 0; i < 30; i++) { const x = rng() * S, y = rng() * S * 0.8, l = S * 0.01; g.fillRect(x - l, y, l * 2, u); g.fillRect(x, y - l, u, l * 2); }
   },
   // ここから下は特定ジャンル以外(読み込み曲など)
   rings(g, { S, rng, fast, dot }) {

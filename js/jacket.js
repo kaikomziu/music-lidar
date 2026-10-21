@@ -36,10 +36,13 @@ const STYLE = {
   PSYTRANCE: 'tunnel', 'PROGRESSIVE HOUSE': 'aurora', MOOMBAHTON: 'palms', 'UK GARAGE': 'equalizer', METALCORE: 'lightning', PIANO: 'piano',
   HARDCORE: 'tunnel', 'SYMPHONIC METAL': 'lightning', NEUROFUNK: 'terrain', FRENCHCORE: 'shards', 'JAZZ FUSION': 'vinyl',
   TRANCECORE: 'rays', 'JUMP UP': 'wobble', 'WA-CORE': 'sakura',
+  WINTER: 'snow', COUNTRY: 'sunrise', LOUNGE: 'clouds', 'TOY POP': 'gears', 'WA-POP': 'lantern', 'SYNTH POP': 'retrosun', FOLK: 'dunes',
+  'NU DISCO': 'mirrorball', 'NEO SOUL': 'smoke', 'SOUTHERN ROCK': 'lightning', 'POWER METAL': 'shards', 'J-CORE': 'hearts',
+  'GLITCH HOP': 'equalizer', TERRORCORE: 'tunnel',
 };
 
 // 同じジャンルで見分けにくい曲だけ、曲ごとに絵柄を指定
-const STYLE_BY_ID = { 'infinity-breaker': 'eye' };
+const STYLE_BY_ID = { 'infinity-breaker': 'eye', 'clockwork-chaos': 'clock' };
 
 function draw(g, e, S) {
   const rng = mulberry32(hashStr(e.id + 'jacket'));
@@ -651,6 +654,38 @@ const ART = {
     for (let i = 0; i < n - 1; i++) { if (i % 7 === 2 || i % 7 === 6) continue; g.fillStyle = '#05060f'; g.fillRect(-S * 0.55 + (i + 1) * w - w * 0.3, -S * 0.3, w * 0.6, S * 0.36); }
     g.restore();
     g.fillStyle = col(0.6); for (let i = 0; i < 50; i++) { const x = rng() * S, y = rng() * S * 0.4; g.fillRect(x, y, Math.max(1, u), S * 0.02 * rng()); }
+  },
+  // 雪の結晶と雪の丘(冬)
+  snow(g, { S, u, rng, col, glowAt }) {
+    glowAt(S / 2, S * 0.35, S * 0.45, 0.3);
+    const flake = (x, y, r) => {
+      g.strokeStyle = 'rgba(235,245,255,0.85)'; g.lineWidth = Math.max(1, u * 1.4);
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * Math.PI * 2;
+        const ex = x + Math.cos(a) * r, ey = y + Math.sin(a) * r;
+        g.beginPath(); g.moveTo(x, y); g.lineTo(ex, ey); g.stroke();
+        const mx = x + Math.cos(a) * r * 0.6, my = y + Math.sin(a) * r * 0.6;
+        for (const s2 of [-0.6, 0.6]) { g.beginPath(); g.moveTo(mx, my); g.lineTo(mx + Math.cos(a + s2) * r * 0.3, my + Math.sin(a + s2) * r * 0.3); g.stroke(); }
+      }
+    };
+    flake(S / 2, S * 0.36, S * 0.17);
+    for (let i = 0; i < 7; i++) flake(rng() * S, rng() * S * 0.6, S * (0.02 + rng() * 0.03));
+    g.fillStyle = 'rgba(255,255,255,0.75)'; for (let i = 0; i < 80; i++) { g.beginPath(); g.arc(rng() * S, rng() * S, Math.max(0.8, u * rng() * 2), 0, 7); g.fill(); }
+    g.fillStyle = col(0.35); g.beginPath(); g.moveTo(0, S); g.quadraticCurveTo(S * 0.3, S * 0.6, S * 0.6, S * 0.75); g.quadraticCurveTo(S * 0.85, S * 0.65, S, S * 0.72); g.lineTo(S, S); g.fill();
+  },
+  // 歯車と時計の文字盤(時計塔)
+  clock(g, { S, u, col, glowAt }) {
+    glowAt(S / 2, S * 0.42, S * 0.4, 0.35);
+    const cx = S / 2, cy = S * 0.42, R = S * 0.27;
+    g.strokeStyle = col(0.9); g.lineWidth = Math.max(1.5, u * 2.5);
+    g.beginPath(); g.arc(cx, cy, R, 0, 7); g.stroke();
+    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; g.beginPath(); g.moveTo(cx + Math.cos(a) * R * 0.85, cy + Math.sin(a) * R * 0.85); g.lineTo(cx + Math.cos(a) * R * 0.97, cy + Math.sin(a) * R * 0.97); g.stroke(); }
+    g.strokeStyle = '#fff'; g.lineWidth = Math.max(1.5, u * 3);
+    g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + R * 0.45, cy - R * 0.3); g.stroke();
+    g.lineWidth = Math.max(1, u * 1.5); g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx - R * 0.15, cy - R * 0.75); g.stroke();
+    const gear = (x, y, r, n) => { g.beginPath(); for (let i = 0; i <= n * 2; i++) { const a = (i / (n * 2)) * Math.PI * 2, rr = i % 2 ? r : r * 1.2; g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } g.stroke(); };
+    g.strokeStyle = col(0.45); g.lineWidth = Math.max(1, u * 1.5);
+    gear(S * 0.16, S * 0.18, S * 0.07, 10); gear(S * 0.86, S * 0.66, S * 0.09, 12); gear(S * 0.12, S * 0.7, S * 0.05, 8);
   },
   // ここから下は特定ジャンル以外(読み込み曲など)
   rings(g, { S, rng, fast, dot }) {

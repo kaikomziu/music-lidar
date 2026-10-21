@@ -11,6 +11,7 @@ const ERR = {
   NO_COINS: 'コインが足りません',
   BAD_TEAM: '編成が正しくありません',
   NOT_CLAIMABLE: 'まだ受け取れません',
+  BANNER_CLOSED: 'このガチャは終了しました',
 };
 export const errText = (e) => ERR[e?.message] || 'エラー: ' + (e?.message || e);
 
@@ -66,6 +67,15 @@ export async function gacha(count) {
   state = r.state; emit();
   return r.results;
 }
+
+// イベントガチャ(期間限定)
+export async function gachaEvent(banner, count) {
+  const r = await call('mlidar_gacha_event', { p_banner: banner, p_count: count });
+  state = r.state; emit();
+  return r.results;
+}
+// 開催中・開催予定のガチャ(ログイン不要)
+export const fetchBanners = () => rpc('mlidar_banners', {});
 
 export async function setTeam(ids) {
   state = await call('mlidar_set_team', { p_team: ids });

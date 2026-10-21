@@ -26,6 +26,8 @@ export function initMeta(api) {
   for (const t of document.querySelectorAll('.q-tab')) t.addEventListener('click', () => { qTab = t.dataset.tab; renderQuest(); });
 
   // ガチャ
+  $('gacha-tabs').addEventListener('click', (ev) => { const b = ev.target.closest('[data-b]'); if (b) { gachaSel = b.dataset.b; renderGachaInfo(); } });
+  loadBanners();
   $('btn-gacha-1').addEventListener('click', () => pull(1));
   $('btn-gacha-10').addEventListener('click', () => pull(10));
   $('gacha-result').addEventListener('click', (ev) => { if (ev.target.closest('.btn-gacha-close')) closeGachaResult(); });
@@ -48,7 +50,7 @@ export function openScreen(name) {
   if (needLogin()) return;
   ui.show(name);
   if (name === 'quest') renderQuest();
-  if (name === 'gacha') renderGachaInfo();
+  if (name === 'gacha') { renderGachaInfo(); loadBanners(); }
   if (name === 'team') { teamSlot = null; renderTeam(); }
   acc.refresh().catch(() => {});
 }
@@ -140,17 +142,72 @@ const rankM = (m) => (m.claimed ? 2 : m.progress >= m.goal ? 0 : 1);
 // ---------------------------------------------------------------------------
 // ガチャ
 // ---------------------------------------------------------------------------
+// ガチャの種類: 通常ガチャ('normal') と、期間限定のイベントガチャ(サーバーの mlidar_banners)
+let banners = [], clockOff = 0, gachaSel = 'normal';
+const srvNow = () => Date.now() + clockOff;
+const activeBanners = () => banners.filter((b) => srvNow() >= b.starts && srvNow() < b.ends);
+const THEME_LABEL = { halloween: '🎃 ' };
+const jst = (ms) => new Date(ms).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+const pct = (x) => `${Math.round(x * 1000) / 10}%`;
+function remainText(ms) {
+  const d = Math.floor(ms / 86400000), h = Math.floor((ms % 86400000) / 3600000), m = Math.floor((ms % 3600000) / 60000);
+  return d > 0 ? `残り ${d}日${h}時間` : h > 0 ? `残り ${h}時間${m}分` : `残り ${m}分`;
+}
+async function loadBanners() {
+  try {
+    const r = await acc.fetchBanners();
+    clockOff = r.now - Date.now();
+    banners = r.banners || [];
+  } catch (e) { console.error(e); }
+  renderHomeGacha();
+  if (ui.current() === 'gacha') renderGachaInfo();
+}
+// ホームのガチャのタイルに「開催中」を出す
+function renderHomeGacha() {
+  const el = $('h-gacha');
+  if (!el) return;
+  const b = activeBanners()[0];
+  el.innerHTML = b ? `<span class="h-event">${THEME_LABEL[b.theme] || ''}${esc(b.name)}開催中!</span> ${jst(b.ends - 1).split(' ')[0]}まで` : 'コインで★1〜★4のキャラを集める';
+  el.closest('.h-tile')?.classList.toggle('h-event-on', !!b);
+}
+
 function renderGachaInfo() {
   const s = acc.getState();
   if (!s) return;
-  $('gacha-pity').textContent = `★4確定まであと ${100 - s.pity} 回`;
+  const act = activeBanners();
+  if (gachaSel !== 'normal' && !act.some((b) => b.id === gachaSel)) gachaSel = 'normal';
+  $('gacha-tabs').innerHTML = [{ id: 'normal', name: '通常ガチャ' }, ...act].map((b) =>
+    `<button class="g-tab ${b.id === gachaSel ? 'sel' : ''} ${b.theme ? 'theme-' + b.theme : ''}" data-b="${b.id}">${THEME_LABEL[b.theme] || ''}${esc(b.name)}${b.ends ? `<small>${remainText(b.ends - srvNow())}</small>` : '<small>いつでも</small>'}</button>`).join('');
+  const b = act.find((x) => x.id === gachaSel);
+  const cat = acc.getCatalog();
+  $('gacha-banner').className = 'gacha-banner' + (b ? ' event theme-' + b.theme : '');
   $('btn-gacha-1').disabled = s.coins < 100;
   $('btn-gacha-10').disabled = s.coins < 900;
-  const cat = acc.getCatalog();
   const owned = Object.keys(s.units).length;
   $('gacha-collect').textContent = `図鑑 ${owned} / ${cat.length}`;
-  $('gacha-lineup').innerHTML = [4, 3, 2, 1].map((r) => `<div class="lineup-row"><b style="color:${RARITY_COLOR[r]}">${stars(r)}</b>${
-    cat.filter((u) => u.rarity === r).map((u) => `<span class="lineup-u ${s.units[u.id] ? '' : 'unowned'}" title="${esc(u.name)}">${unitIcon(u, 34)}</span>`).join('')}</div>`).join('');
+  const row = (r, list, label) => `<div class="lineup-row"><b style="color:${RARITY_COLOR[r]}">${label || stars(r)}</b>${
+    list.map((u) => `<span class="lineup-u ${s.units[u.id] ? '' : 'unowned'}" title="${esc(u.name)}">${unitIcon(u, 34)}</span>`).join('')}</div>`;
+  if (!b) {
+    $('gacha-title').innerHTML = 'SCAN<b>UNIT</b>';
+    $('gacha-sub').textContent = '点群の奥から新しいユニットを呼び出す';
+    $('gacha-period').hidden = true;
+    $('gacha-pickup').hidden = true;
+    $('gacha-rates').innerHTML = '★4 2% ・ ★3 8% ・ ★2 30% ・ ★1 60%<br>10連は★2以上1体確定 ・ 100回で★4確定';
+    $('gacha-pity').textContent = `★4確定まであと ${100 - s.pity} 回`;
+    $('gacha-lineup').innerHTML = [4, 3, 2, 1].map((r) => row(r, cat.filter((u) => u.rarity === r && !u.banner))).join('') +
+      (cat.some((u) => u.banner) ? '<p class="muted small">期間限定キャラは、そのイベントガチャでだけ出ます</p>' : '');
+    return;
+  }
+  const lim = cat.filter((u) => u.banner === b.id);
+  $('gacha-title').innerHTML = b.theme === 'halloween' ? 'HALLOWEEN<b>SCAN</b>' : `<b>${esc(b.name)}</b>`;
+  $('gacha-sub').textContent = b.description;
+  $('gacha-period').hidden = false;
+  $('gacha-period').innerHTML = `期間限定 ${jst(b.starts)} 〜 ${jst(b.ends - 1)} <b>${remainText(b.ends - srvNow())}</b>`;
+  $('gacha-pickup').hidden = false;
+  $('gacha-pickup').innerHTML = `<div class="gp-label">PICK UP</div><div class="gp-units">${lim.map((u) => `<div class="gp-u r${u.rarity}">${unitIcon(u, u.rarity >= 4 ? 84 : 60)}<span style="color:${RARITY_COLOR[u.rarity]}">${stars(u.rarity)}</span><b>${esc(u.name)}</b><small>${KIND_LABEL[u.kind]}</small></div>`).join('')}</div>`;
+  $('gacha-rates').innerHTML = `★4 ${pct(b.rate4)}(うち限定キャラ ${pct(b.pickup4)}) ・ ★3 ${pct(b.rate3)}(限定 ${pct(b.pickup3)}) ・ ★2 ${pct(b.rate2)}(限定 ${pct(b.pickup2)}) ・ ★1 ${pct(1 - b.rate4 - b.rate3 - b.rate2)}<br>10連は★2以上1体確定 ・ ${b.pity}回で限定★4確定(通常ガチャとは別カウント)`;
+  $('gacha-pity').textContent = `限定★4確定まであと ${b.pity - (s.pities?.[b.id] || 0)} 回`;
+  $('gacha-lineup').innerHTML = row(0, lim, '期間限定') + [4, 3, 2, 1].map((r) => row(r, cat.filter((u) => u.rarity === r && !u.banner))).join('');
 }
 
 let pulling = false;
@@ -158,7 +215,7 @@ async function pull(n) {
   if (pulling) return;
   pulling = true;
   try {
-    const res = await acc.gacha(n);
+    const res = gachaSel === 'normal' ? await acc.gacha(n) : await acc.gachaEvent(gachaSel, n);
     showGachaResult(res);
   } catch (e) {
     ui.toast(acc.errText(e));
@@ -180,7 +237,7 @@ function showGachaResult(res) {
   <div class="gr-inner"><div class="gr-cards">${res.map((r, i) => {
     const u = acc.unitById(r.id) || { id: r.id, name: r.id, rarity: r.rarity, kind: 'score' };
     return `<div class="gr-card r${r.rarity}" style="animation-delay:${0.15 + i * 0.12}s">
-      ${r.new ? '<span class="gr-new">NEW</span>' : ''}
+      ${r.new ? '<span class="gr-new">NEW</span>' : ''}${u.banner ? '<span class="gr-lim">限定</span>' : ''}
       ${unitIcon(u, 72)}
       <div class="gr-stars" style="color:${RARITY_COLOR[r.rarity]}">${stars(r.rarity)}</div>
       <div class="gr-name">${esc(u.name)}</div>
@@ -272,7 +329,7 @@ function renderTeam() {
     return `<div class="unit-card ${pos >= 0 ? 'in-team' : ''}" data-drag="unit" data-id="${u.id}" role="button" tabindex="0" aria-label="${esc(u.name)}">
       ${pos >= 0 ? `<span class="in-tag">${pos === 0 ? 'L' : pos}</span>` : ''}
       ${unitIcon(u, 56)}
-      <div class="uc-name">${esc(u.name)}</div>
+      <div class="uc-name">${u.banner ? '<span class="uc-lim">限定</span>' : ''}${esc(u.name)}</div>
       <div class="uc-meta"><span style="color:${RARITY_COLOR[u.rarity]}">${stars(u.rarity)}</span> Lv${lv}</div>
       <span class="kind-chip" style="--k:${KIND_COLOR[u.kind]}">${KIND_LABEL[u.kind]}</span>
       <div class="uc-skill">${skillText(u, lv)}</div>

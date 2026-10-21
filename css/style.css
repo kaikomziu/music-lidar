@@ -1022,3 +1022,6 @@ body.touch .h-go { display: none; }
 .uc-lim { margin-right: 4px; vertical-align: 1px; }
 .h-event { color: #ff8a1f; font-weight: 800; }
 .h-tile.h-event-on { border-color: rgba(255, 138, 31, 0.6); }
+.gp-units + .gp-units { margin-top: 10px; }
+.gp-u.r2 { width: 88px; }
+.gp-u.r2 b { font-size: 11px; }

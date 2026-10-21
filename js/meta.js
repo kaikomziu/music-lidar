@@ -204,7 +204,9 @@ function renderGachaInfo() {
   $('gacha-period').hidden = false;
   $('gacha-period').innerHTML = `期間限定 ${jst(b.starts)} 〜 ${jst(b.ends - 1)} <b>${remainText(b.ends - srvNow())}</b>`;
   $('gacha-pickup').hidden = false;
-  $('gacha-pickup').innerHTML = `<div class="gp-label">PICK UP</div><div class="gp-units">${lim.map((u) => `<div class="gp-u r${u.rarity}">${unitIcon(u, u.rarity >= 4 ? 84 : 60)}<span style="color:${RARITY_COLOR[u.rarity]}">${stars(u.rarity)}</span><b>${esc(u.name)}</b><small>${KIND_LABEL[u.kind]}</small></div>`).join('')}</div>`;
+  const card = (u) => `<div class="gp-u r${u.rarity}">${unitIcon(u, [0, 40, 48, 60, 84][u.rarity])}<span style="color:${RARITY_COLOR[u.rarity]}">${stars(u.rarity)}</span><b>${esc(u.name)}</b><small>${KIND_LABEL[u.kind]}</small></div>`;
+  $('gacha-pickup').innerHTML = '<div class="gp-label">PICK UP</div>' + [4, 3, 2, 1].map((r) => lim.filter((u) => u.rarity === r)).filter((g) => g.length)
+    .map((g) => `<div class="gp-units">${g.map(card).join('')}</div>`).join('');
   $('gacha-rates').innerHTML = `★4 ${pct(b.rate4)}(うち限定キャラ ${pct(b.pickup4)}) ・ ★3 ${pct(b.rate3)}(限定 ${pct(b.pickup3)}) ・ ★2 ${pct(b.rate2)}(限定 ${pct(b.pickup2)}) ・ ★1 ${pct(1 - b.rate4 - b.rate3 - b.rate2)}<br>10連は★2以上1体確定 ・ ${b.pity}回で限定★4確定(通常ガチャとは別カウント)`;
   $('gacha-pity').textContent = `限定★4確定まであと ${b.pity - (s.pities?.[b.id] || 0)} 回`;
   $('gacha-lineup').innerHTML = row(0, lim, '期間限定') + [4, 3, 2, 1].map((r) => row(r, cat.filter((u) => u.rarity === r && !u.banner))).join('');

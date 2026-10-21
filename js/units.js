@@ -42,10 +42,23 @@ const EMBLEM = {
   coin: '<circle cx="80" cy="80" r="7" fill="none" stroke-width="2.5"/><path d="M80 76v8"/>',
 };
 
+// ハロウィン限定キャラの飾り(コウモリ・月・かぼちゃ)
+function halloweenDeco(rng) {
+  let bats = '';
+  for (let i = 0; i < 3; i++) {
+    const x = 10 + rng() * 26 + i * 26, y = 8 + rng() * 14, s = 0.6 + rng() * 0.4;
+    bats += `<path transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${s.toFixed(2)})" d="M0 0q4-5 7-1q2-3 3 0q1-3 3 0q3-4 7 1q-4 0-6 3q-2-2-3 0q-1-2-3 0q-2-3-8-3z" fill="#120418" stroke="#ff8a1f" stroke-width="0.6"/>`;
+  }
+  return `<circle cx="84" cy="15" r="7" fill="#ffe7a8" opacity="0.85"/><circle cx="87" cy="13" r="6" fill="#1c0830" opacity="0.9"/>${bats}
+    <g transform="translate(80 80)"><ellipse cx="0" cy="2" rx="9" ry="7" fill="#ff8a1f"/><path d="M-4 2v0M0 -5v3" stroke="#3a1c08" stroke-width="1.5"/>
+    <path d="M-3.5 0l1.5-2 1.5 2zM2 0l1.5-2 1.5 2zM-4 4q4 3 8 0" fill="#3a1c08" stroke="#3a1c08" stroke-width="0.8"/><path d="M0 -5q3-3 5-1" stroke="#5c8a2e" stroke-width="1.5" fill="none"/></g>`;
+}
+
 export function unitIcon(u, size = 64) {
   if (!u) return '';
+  const hw = String(u.banner || '').startsWith('halloween'); // ハロウィン限定
   const c = RARITY_COLOR[u.rarity];
-  const k = KIND_COLOR[u.kind] || c;
+  const k = hw ? '#ff8a1f' : KIND_COLOR[u.kind] || c;
   const rng = mulberry32(hashStr(u.id));
   const type = hashStr(u.id + 'shape') % 6;
   const id = 'u' + hashStr(u.id).toString(36);
@@ -86,6 +99,33 @@ export function unitIcon(u, size = 64) {
     `<path d="M50 14 72 40 50 86 28 40z" fill="${F}"/><path d="M28 40h44M50 14v72M39 40l11-26 11 26-11 46z" stroke-width="1.2" opacity="0.7"/>
      <circle cx="50" cy="44" r="6" fill="${c}" stroke="none" filter="url(#${id}g)"/>`,
   ];
+  // ハロウィン限定キャラは専用の絵
+  const O = '#ff8a1f', P = '#b46bff';
+  const SPECIAL = {
+    'pumpkin-reaper': `<path d="M50 12q-26 4-28 40l6-4q2-24 22-28 20 4 22 28l6 4q-2-36-28-40z" fill="#1c0830" stroke="${P}"/>
+      <ellipse cx="50" cy="56" rx="22" ry="18" fill="${O}" stroke="#ffb36b"/><path d="M40 41q10-5 20 0M50 38v-6" stroke="#5c8a2e" stroke-width="2.5"/>
+      <path d="M39 52l5-6 5 6zM51 52l5-6 5 6z" fill="#ffe7a8" stroke="none" filter="url(#${id}g)"/><path d="M38 61l4 4 4-3 4 3 4-3 4 3 4-4" stroke="#3a1c08" stroke-width="2.5" fill="#ffe7a8"/>
+      <path d="M82 18 80 90" stroke="#cfd8ff" stroke-width="2.5"/><path d="M80 18q-22 0-30 12 14-6 30-4z" fill="#cfd8ff" stroke="${c}" filter="url(#${id}g)"/>`,
+    'midnight-witch': `<path d="M50 6 64 36 36 36z" fill="#1c0830" stroke="${P}"/><path d="M50 6q8 2 12 10" stroke="${P}"/><ellipse cx="50" cy="37" rx="28" ry="5" fill="#1c0830" stroke="${P}"/>
+      <path d="M40 31h20" stroke="${O}" stroke-width="3"/><circle cx="50" cy="56" r="17" fill="${F}"/>
+      ${eye(43, 54, 6, 4)}${eye(57, 54, 6, 4)}<path d="M45 63q5 3 10 0" stroke-width="2"/>
+      <path d="M33 60q-6 14 4 24M67 60q6 14-4 24" stroke="${P}" stroke-width="3"/><circle cx="78" cy="70" r="4" fill="${P}" stroke="none" filter="url(#${id}g)"/><path d="M78 74v14" stroke="${P}"/>`,
+    'ghost-lantern': `<path d="M30 78V44q0-24 20-24t20 24v34l-5-5-5 5-5-5-5 5-5-5-5 5z" fill="#e9e4ff" fill-opacity="0.25" stroke="#e9e4ff"/>
+      <ellipse cx="43" cy="44" rx="3" ry="4.5" fill="#1c0830" stroke="none"/><ellipse cx="57" cy="44" rx="3" ry="4.5" fill="#1c0830" stroke="none"/><ellipse cx="50" cy="55" rx="3" ry="4" fill="#1c0830" stroke="none"/>
+      <path d="M70 58q8 0 10 6" stroke="#e9e4ff"/><path d="M76 64h10v14h-10z" fill="${O}" stroke="#ffe7a8" filter="url(#${id}g)"/><path d="M76 64l5-4 5 4" stroke="#ffe7a8"/>`,
+    'count-dracodrone': `<path d="M50 44q-14-14-38-8 8 4 8 12-8-2-12 4 10 0 14 8 8-6 14-4z" fill="#1c0830" stroke="${P}"/>
+      <path d="M50 44q14-14 38-8-8 4-8 12 8-2 12 4-10 0-14 8-8-6-14-4z" fill="#1c0830" stroke="${P}"/>
+      <circle cx="50" cy="54" r="15" fill="${F}"/><path d="M38 44l4-10 5 8M62 44l-4-10-5 8" fill="${F}"/>
+      ${eye(44, 52, 5, 4)}${eye(56, 52, 5, 4)}<path d="M44 61l2 4 2-3M56 61l-2 4-2-3" stroke="#fff" stroke-width="1.5"/><path d="M36 72h28l-14 10z" fill="#5a0d1e" stroke="${c}"/>`,
+    'candy-golem': `<rect x="28" y="28" width="44" height="44" rx="10" fill="${F}"/><path d="M30 40l40-10M30 54l40-10M30 68l40-10" stroke="#ff7ad9" stroke-width="3" opacity="0.8"/>
+      ${eye(42, 44, 7, 5)}${eye(58, 44, 7, 5)}<path d="M42 58q8 5 16 0" stroke-width="2.5"/>
+      <g transform="translate(50 86)"><circle r="6" fill="#ff7ad9" stroke="#fff"/><path d="M-6 0l-7-5v10zM6 0l7-5v10z" fill="#ffd25e" stroke="none"/></g>
+      <path d="M28 46h-8v14h8M72 46h8v14h-8" stroke-width="2.5"/>`,
+    'mummy-bot': `<rect x="28" y="22" width="44" height="54" rx="14" fill="${F}"/>
+      <path d="M28 34l44-6M28 46l44 4M28 58l44-6M28 68l44 4" stroke="#e9e4ff" stroke-width="3" opacity="0.75"/>
+      <circle cx="58" cy="44" r="6" fill="#03050f" stroke-width="1.5"/><circle cx="58" cy="44" r="3" fill="${c}" stroke="none" filter="url(#${id}g)"/>
+      <path d="M72 70q10 4 10 14" stroke="#e9e4ff" stroke-width="2.5"/>`,
+  };
   // レア度の飾り
   const wings = R >= 3 ? `<g opacity="0.85" stroke-width="2"><path d="M22 52q-12-6-14-20 8 6 16 8M22 58q-12 0-16-10 8 4 16 3"/><path d="M78 52q12-6 14-20-8 6-16 8M78 58q12 0 16-10-8 4-16 3"/></g>` : '';
   const crown = R >= 4 ? `<ellipse cx="50" cy="9" rx="13" ry="3" stroke="${c}" stroke-width="1.8" fill="none" filter="url(#${id}g)"/>` : '';
@@ -101,7 +141,7 @@ export function unitIcon(u, size = 64) {
 
   return `<svg class="unit-icon r${R}" viewBox="0 0 100 100" width="${size}" height="${size}" aria-label="${u.name}">
     <defs>
-      <radialGradient id="${id}bg" cx="50%" cy="42%" r="70%"><stop offset="0" stop-color="${k}" stop-opacity="${R >= 4 ? 0.45 : 0.28}"/><stop offset="1" stop-color="#05081a" stop-opacity="1"/></radialGradient>
+      <radialGradient id="${id}bg" cx="50%" cy="42%" r="70%"><stop offset="0" stop-color="${k}" stop-opacity="${R >= 4 ? 0.45 : 0.28}"/><stop offset="1" stop-color="${hw ? '#1c0830' : '#05081a'}" stop-opacity="1"/></radialGradient>
       <linearGradient id="${id}b" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="${c}" stop-opacity="0.55"/><stop offset="0.55" stop-color="${c}" stop-opacity="0.12"/><stop offset="1" stop-color="#05081a" stop-opacity="0.95"/></linearGradient>
       <linearGradient id="${id}h" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5ef2ff"/><stop offset="0.35" stop-color="#ff4fd8"/><stop offset="0.7" stop-color="#ffd25e"/><stop offset="1" stop-color="#5ef2ff"/></linearGradient>
       <filter id="${id}g" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
@@ -110,8 +150,9 @@ export function unitIcon(u, size = 64) {
     <rect x="1" y="1" width="98" height="98" rx="14" fill="url(#${id}bg)"/>
     <g clip-path="url(#${id}c)" fill="none" stroke="${k}" stroke-width="0.8" opacity="0.22">${pat}</g>
     ${sparks}
-    <g fill="none" stroke="${c}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${wings}${crown}${bodies[type]}</g>
+    <g fill="none" stroke="${c}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${wings}${crown}${SPECIAL[u.id] || bodies[type]}</g>
     <g fill="${k}" stroke="${k}">${EMBLEM[u.kind]}</g>
+    ${hw ? halloweenDeco(rng) : ''}
     ${inner}
     <rect x="1" y="1" width="98" height="98" rx="14" fill="none" stroke="${frameStroke}" stroke-width="${frameW}" stroke-opacity="${R >= 2 ? 0.95 : 0.6}"/>
     ${gems}

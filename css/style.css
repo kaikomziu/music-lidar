@@ -981,3 +981,44 @@ body.touch .h-go { display: none; }
 .tut-result b { font-family: var(--font-d); font-size: 22px; color: var(--accent); }
 .tut-fc { color: #7ff9ff; font-weight: 800; }
 .tut-box .modal-actions { flex-wrap: wrap; }
+
+/* ガチャの切り替え・イベントガチャ */
+.gacha-tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.g-tab { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 9px 16px; border-radius: 6px; border: 1px solid var(--panel-line); background: var(--panel); color: var(--text); font-weight: 700; font-size: 14px; }
+.g-tab small { font-weight: 400; font-size: 11px; color: var(--muted); }
+.g-tab.sel { border-color: #ffd25e; box-shadow: 0 0 16px rgba(255, 210, 94, 0.3); }
+.g-tab.theme-halloween { border-color: rgba(255, 138, 31, 0.5); }
+.g-tab.theme-halloween small { color: #ffb36b; }
+.g-tab.theme-halloween.sel { border-color: #ff8a1f; background: linear-gradient(135deg, rgba(255, 138, 31, 0.22), rgba(120, 40, 200, 0.22)), var(--panel); box-shadow: 0 0 18px rgba(255, 138, 31, 0.4); }
+.gacha-banner { position: relative; overflow: hidden; }
+.gacha-banner > * { position: relative; }
+.gb-deco { display: none; }
+.gb-period { display: inline-block; font-size: 12px; padding: 4px 12px; border-radius: 999px; margin-bottom: 10px; border: 1px solid currentColor; }
+.gb-period b { margin-left: 6px; }
+.gb-pickup { margin: 14px 0 12px; }
+.gp-label { font-family: var(--font-d); font-size: 11px; letter-spacing: 0.3em; margin-bottom: 8px; }
+.gp-units { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.gp-u { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 104px; font-size: 12px; }
+.gp-u b { font-size: 12px; line-height: 1.3; }
+.gp-u small { font-size: 10px; color: var(--muted); }
+.gp-u.r4 { width: 120px; }
+.gacha-banner.theme-halloween { border-color: rgba(255, 138, 31, 0.6); background:
+  radial-gradient(circle at 80% -10%, rgba(255, 231, 168, 0.25), transparent 30%),
+  radial-gradient(circle at 50% 0%, rgba(255, 138, 31, 0.3), transparent 60%),
+  radial-gradient(circle at 50% 120%, rgba(140, 50, 220, 0.35), transparent 60%), #0c0614; }
+.gacha-banner.theme-halloween .gb-deco { display: block; position: absolute; inset: 0; pointer-events: none;
+  background-image: radial-gradient(circle at 12% 30%, rgba(255, 138, 31, 0.5) 0 2px, transparent 3px), radial-gradient(circle at 88% 60%, rgba(180, 90, 255, 0.5) 0 2px, transparent 3px), radial-gradient(circle at 30% 80%, rgba(255, 138, 31, 0.4) 0 1.5px, transparent 2.5px), radial-gradient(circle at 70% 20%, rgba(255, 255, 255, 0.4) 0 1px, transparent 2px);
+  animation: hwFloat 6s ease-in-out infinite alternate; }
+@keyframes hwFloat { to { transform: translateY(-8px); } }
+.gacha-banner.theme-halloween .gb-title { color: #c08bff; }
+.gacha-banner.theme-halloween .gb-title b { text-shadow: 0 0 18px #ff8a1f, 0 0 32px rgba(255, 138, 31, 0.6); }
+.gacha-banner.theme-halloween .gb-period, .gacha-banner.theme-halloween .gp-label { color: #ffb36b; }
+.gacha-banner.theme-halloween .gb-pity { color: #ff8a1f; }
+.gacha-banner.theme-halloween .gb-sub { color: #e9d7ff; }
+.gacha-banner.theme-halloween #btn-gacha-10 { border-color: #ff8a1f; background: rgba(255, 138, 31, 0.18); box-shadow: 0 0 18px rgba(255, 138, 31, 0.4); }
+.lineup-row b { white-space: nowrap; }
+.gr-lim, .uc-lim { font-size: 10px; font-weight: 800; color: #1c0830; background: #ff8a1f; border-radius: 3px; padding: 0 5px; }
+.gr-lim { position: absolute; top: 6px; left: 6px; }
+.uc-lim { margin-right: 4px; vertical-align: 1px; }
+.h-event { color: #ff8a1f; font-weight: 800; }
+.h-tile.h-event-on { border-color: rgba(255, 138, 31, 0.6); }

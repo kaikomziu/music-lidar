@@ -2,6 +2,14 @@
 // 大きな機能追加 = 2つ目の数字を上げる / 不具合修正や小さな改善 = 3つ目の数字を上げる
 export const CHANGELOG = [
   {
+    version: '1.22.0', date: '2026-10-21',
+    notes: [
+      '新曲11曲を追加(全33曲): Plaza 1995(ヴェイパーウェイヴ)、Island Signal(レゲエ)、Dembow Lights(レゲトン)、Swing Circuit(エレクトロスウィング)、Low Orbit(トラップ)、Sakura Lattice(和風)、Last Horizon(オーケストラ)、Offbeat Skater(スカパンク)、Night Drift 95(ユーロビート)、Sugar Rush Scan(ハッピーハードコア)',
+      'ギミック付きのボス曲「Final Protocol」(BPM200、譜面停止・変速・隠し)を追加',
+      '新しいジャンルのジャケット絵柄を11種類追加',
+    ],
+  },
+  {
     version: '1.21.0', date: '2026-10-20',
     notes: [
       '新曲6曲を追加(全22曲): Rainy Window(ローファイ・ヒップホップ)、Midnight Avenue(シティポップ)、Sunset Bossa(ボサノバ)、Iron Pulse(テクノ)、Sky Prism(フューチャーベース)、Hard Reflector(ハードスタイル)',

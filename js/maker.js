@@ -1,5 +1,5 @@
 // 譜面メーカー(エディタ)と「みんなの譜面」
-import { getCtx, bgmOut, nowAudio, playTap, stopPreview } from './audio.js';
+import { getCtx, bgmOut, bgmOutFor, nowAudio, playTap, stopPreview } from './audio.js';
 import { buildScroll } from './gimmick.js';
 import { load, save } from './storage.js';
 import * as acc from './account.js';
@@ -267,7 +267,7 @@ function startPlay() {
   if (ed.cur >= buf.duration - 0.1) ed.cur = 0;
   ed.src = ctx.createBufferSource();
   ed.src.buffer = buf;
-  ed.src.connect(bgmOut());
+  ed.src.connect(bgmOutFor(ed.src.buffer));
   ed.playStartCtx = ctx.currentTime + 0.05;
   ed.playStartCur = ed.cur;
   ed.lastGuide = ed.cur;

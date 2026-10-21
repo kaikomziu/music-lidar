@@ -16,6 +16,7 @@ import { initMaker, openCharts, openEditor, makerKeydown } from './maker.js';
 import { fetchChartRanking, submitChartScore } from './maker-api.js';
 import { fxText } from './units.js';
 import { initLive, openLive, backToRoom } from './live.js';
+import { initPlayer, openPlayer, playerKeydown, stop as stopPlayer } from './player.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -191,6 +192,7 @@ const SCREEN_URL = {
   changelog: ['changelog/', '更新履歴'],
   live: ['live/', 'みんなでライブ'],
   home: ['home/', 'ホーム'],
+  player: ['listen/', 'きくだけ'],
 };
 function setScreenUrl(key) {
   const su = SCREEN_URL[key];
@@ -209,6 +211,7 @@ function show(name) {
     clearTimeout(show.wt);
     show.wt = setTimeout(() => w.classList.remove('go'), 600); // アニメが止まっていても必ず消す
   }
+  if (state === 'player' && name !== 'player') stopPlayer();
   state = name;
   for (const s of document.querySelectorAll('.screen')) s.classList.toggle('active', s.id === name);
   document.body.classList.toggle('playing', name === 'game');
@@ -761,6 +764,7 @@ window.addEventListener('keydown', (ev) => {
   }
   if (state === 'editor' || state === 'charts') { makerKeydown(ev); return; }
   if (state === 'live') { if (ev.key === 'Escape') { $('live-back').click(); } return; }
+  if (state === 'player') { playerKeydown(ev); return; }
   if (state === 'quest' || state === 'gacha' || state === 'team') {
     if (ev.key === 'Escape') { if (gachaResultOpen()) closeGacha(); else goHome(); }
     return;
@@ -880,6 +884,8 @@ initMaker({
   selectedEntry: () => entries[sel],
 });
 $('btn-charts').addEventListener('click', () => openCharts());
+initPlayer({ entries, show: (n) => { stopPreview(); show(n); }, back: () => goHome(), current: () => state, esc, jacketURL, toast });
+$('btn-player').addEventListener('click', () => openPlayer());
 initLive({
   entries, show: (n) => { stopPreview(); show(n); }, toast, back: () => goHome(true), current: () => state, esc, jacketURL, openAccount,
   diffColor: DIFF_COLOR, selected: () => entries[sel], diff: () => diff,
@@ -906,6 +912,7 @@ const accReady = acc.init();
   else if (screen === 'settings') openSettings();
   else if (screen === 'account') openAccount();
   else if (screen === 'changelog') openChangelog();
+  else if (screen === 'player') openPlayer();
   // home/ はホームのまま
   else if (needLogin) {
     await accReady;

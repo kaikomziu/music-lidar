@@ -68,6 +68,8 @@ const SCREENS = [
     desc: 'MUSIC LiDAR の更新履歴。新曲の追加、新機能、見た目の刷新、不具合の修正などをバージョンごとにまとめています。' },
   { dir: 'live', screen: 'live', title: 'みんなでライブ｜MUSIC LiDAR 無料ブラウザ音ゲー',
     desc: 'MUSIC LiDAR の「みんなでライブ」。最大8人で同じ曲を同時にプレイし、プレイ中はみんなのコンボがリアルタイムに見える。最後は編成の効果込みのスコアで順位を競う、ブラウザで遊べる無料のオンライン音ゲー。' },
+  { dir: 'listen', screen: 'player', title: 'きくだけ(オリジナル曲プレーヤー)｜MUSIC LiDAR',
+    desc: 'MUSIC LiDAR のオリジナル曲を音楽プレーヤーで聴けます。ローファイ・ジャズ・シティポップ・和風・スピードコアなど、いろいろなジャンルのオリジナルBGMをシャッフルやくり返しで。無料・ブラウザだけで再生。' },
   // ここから下は検索に出さない画面
   { dir: 'home', screen: 'home', noindex: true, title: 'ホーム｜MUSIC LiDAR', desc: 'MUSIC LiDAR のホーム。ライブ・編成・ガチャ・クエスト・みんなの譜面・譜面メーカーを選べます。' },
   { dir: 'result', screen: 'result', noindex: true, title: 'リザルト｜MUSIC LiDAR', desc: 'MUSIC LiDAR のプレイ結果。' },

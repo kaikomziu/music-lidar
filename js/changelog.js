@@ -2,6 +2,16 @@
 // 大きな機能追加 = 2つ目の数字を上げる / 不具合修正や小さな改善 = 3つ目の数字を上げる
 export const CHANGELOG = [
   {
+    version: '1.25.0', date: '2026-10-21',
+    notes: [
+      '鬼畜曲12曲を追加(全85曲)。最高難易度 Lv15 が登場',
+      'Lv15: Infinity Breaker(BPM260・最難関)、Neutron Overdrive(BPM240)、Sakura Blizzard(和風コア BPM222)、Ultra Spiral(らせん変速ギミック)',
+      'Lv14: Bullet Hell 404(弾幕STG風チップチューン)、Jackhammer Jazz(BPM230のジャズフュージョン)',
+      'Lv13: Abyss Gate(ハードコア)、Thunder Requiem(シンフォニックメタル)',
+      'Lv12: Fractal Storm(ニューロファンク)、Kick Machinegun(フレンチコア)、Velocity Zero(トランスコア)、Terminal Velocity(ジャンプアップ)',
+    ],
+  },
+  {
     version: '1.24.0', date: '2026-10-21',
     notes: [
       '新曲20曲を追加(全73曲)',

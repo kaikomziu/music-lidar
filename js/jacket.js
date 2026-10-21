@@ -34,7 +34,12 @@ const STYLE = {
   MARCH: 'sunrise', 'KIDS POP': 'stars', SALSA: 'rays', SAMBA: 'palms', ARABIAN: 'dunes', CHINESE: 'lantern', AFROBEATS: 'rays',
   GOSPEL: 'clouds', 'R&B': 'smoke', 'HIP HOP': 'skyline', 'LIQUID FUNK': 'clouds', HYPERPOP: 'glitch', BREAKCORE: 'glitch',
   PSYTRANCE: 'tunnel', 'PROGRESSIVE HOUSE': 'aurora', MOOMBAHTON: 'palms', 'UK GARAGE': 'equalizer', METALCORE: 'lightning', PIANO: 'piano',
+  HARDCORE: 'tunnel', 'SYMPHONIC METAL': 'lightning', NEUROFUNK: 'terrain', FRENCHCORE: 'shards', 'JAZZ FUSION': 'vinyl',
+  TRANCECORE: 'rays', 'JUMP UP': 'wobble', 'WA-CORE': 'sakura',
 };
+
+// 同じジャンルで見分けにくい曲だけ、曲ごとに絵柄を指定
+const STYLE_BY_ID = { 'infinity-breaker': 'eye' };
 
 function draw(g, e, S) {
   const rng = mulberry32(hashStr(e.id + 'jacket'));
@@ -62,7 +67,7 @@ function draw(g, e, S) {
     g.fillStyle = gr; g.fillRect(0, 0, S, S);
   };
 
-  const style = STYLE[String(e.genre || '').toUpperCase()] || ['rings', 'terrain', 'sphere'][hashStr(e.id) % 3];
+  const style = STYLE_BY_ID[e.id] || STYLE[String(e.genre || '').toUpperCase()] || ['rings', 'terrain', 'sphere'][hashStr(e.id) % 3];
   g.save();
   ART[style](g, { S, u, rng, col, fast, dot, floor, glowAt, r, gg, b });
   g.restore();

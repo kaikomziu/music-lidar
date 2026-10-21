@@ -77,6 +77,18 @@ import garageShuffle from './garage-shuffle.js';
 import metalcoreFury from './metalcore-fury.js';
 import pianoRain from './piano-rain.js';
 import timeTwister from './time-twister.js';
+import neutronOverdrive from './neutron-overdrive.js';
+import abyssGate from './abyss-gate.js';
+import bulletHell404 from './bullet-hell-404.js';
+import thunderRequiem from './thunder-requiem.js';
+import fractalStorm from './fractal-storm.js';
+import kickMachinegun from './kick-machinegun.js';
+import ultraSpiral from './ultra-spiral.js';
+import jackhammerJazz from './jackhammer-jazz.js';
+import velocityZero from './velocity-zero.js';
+import terminalVelocity from './terminal-velocity.js';
+import sakuraBlizzard from './sakura-blizzard.js';
+import infinityBreaker from './infinity-breaker.js';
 
 export default [
   // やさしい曲
@@ -91,6 +103,7 @@ export default [
   kawaiiBubble, lidarRush, shiningStar, wubFracture, offbeatSkater, nightDrift, psyForest, neonSamurai, jungleLights,
   overdriveRiot, hardReflector,
   // 鬼畜・ギミック
-  sugarRush, hyperpopGlitch, chipDungeon, circuitBreaker, mirageShift, freezeFrame, metalcoreFury, timeTwister, hyperScanBreaker,
-  gabberStorm, finalProtocol, breakcoreCollapse, overclockOmega,
+  sugarRush, hyperpopGlitch, chipDungeon, circuitBreaker, mirageShift, freezeFrame, fractalStorm, kickMachinegun, velocityZero,
+  terminalVelocity, metalcoreFury, timeTwister, hyperScanBreaker, gabberStorm, finalProtocol, abyssGate, bulletHell404,
+  thunderRequiem, jackhammerJazz, sakuraBlizzard, breakcoreCollapse, overclockOmega, ultraSpiral, neutronOverdrive, infinityBreaker,
 ];

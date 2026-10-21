@@ -108,7 +108,8 @@ export class PointCloud {
 
 // ---------------------------------------------------------------------------
 export class Game {
-  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd, team, scroll, offset, jacket, label, rivals }) {
+  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd, team, scroll, offset, jacket, label, rivals, captions }) {
+    this.captions = captions || null; // チュートリアル: [{ t, until, text, sub }]
     this.rivals = rivals || null; // みんなでライブ: () => [{ name, combo, me, done }]
     this.label = label || String(diff || '').toUpperCase();
     if (jacket) { this.jacketImg = new Image(); this.jacketImg.src = jacket; }
@@ -798,6 +799,7 @@ export class Game {
       }
       g.restore();
     }
+    if (this.captions) this.drawCaption(g, W, H, t, small);
     // 最後のノーツの後: FULL COMBO / ALL PERFECT
     if (this.fx.finishAt && status) {
       const k = Math.min(1, (perfNow - this.fx.finishAt) / 450);
@@ -815,6 +817,35 @@ export class Game {
       g.fillText(text.split('').join(' '), G.cx, y);
       g.restore();
     }
+  }
+
+  // チュートリアルの説明(画面上のほうに大きく)
+  drawCaption(g, W, H, t, small) {
+    const c = this.captions.find((x) => t >= x.t && t < x.until);
+    if (!c) return;
+    const a = Math.min(1, (t - c.t) / 0.35, (c.until - t) / 0.35);
+    const y = H * (small ? 0.2 : 0.18);
+    g.save();
+    g.globalAlpha = Math.max(0, a);
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = `800 ${small ? 17 : 24}px "Noto Sans JP", sans-serif`;
+    const w1 = g.measureText(c.text).width;
+    g.font = `500 ${small ? 11 : 14}px "Noto Sans JP", sans-serif`;
+    const w2 = c.sub ? g.measureText(c.sub).width : 0;
+    const bw = Math.min(W - 20, Math.max(w1, w2) + 48), bh = c.sub ? (small ? 62 : 78) : (small ? 40 : 52);
+    g.fillStyle = 'rgba(4,8,22,0.82)';
+    g.fillRect(W / 2 - bw / 2, y - bh / 2, bw, bh);
+    g.fillStyle = this.color; g.fillRect(W / 2 - bw / 2, y - bh / 2, bw, 2); g.fillRect(W / 2 - bw / 2, y + bh / 2 - 2, bw, 2);
+    g.font = `800 ${small ? 17 : 24}px "Noto Sans JP", sans-serif`;
+    g.fillStyle = '#fff'; g.shadowColor = this.color; g.shadowBlur = 12;
+    g.fillText(c.text, W / 2, c.sub ? y - (small ? 11 : 14) : y);
+    g.shadowBlur = 0;
+    if (c.sub) {
+      g.font = `500 ${small ? 11 : 14}px "Noto Sans JP", sans-serif`;
+      g.fillStyle = 'rgba(210,225,255,0.9)';
+      g.fillText(c.sub, W / 2, y + (small ? 14 : 18), W - 30);
+    }
+    g.restore();
   }
 
   // みんなでライブ: 左側にみんなのコンボ(数秒おきに更新)

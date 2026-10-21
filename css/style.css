@@ -971,3 +971,13 @@ body.touch .h-go { display: none; }
   .pl-art { width: min(100%, 34vh); }
   .pl-hint { display: none; }
 }
+
+/* チュートリアル */
+.tut-box h2 { margin: 6px 0 8px; }
+.tut-box p { line-height: 1.7; }
+.tut-steps { margin: 4px 0 14px; padding-left: 1.4em; line-height: 1.9; }
+.tut-steps li::marker { color: var(--accent); font-family: var(--font-d); font-weight: 800; }
+.tut-result { font-size: 15px; }
+.tut-result b { font-family: var(--font-d); font-size: 22px; color: var(--accent); }
+.tut-fc { color: #7ff9ff; font-weight: 800; }
+.tut-box .modal-actions { flex-wrap: wrap; }

@@ -26,9 +26,21 @@ import skyPrism from './sky-prism.js';
 import ironPulse from './iron-pulse.js';
 import sunsetBossa from './sunset-bossa.js';
 import hardReflector from './hard-reflector.js';
+import sakuraLattice from './sakura-lattice.js';
+import nightDrift from './night-drift.js';
+import islandSignal from './island-signal.js';
+import lowOrbit from './low-orbit.js';
+import swingCircuit from './swing-circuit.js';
+import sugarRush from './sugar-rush.js';
+import dembowLights from './dembow-lights.js';
+import offbeatSkater from './offbeat-skater.js';
+import lastHorizon from './last-horizon.js';
+import plaza1995 from './plaza-1995.js';
+import finalProtocol from './final-protocol.js';
 
 export default [
-  firstLight, helloLane, rainyWindow, neonHighway, discoMirrorball, sunsetBossa, midnightAvenue, cloudPoint, pixelQuest,
-  pulseGrid, ironPulse, blueNoteLane, stellarGate, skyPrism, lidarRush, shiningStar, wubFracture, overdriveRiot,
-  hardReflector, freezeFrame, hyperScanBreaker, overclockOmega,
+  firstLight, helloLane, plaza1995, rainyWindow, islandSignal, neonHighway, discoMirrorball, dembowLights, sunsetBossa,
+  midnightAvenue, cloudPoint, pixelQuest, pulseGrid, swingCircuit, lowOrbit, ironPulse, sakuraLattice, lastHorizon,
+  blueNoteLane, stellarGate, skyPrism, lidarRush, shiningStar, wubFracture, offbeatSkater, nightDrift, overdriveRiot,
+  hardReflector, sugarRush, freezeFrame, hyperScanBreaker, finalProtocol, overclockOmega,
 ];

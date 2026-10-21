@@ -26,6 +26,8 @@ const STYLE = {
   GIMMICK: 'glitch', HYPERCORE: 'tunnel', SPEEDCORE: 'tunnel', CHIPTUNE: 'pixel', JAZZ: 'vinyl',
   TRANCE: 'rays', 'ROCK / METAL': 'lightning', 'FUNK / DISCO': 'mirrorball', DUBSTEP: 'wobble', SYNTHWAVE: 'retrosun',
   'LO-FI HIP HOP': 'rain', 'CITY POP': 'skyline', 'FUTURE BASS': 'prism', TECHNO: 'strobe', 'BOSSA NOVA': 'palms', HARDSTYLE: 'shards',
+  'WA-FUSION': 'sakura', EUROBEAT: 'speedlines', REGGAE: 'waves', TRAP: 'smoke', 'ELECTRO SWING': 'deco', 'HAPPY HARDCORE': 'hearts',
+  REGGAETON: 'rays', 'SKA PUNK': 'checker', ORCHESTRAL: 'aurora', VAPORWAVE: 'vapor', 'BOSS BATTLE': 'eye',
 };
 
 function draw(g, e, S) {
@@ -406,6 +408,137 @@ const ART = {
       g.fillStyle = rng() < 0.2 ? 'rgba(255,255,255,0.5)' : col(0.15 + rng() * 0.35); g.fill();
     }
     g.fillStyle = 'rgba(255,255,255,0.9)'; g.beginPath(); g.arc(S / 2, S * 0.45, S * 0.03, 0, 7); g.fill();
+  },
+  // 月と桜の花びら(和風)
+  sakura(g, { S, u, rng, col, glowAt }) {
+    glowAt(S * 0.5, S * 0.4, S * 0.4, 0.35);
+    g.fillStyle = 'rgba(255,240,230,0.9)'; g.beginPath(); g.arc(S * 0.5, S * 0.4, S * 0.17, 0, 7); g.fill();
+    g.strokeStyle = '#140812'; g.lineWidth = S * 0.02; g.lineCap = 'round';
+    const branch = (x, y, a, len, w) => {
+      if (len < S * 0.03) return;
+      const x2 = x + Math.cos(a) * len, y2 = y + Math.sin(a) * len;
+      g.lineWidth = w; g.beginPath(); g.moveTo(x, y); g.lineTo(x2, y2); g.stroke();
+      branch(x2, y2, a - 0.4 - rng() * 0.3, len * 0.7, w * 0.7);
+      branch(x2, y2, a + 0.3 + rng() * 0.3, len * 0.65, w * 0.7);
+    };
+    branch(0, S * 0.15, 0.25, S * 0.25, S * 0.03);
+    for (let i = 0; i < 70; i++) {
+      const x = rng() * S, y = rng() * S * 0.9, rr = S * (0.008 + rng() * 0.014);
+      g.fillStyle = rng() < 0.5 ? 'rgba(255,170,200,0.85)' : col(0.8);
+      g.beginPath(); g.ellipse(x, y, rr * 1.4, rr, rng() * 3, 0, 7); g.fill();
+    }
+  },
+  // 夜の高速道路の光の筋(ユーロビート)
+  speedlines(g, { S, u, rng, col }) {
+    g.globalCompositeOperation = 'lighter';
+    const vx = S * 0.5, vy = S * 0.45;
+    for (let i = 0; i < 90; i++) {
+      const a = rng() * Math.PI * 2, r0 = S * (0.05 + rng() * 0.15), r1 = r0 + S * (0.2 + rng() * 0.6);
+      g.strokeStyle = rng() < 0.3 ? 'rgba(255,90,90,0.5)' : rng() < 0.5 ? 'rgba(255,255,255,0.4)' : col(0.6);
+      g.lineWidth = Math.max(1, u * (0.5 + rng() * 2.5));
+      g.beginPath(); g.moveTo(vx + Math.cos(a) * r0, vy + Math.sin(a) * r0 * 0.6); g.lineTo(vx + Math.cos(a) * r1, vy + Math.sin(a) * r1 * 0.6); g.stroke();
+    }
+    g.globalCompositeOperation = 'source-over';
+    g.fillStyle = '#05060f'; g.beginPath(); g.moveTo(S * 0.3, S); g.lineTo(S * 0.48, S * 0.5); g.lineTo(S * 0.52, S * 0.5); g.lineTo(S * 0.7, S); g.fill();
+    g.fillStyle = col(0.9); for (let k = 0; k < 6; k++) { const t = k / 6, y = S * 0.5 + (S * 0.5) * t * t, w = S * 0.004 + t * S * 0.012; g.fillRect(S / 2 - w / 2, y, w, S * 0.03 * (0.3 + t)); }
+  },
+  // 赤・黄・緑の夕日と波(レゲエ)
+  waves(g, { S, u, rng, col }) {
+    const bands = ['#ff4a4a', '#ffd84a', '#3ddc6e'];
+    bands.forEach((c, i) => { g.fillStyle = c; g.globalAlpha = 0.18; g.fillRect(0, S * (0.1 + i * 0.15), S, S * 0.15); });
+    g.globalAlpha = 1;
+    g.fillStyle = '#ffd84a'; g.beginPath(); g.arc(S / 2, S * 0.55, S * 0.16, Math.PI, 0); g.fill();
+    for (let k = 0; k < 7; k++) {
+      g.strokeStyle = k % 2 ? col(0.7) : 'rgba(255,255,255,0.35)'; g.lineWidth = Math.max(1, u * 2);
+      g.beginPath();
+      for (let x = 0; x <= S; x += S / 40) g.lineTo(x, S * (0.58 + k * 0.055) + Math.sin(x / S * 12 + k) * S * 0.012);
+      g.stroke();
+    }
+  },
+  // 煙と赤い月(トラップ)
+  smoke(g, { S, u, rng, col, glowAt }) {
+    glowAt(S * 0.62, S * 0.32, S * 0.25, 0.45);
+    g.fillStyle = col(0.85); g.beginPath(); g.arc(S * 0.62, S * 0.32, S * 0.12, 0, 7); g.fill();
+    g.fillStyle = '#05060f'; g.beginPath(); g.arc(S * 0.67, S * 0.29, S * 0.11, 0, 7); g.fill();
+    for (let i = 0; i < 40; i++) {
+      const x = rng() * S, y = S * (0.55 + rng() * 0.45), rr = S * (0.06 + rng() * 0.12);
+      const gr = g.createRadialGradient(x, y, 0, x, y, rr);
+      gr.addColorStop(0, 'rgba(180,160,220,0.12)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = gr; g.fillRect(x - rr, y - rr, rr * 2, rr * 2);
+    }
+    g.fillStyle = 'rgba(255,255,255,0.6)'; for (let i = 0; i < 50; i++) g.fillRect(rng() * S, rng() * S * 0.5, u, u);
+  },
+  // アールデコの扇(エレクトロスウィング)
+  deco(g, { S, u, col }) {
+    const cx = S / 2, cy = S * 0.72;
+    g.strokeStyle = col(0.85); g.lineWidth = Math.max(1, u * 1.6);
+    for (let k = 1; k <= 6; k++) { g.beginPath(); g.arc(cx, cy, S * 0.07 * k, Math.PI, 0); g.stroke(); }
+    for (let i = 0; i <= 12; i++) { const a = Math.PI + (i / 12) * Math.PI; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * S * 0.42, cy + Math.sin(a) * S * 0.42); g.stroke(); }
+    g.fillStyle = '#ffe9b0'; g.beginPath(); g.arc(cx, cy, S * 0.05, Math.PI, 0); g.fill();
+    g.strokeStyle = 'rgba(255,233,176,0.5)'; g.lineWidth = Math.max(1, u);
+    g.strokeRect(S * 0.08, S * 0.08, S * 0.84, S * 0.84); g.strokeRect(S * 0.11, S * 0.11, S * 0.78, S * 0.78);
+  },
+  // ハートと星がいっぱい(ハッピーハードコア)
+  hearts(g, { S, u, rng, col, glowAt }) {
+    glowAt(S / 2, S * 0.45, S * 0.5, 0.3);
+    const heart = (x, y, r, c) => {
+      g.fillStyle = c; g.beginPath(); g.moveTo(x, y + r * 0.9);
+      g.bezierCurveTo(x - r * 1.6, y - r * 0.2, x - r * 0.6, y - r * 1.3, x, y - r * 0.4);
+      g.bezierCurveTo(x + r * 0.6, y - r * 1.3, x + r * 1.6, y - r * 0.2, x, y + r * 0.9); g.fill();
+    };
+    for (let i = 0; i < 26; i++) heart(rng() * S, rng() * S * 0.8, S * (0.02 + rng() * 0.05), rng() < 0.5 ? col(0.5 + rng() * 0.4) : `rgba(255,255,255,${0.3 + rng() * 0.4})`);
+    heart(S / 2, S * 0.42, S * 0.16, col(0.95));
+    g.fillStyle = '#fff'; for (let i = 0; i < 30; i++) { const x = rng() * S, y = rng() * S * 0.8, l = S * 0.012; g.fillRect(x - l, y, l * 2, u); g.fillRect(x, y - l, u, l * 2); }
+  },
+  // 白黒の市松模様(スカ)
+  checker(g, { S, u, col }) {
+    const n = 10, w = S / n;
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      if ((x + y) % 2) continue;
+      g.save(); g.translate(S / 2, S / 2); g.rotate(-0.25); g.fillStyle = 'rgba(255,255,255,0.14)'; g.fillRect((x - n / 2) * w * 1.3, (y - n / 2) * w * 1.3, w * 1.3, w * 1.3); g.restore();
+    }
+    g.strokeStyle = col(0.9); g.lineWidth = S * 0.03;
+    g.beginPath(); g.moveTo(0, S * 0.3); g.lineTo(S, S * 0.15); g.stroke();
+    g.beginPath(); g.moveTo(0, S * 0.36); g.lineTo(S, S * 0.21); g.stroke();
+  },
+  // オーロラと山並み(オーケストラ)
+  aurora(g, { S, u, rng, col }) {
+    g.globalCompositeOperation = 'lighter';
+    for (let k = 0; k < 4; k++) {
+      g.strokeStyle = k % 2 ? col(0.25) : 'rgba(140,255,200,0.2)'; g.lineWidth = S * (0.05 + k * 0.02);
+      g.beginPath();
+      for (let x = -S * 0.1; x <= S * 1.1; x += S / 30) g.lineTo(x, S * (0.25 + k * 0.06) + Math.sin(x / S * 5 + k * 1.3) * S * 0.06);
+      g.stroke();
+    }
+    g.globalCompositeOperation = 'source-over';
+    g.fillStyle = 'rgba(255,255,255,0.7)'; for (let i = 0; i < 70; i++) g.fillRect(rng() * S, rng() * S * 0.5, u, u);
+    g.fillStyle = '#05060f'; g.beginPath(); g.moveTo(0, S);
+    let x = 0; while (x <= S) { g.lineTo(x, S * (0.6 + rng() * 0.15)); x += S * (0.08 + rng() * 0.08); }
+    g.lineTo(S, S); g.fill();
+  },
+  // パステルの空と格子と柱(ヴェイパーウェイヴ)
+  vapor(g, { S, u, rng, col, floor }) {
+    const sky = g.createLinearGradient(0, 0, 0, S * 0.6);
+    sky.addColorStop(0, '#ff9ad5'); sky.addColorStop(1, '#8fd8ff');
+    g.globalAlpha = 0.55; g.fillStyle = sky; g.fillRect(0, 0, S, S * 0.6); g.globalAlpha = 1;
+    g.fillStyle = '#ffffff'; g.globalAlpha = 0.85;
+    [[0.18, 0.22], [0.74, 0.3]].forEach(([cx, h]) => { g.fillRect(S * cx, S * (0.6 - h), S * 0.08, S * h); g.fillRect(S * (cx - 0.02), S * (0.6 - h), S * 0.12, S * 0.025); });
+    g.globalAlpha = 1;
+    g.fillStyle = '#1a0f30'; g.fillRect(0, S * 0.6, S, S * 0.4);
+    floor(S * 0.6, S / 2, 0.6);
+    g.fillStyle = 'rgba(255,255,255,0.9)'; g.font = `700 ${Math.round(S * 0.07)}px "Noto Sans JP", sans-serif`; g.fillText('ヴェイパー', S * 0.3, S * 0.3);
+  },
+  // 巨大な目のようなターゲット(ボス戦)
+  eye(g, { S, u, rng, col, glowAt }) {
+    glowAt(S / 2, S * 0.45, S * 0.45, 0.4);
+    g.strokeStyle = col(0.9); g.lineWidth = Math.max(1.5, u * 2);
+    g.beginPath(); g.moveTo(S * 0.1, S * 0.45); g.quadraticCurveTo(S / 2, S * 0.12, S * 0.9, S * 0.45); g.quadraticCurveTo(S / 2, S * 0.78, S * 0.1, S * 0.45); g.stroke();
+    g.fillStyle = col(0.9); g.beginPath(); g.arc(S / 2, S * 0.45, S * 0.12, 0, 7); g.fill();
+    g.fillStyle = '#05060f'; g.beginPath(); g.ellipse(S / 2, S * 0.45, S * 0.025, S * 0.1, 0, 0, 7); g.fill();
+    g.strokeStyle = col(0.35); g.lineWidth = Math.max(1, u);
+    for (let k = 1; k < 4; k++) { g.beginPath(); g.arc(S / 2, S * 0.45, S * (0.2 + k * 0.08), 0, 7); g.stroke(); }
+    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; g.beginPath(); g.moveTo(S / 2 + Math.cos(a) * S * 0.25, S * 0.45 + Math.sin(a) * S * 0.25); g.lineTo(S / 2 + Math.cos(a) * S * 0.48, S * 0.45 + Math.sin(a) * S * 0.48); g.stroke(); }
+    g.fillStyle = 'rgba(255,40,80,0.9)'; g.font = `800 ${Math.round(S * 0.045)}px Orbitron, sans-serif`; g.fillText('WARNING', S * 0.36, S * 0.82);
   },
   // ここから下は特定ジャンル以外(読み込み曲など)
   rings(g, { S, rng, fast, dot }) {

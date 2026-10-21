@@ -2,6 +2,14 @@
 // 大きな機能追加 = 2つ目の数字を上げる / 不具合修正や小さな改善 = 3つ目の数字を上げる
 export const CHANGELOG = [
   {
+    version: '1.29.0', date: '2026-10-22',
+    notes: [
+      'ハロウィンガチャの期間限定キャラを8体追加(全14体)',
+      '★4 Phantom Conductor(コインUP)・Werewolf DJ(コンボガード)、★3 Black Cat Familiar(判定サポート)・Skeleton Drummer(スコアUP)',
+      '★2 Spider Weaver・Candle Imp・Frank Bolt・Haunted TV。限定★4がすべてのスキルの種類でそろいました',
+    ],
+  },
+  {
     version: '1.28.0', date: '2026-10-22',
     notes: [
       'ガチャを「通常ガチャ」と「イベントガチャ」に分けた。ガチャ画面の上で切り替えられます',

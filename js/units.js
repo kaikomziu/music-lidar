@@ -125,6 +125,43 @@ export function unitIcon(u, size = 64) {
       <path d="M28 34l44-6M28 46l44 4M28 58l44-6M28 68l44 4" stroke="#e9e4ff" stroke-width="3" opacity="0.75"/>
       <circle cx="58" cy="44" r="6" fill="#03050f" stroke-width="1.5"/><circle cx="58" cy="44" r="3" fill="${c}" stroke="none" filter="url(#${id}g)"/>
       <path d="M72 70q10 4 10 14" stroke="#e9e4ff" stroke-width="2.5"/>`,
+    'phantom-conductor': `<path d="M32 86V52q0-20 18-20t18 20v34l-6-6-6 6-6-6-6 6-6-6z" fill="#e9e4ff" fill-opacity="0.22" stroke="#e9e4ff"/>
+      <path d="M36 32h28M40 32V14h20v18" fill="#1c0830" stroke="${P}"/><path d="M40 27h20" stroke="${O}" stroke-width="3"/>
+      <ellipse cx="44" cy="48" rx="3" ry="4" fill="#1c0830" stroke="none"/><ellipse cx="56" cy="48" rx="3" ry="4" fill="#1c0830" stroke="none"/><path d="M45 58q5 3 10 0" stroke="#1c0830" stroke-width="2"/>
+      <path d="M68 58 88 34" stroke="#ffe7a8" stroke-width="2"/><circle cx="88" cy="34" r="3" fill="${c}" stroke="none" filter="url(#${id}g)"/>
+      <path d="M14 40q4-6 8 0M16 52l4 4" stroke="${c}" stroke-width="1.5" opacity="0.8"/>`,
+    'werewolf-dj': `<path d="M30 46 30 18 46 34M70 46 70 18 54 34" fill="${F}"/><path d="M28 50q0-24 22-24t22 24q0 18-22 26-22-8-22-26z" fill="${F}"/>
+      <path d="M38 64q12 10 24 0l-12 14z" fill="#1c0830" stroke="${c}"/><path d="M44 68l2 4 2-4M52 68l2 4 2-4" stroke="#fff" stroke-width="1.2"/>
+      <path d="M36 46l9 3-9 4zM64 46l-9 3 9 4z" fill="#ffe7a8" stroke="none" filter="url(#${id}g)"/>
+      <path d="M24 52q0-34 26-34t26 34" stroke="${P}" stroke-width="3"/><rect x="18" y="48" width="10" height="16" rx="4" fill="${P}" stroke="none"/><rect x="72" y="48" width="10" height="16" rx="4" fill="${P}" stroke="none"/>`,
+    'black-cat-familiar': `<path d="M26 50 24 16 44 32M74 50 76 16 56 32" fill="#120418" stroke="${c}"/><ellipse cx="50" cy="54" rx="26" ry="22" fill="#120418" stroke="${c}"/>
+      <path d="M36 50q6-6 12 0q-6 6-12 0zM52 50q6-6 12 0q-6 6-12 0z" fill="#ffd25e" stroke="none" filter="url(#${id}g)"/><path d="M42 47v6M58 47v6" stroke="#120418" stroke-width="1.6"/>
+      <path d="M48 60h4l-2 3z" fill="#ff7ad9" stroke="none"/><path d="M30 60h-12M30 64h-11M70 60h12M70 64h11" stroke="${c}" stroke-width="1" opacity="0.7"/>
+      <path d="M50 76q16 6 12 18" stroke="${c}" stroke-width="3"/><circle cx="62" cy="32" r="2" fill="${O}" stroke="none"/>`,
+    'skeleton-drummer': `<circle cx="50" cy="38" r="20" fill="#e9e4ff" fill-opacity="0.85" stroke="#fff"/><path d="M40 56h20v8H40z" fill="#e9e4ff" fill-opacity="0.85" stroke="#fff"/>
+      <path d="M44 56v8M50 56v8M56 56v8" stroke="#1c0830" stroke-width="1.2"/><circle cx="42" cy="38" r="6" fill="#1c0830" stroke="none"/><circle cx="58" cy="38" r="6" fill="#1c0830" stroke="none"/>
+      <circle cx="42" cy="38" r="2" fill="${c}" stroke="none" filter="url(#${id}g)"/><circle cx="58" cy="38" r="2" fill="${c}" stroke="none" filter="url(#${id}g)"/><path d="M48 48l2-4 2 4z" fill="#1c0830" stroke="none"/>
+      <ellipse cx="50" cy="80" rx="22" ry="7" fill="${F}"/><path d="M28 80v8q22 10 44 0v-8" stroke="${c}"/>
+      <path d="M22 62 40 76M78 62 60 76" stroke="#e9e4ff" stroke-width="3"/><circle cx="22" cy="62" r="3" fill="#e9e4ff" stroke="none"/><circle cx="78" cy="62" r="3" fill="#e9e4ff" stroke="none"/>`,
+    'spider-weaver': `<g stroke="#e9e4ff" stroke-width="0.8" opacity="0.55"><path d="M50 4v40M50 4 14 30M50 4 86 30"/><path d="M28 20q22 10 44 0M20 28q30 14 60 0"/></g>
+      <path d="M50 4v30" stroke="#e9e4ff" stroke-width="1.2"/>
+      <g stroke="${c}" stroke-width="2.2"><path d="M40 52q-14-8-20 4M40 58q-16 0-20 12M42 64q-12 8-14 20M44 68q-6 10-4 22"/><path d="M60 52q14-8 20 4M60 58q16 0 20 12M58 64q12 8 14 20M56 68q6 10 4 22"/></g>
+      <ellipse cx="50" cy="44" rx="9" ry="8" fill="${F}"/><ellipse cx="50" cy="62" rx="14" ry="13" fill="${F}"/>
+      ${eye(46, 43, 3, 3)}${eye(54, 43, 3, 3)}<path d="M50 56l4 6-4 6-4-6z" fill="${O}" stroke="none"/>`,
+    'candle-imp': `<rect x="36" y="44" width="28" height="40" rx="4" fill="#f4ecd8" fill-opacity="0.9" stroke="#fff"/><path d="M36 50q4 6 8 0q4 8 8 0q4 6 12 0" fill="#f4ecd8" stroke="#fff"/>
+      <path d="M50 44v-6" stroke="#3a1c08" stroke-width="2"/><path d="M50 16q10 12 0 22q-10-10 0-22z" fill="${O}" stroke="#ffe7a8" filter="url(#${id}g)"/>
+      <path d="M38 44l-4-8 8 4M62 44l4-8-8 4" fill="#ff4f6e" stroke="none"/>
+      <circle cx="44" cy="62" r="3" fill="#1c0830" stroke="none"/><circle cx="56" cy="62" r="3" fill="#1c0830" stroke="none"/><path d="M44 72q6 4 12 0" stroke="#1c0830" stroke-width="2"/>
+      <path d="M64 70l10 8-2 4" stroke="#ff4f6e" stroke-width="2"/>`,
+    'frank-bolt': `<rect x="28" y="28" width="44" height="46" rx="6" fill="#4a8a4a" fill-opacity="0.55" stroke="${c}"/><path d="M28 34q10-12 22-6 10-8 22 6v-8H28z" fill="#120418" stroke="${c}"/>
+      <rect x="18" y="52" width="10" height="6" fill="#cfd8ff" stroke="none"/><rect x="72" y="52" width="10" height="6" fill="#cfd8ff" stroke="none"/>
+      ${eye(42, 48, 8, 4)}${eye(58, 48, 8, 4)}<path d="M38 64h24" stroke-width="2"/><path d="M42 61v6M48 61v6M54 61v6" stroke-width="1.2"/>
+      <path d="M58 32l4 4M62 32l-4 4" stroke="#ffe7a8" stroke-width="1.2"/><path d="M36 80l-4 10M64 80l4 10" stroke-width="3"/>`,
+    'haunted-tv': `<path d="M40 26 30 12M60 26l12-14" stroke="${c}" stroke-width="2"/><rect x="18" y="26" width="64" height="50" rx="8" fill="${F}"/>
+      <rect x="25" y="32" width="42" height="38" rx="10" fill="#0c1a24" stroke="${c}" stroke-width="1.5"/>
+      <g stroke="#9fe8ff" stroke-width="0.8" opacity="0.4"><path d="M27 40h38M27 48h38M27 56h38M27 64h38"/></g>
+      <ellipse cx="40" cy="50" rx="4" ry="6" fill="#e9e4ff" stroke="none" filter="url(#${id}g)"/><ellipse cx="54" cy="50" rx="4" ry="6" fill="#e9e4ff" stroke="none" filter="url(#${id}g)"/>
+      <circle cx="74" cy="40" r="2.5" fill="${O}" stroke="none"/><circle cx="74" cy="50" r="2.5" fill="${P}" stroke="none"/><path d="M30 76l-4 8M70 76l4 8" stroke-width="2.5"/>`,
   };
   // レア度の飾り
   const wings = R >= 3 ? `<g opacity="0.85" stroke-width="2"><path d="M22 52q-12-6-14-20 8 6 16 8M22 58q-12 0-16-10 8 4 16 3"/><path d="M78 52q12-6 14-20-8 6-16 8M78 58q12 0 16-10-8 4-16 3"/></g>` : '';

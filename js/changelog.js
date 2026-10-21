@@ -2,6 +2,16 @@
 // 大きな機能追加 = 2つ目の数字を上げる / 不具合修正や小さな改善 = 3つ目の数字を上げる
 export const CHANGELOG = [
   {
+    version: '1.30.0', date: '2026-10-22',
+    notes: [
+      '新曲15曲を追加して、ついに全100曲!',
+      'やさしめ: Snow Globe(冬)、Bubble Bath(ラウンジ)、Toy Box March(トイポップ)、Sunflower Road(カントリー)',
+      'ふつう: Harvest Moon(フォーク)、Velvet Lounge(ネオソウル)、Koi Pond(和ポップ)、Retro Arcade(シンセポップ)、Ocean Drive(ニューディスコ)、Thunder Road(サザンロック)、Glitch Garden(グリッチホップ)',
+      'むずかしめ: Crystal Fortress(パワーメタル)、Hyper Sakura(Jコア)',
+      '鬼畜: Clockwork Chaos(秒針のように止まるギミック曲・Lv14)、Event Horizon(テラーコア BPM230・Lv15)',
+    ],
+  },
+  {
     version: '1.29.0', date: '2026-10-22',
     notes: [
       'ハロウィンガチャの期間限定キャラを8体追加(全14体)',

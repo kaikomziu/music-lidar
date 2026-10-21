@@ -17,6 +17,7 @@ import { fetchChartRanking, submitChartScore } from './maker-api.js';
 import { fxText } from './units.js';
 import { initLive, openLive, backToRoom } from './live.js';
 import { initPlayer, openPlayer, playerKeydown, stop as stopPlayer } from './player.js';
+import { TUTORIAL_DEF, TUT_NOTES, tutCaptions } from './tutorial.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -89,8 +90,7 @@ function onsetList(times) {
 }
 const NOT_ONSET = new Set(['pad', 'riser', 'downer']);
 
-const entries = SONGS.map((def) => {
-  if (def.audio) return fileSongEntry(def);
+function builtinEntry(def) {
   const { events, duration } = composeSong(def);
   const cands = candidatesFromEvents(events);
   const onsets = onsetList(events.filter((e) => !NOT_ONSET.has(e.type)).map((e) => e.t));
@@ -111,7 +111,9 @@ const entries = SONGS.map((def) => {
       return this.rendering;
     },
   };
-});
+}
+const entries = SONGS.map((def) => (def.audio ? fileSongEntry(def) : builtinEntry(def)));
+let tutorialEntry = null; // 使うときに作る
 
 let sel = Math.max(0, Math.min(entries.length - 1, load('sel', 0)));
 // 曲ページ(music/<urlId>/)から来たらその曲を選んだ状態で始める
@@ -241,6 +243,28 @@ const modalOpen = () => document.querySelector('.overlay.modal.on');
 // タイトル
 // ---------------------------------------------------------------------------
 let enteredOnce = false;
+// ---------------------------------------------------------------------------
+// チュートリアル
+// ---------------------------------------------------------------------------
+function startTutorial() {
+  closeModals();
+  overlay('tut-offer', false);
+  if (!tutorialEntry) tutorialEntry = builtinEntry(TUTORIAL_DEF);
+  startGame(tutorialEntry, 'easy', {
+    kind: 'tutorial', label: 'TUTORIAL', title: 'チュートリアル', notes: TUT_NOTES, captions: tutCaptions(IS_TOUCH),
+    onExit: (r) => {
+      game = null;
+      if (!r) { goHome(); return; } // 途中でやめた
+      save('tutorialDone', true);
+      goHome();
+      $('tut-result').innerHTML = `<b>${r.rank}</b> ・ 精度 ${r.accuracy.toFixed(1)}% ・ MAX COMBO ${r.maxCombo}` +
+        (r.fc ? ' ・ <span class="tut-fc">FULL COMBO!</span>' : '');
+      overlay('tut-done', true);
+    },
+  });
+}
+function offerTutorial() { overlay('tut-offer', true); }
+
 function enterFromTitle(opts = {}) {
   getCtx();
   setVolumes(settings.bgm, settings.se);
@@ -248,7 +272,9 @@ function enterFromTitle(opts = {}) {
   if (openedBySongUrl && !enteredOnce && !opts.home) goSelect(); else goHome();
   enteredOnce = true;
   warmup();
-  if (!opts.quiet && !acc.isLoggedIn() && !load('nameSkipped', false)) openAccount();
+  // はじめての人にはチュートリアルをすすめる(アカウントの案内はそのあと)
+  if (!opts.quiet && !load('tutorialDone', false) && !load('tutorialSkipped', false)) offerTutorial();
+  else if (!opts.quiet && !acc.isLoggedIn() && !load('nameSkipped', false)) openAccount();
 }
 $('btn-start').addEventListener('click', () => enterFromTitle());
 
@@ -561,7 +587,7 @@ async function startGameInner(entry, d, custom, live) {
   stopPreview();
   // 読み込み中画面(準備済みでも曲名とTipsを少し見せる)
   const isRetry = state === 'retry';
-  const label = custom ? (custom.kind === 'test' ? 'TEST PLAY' : `CUSTOM Lv${custom.level}`) : `${d.toUpperCase()} Lv${entry.levels[d]}`;
+  const label = custom ? (custom.label || (custom.kind === 'test' ? 'TEST PLAY' : `CUSTOM Lv${custom.level}`)) : `${d.toUpperCase()} Lv${entry.levels[d]}`;
   showLoading({
     entry, title: custom ? custom.title : entry.title, sub: label,
     status: entry.buffer ? 'READY' : '音源を準備中…(初回のみ少しかかります)',
@@ -583,7 +609,8 @@ async function startGameInner(entry, d, custom, live) {
     scroll: custom ? custom.scroll : entry.scroll,
     offset: entry.offset || 0,
     jacket: jacketURL(entry, 128),
-    label: custom ? (custom.kind === 'test' ? 'TEST PLAY' : `CUSTOM Lv${custom.level}`) : `${d.toUpperCase()} Lv${entry.levels[d]}`,
+    label,
+    captions: custom?.captions || null,
     rivals: live ? () => live.rivals() : null,
   });
   live?.attach(game);
@@ -636,7 +663,7 @@ function onGameEnd(r) {
   const { entry, diff: d, custom } = playing;
   game = null;
   lastResult = r;
-  if (custom?.kind === 'test') { custom.onExit(r); return; }
+  if (custom?.kind === 'test' || custom?.kind === 'tutorial') { custom.onExit(r); return; }
   $('r-live').hidden = !playing.live;
   $('btn-back').innerHTML = playing.live ? 'ルームへ <small>ENTER</small>' : '選曲へ <small>ENTER</small>';
   if (playing.live) playing.live.finish(r);
@@ -834,6 +861,8 @@ function closeModals() {
   if ($('settings').classList.contains('on')) closeSettings();
   overlay('account-modal', false);
   overlay('changelog', false);
+  overlay('tut-offer', false);
+  overlay('tut-done', false);
 }
 function goSelect() {
   homeLive(false);
@@ -876,6 +905,10 @@ function renderHome() {
 $('h-live').addEventListener('click', () => homeLive(true));
 $('h-live-back').addEventListener('click', () => { homeLive(false); $('h-live').focus({ preventScroll: true }); });
 $('btn-solo').addEventListener('click', goSelect);
+for (const b of document.querySelectorAll('[data-tutorial]')) b.addEventListener('click', () => startTutorial());
+$('btn-tut-skip').addEventListener('click', () => { save('tutorialSkipped', true); overlay('tut-offer', false); if (!acc.isLoggedIn() && !load('nameSkipped', false)) openAccount(); });
+$('btn-tut-home').addEventListener('click', () => overlay('tut-done', false));
+$('btn-tut-play').addEventListener('click', () => { overlay('tut-done', false); goHome(true); goSelect(); });
 for (const b of document.querySelectorAll('[data-home]')) b.addEventListener('click', () => goHome());
 initMeta({ show: (n) => { stopPreview(); show(n); }, toast, back: () => goHome(), current: () => state });
 initMaker({

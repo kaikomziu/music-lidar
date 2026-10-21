@@ -37,10 +37,36 @@ import offbeatSkater from './offbeat-skater.js';
 import lastHorizon from './last-horizon.js';
 import plaza1995 from './plaza-1995.js';
 import finalProtocol from './final-protocol.js';
+import morningCoffee from './morning-coffee.js';
+import paperPlanes from './paper-planes.js';
+import glitterIdol from './glitter-idol.js';
+import neonSamurai from './neon-samurai.js';
+import deepBlueCurrent from './deep-blue-current.js';
+import circuitBreaker from './circuit-breaker.js';
+import jungleLights from './jungle-lights.js';
+import jazzCafe from './jazz-cafe.js';
+import funkyStation from './funky-station.js';
+import starLullaby from './star-lullaby.js';
+import chipDungeon from './chip-dungeon.js';
+import mirageShift from './mirage-shift.js';
+import polarNight from './polar-night.js';
+import bigRoomBlast from './big-room-blast.js';
+import tangoNoir from './tango-noir.js';
+import celticRun from './celtic-run.js';
+import gabberStorm from './gabber-storm.js';
+import spaceWaltz from './space-waltz.js';
+import bluesHighway from './blues-highway.js';
+import kawaiiBubble from './kawaii-bubble.js';
 
 export default [
-  firstLight, helloLane, plaza1995, rainyWindow, islandSignal, neonHighway, discoMirrorball, dembowLights, sunsetBossa,
-  midnightAvenue, cloudPoint, pixelQuest, pulseGrid, swingCircuit, lowOrbit, ironPulse, sakuraLattice, lastHorizon,
-  blueNoteLane, stellarGate, skyPrism, lidarRush, shiningStar, wubFracture, offbeatSkater, nightDrift, overdriveRiot,
-  hardReflector, sugarRush, freezeFrame, hyperScanBreaker, finalProtocol, overclockOmega,
+  // やさしい曲
+  firstLight, helloLane, starLullaby, plaza1995, morningCoffee, polarNight, rainyWindow, islandSignal,
+  // ふつう
+  neonHighway, discoMirrorball, dembowLights, jazzCafe, spaceWaltz, bluesHighway, sunsetBossa, deepBlueCurrent, tangoNoir,
+  paperPlanes, midnightAvenue, funkyStation, cloudPoint, pixelQuest, pulseGrid, swingCircuit, lowOrbit, ironPulse,
+  // むずかしめ
+  sakuraLattice, lastHorizon, celticRun, bigRoomBlast, blueNoteLane, glitterIdol, stellarGate, skyPrism, kawaiiBubble,
+  lidarRush, shiningStar, wubFracture, offbeatSkater, nightDrift, neonSamurai, jungleLights, overdriveRiot, hardReflector,
+  // 鬼畜・ギミック
+  sugarRush, chipDungeon, circuitBreaker, mirageShift, freezeFrame, hyperScanBreaker, gabberStorm, finalProtocol, overclockOmega,
 ];

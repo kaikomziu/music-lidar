@@ -2,6 +2,17 @@
 // 大きな機能追加 = 2つ目の数字を上げる / 不具合修正や小さな改善 = 3つ目の数字を上げる
 export const CHANGELOG = [
   {
+    version: '1.23.0', date: '2026-10-21',
+    notes: [
+      '新曲20曲を追加(全53曲)',
+      'やさしめ: Star Lullaby(オルゴール)、Morning Coffee(アコースティック)、Polar Night(アンビエント)、Space Waltz(3拍子のワルツ)、Blues Highway(ブルース)、Midnight Jazz Cafe(ジャズ)',
+      'ふつう: Paper Planes(J-POP)、Deep Blue Current(ディープハウス)、Tango Noir(タンゴ)、Funky Station(ファンク)、Celtic Run(ケルト)、Big Room Blast(ビッグルーム)',
+      'むずかしめ: Glitter Idol(アイドル)、Kawaii Bubble(カワイイ・フューチャーベース)、Neon Samurai(和ロック)、Jungle Lights(ジャングル)',
+      '鬼畜・ギミック: Chip Dungeon(チップチューン)、Circuit Breaker(ドラムンベース)、Mirage Shift(ギミック)、Gabber Storm(ガバ BPM200)',
+      '選曲画面の標準の並びを、やさしい順に整理',
+    ],
+  },
+  {
     version: '1.22.0', date: '2026-10-21',
     notes: [
       '新曲11曲を追加(全33曲): Plaza 1995(ヴェイパーウェイヴ)、Island Signal(レゲエ)、Dembow Lights(レゲトン)、Swing Circuit(エレクトロスウィング)、Low Orbit(トラップ)、Sakura Lattice(和風)、Last Horizon(オーケストラ)、Offbeat Skater(スカパンク)、Night Drift 95(ユーロビート)、Sugar Rush Scan(ハッピーハードコア)',

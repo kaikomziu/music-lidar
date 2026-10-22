@@ -39,10 +39,13 @@ const STYLE = {
   WINTER: 'snow', COUNTRY: 'sunrise', LOUNGE: 'clouds', 'TOY POP': 'gears', 'WA-POP': 'lantern', 'SYNTH POP': 'retrosun', FOLK: 'dunes',
   'NU DISCO': 'mirrorball', 'NEO SOUL': 'smoke', 'SOUTHERN ROCK': 'lightning', 'POWER METAL': 'shards', 'J-CORE': 'hearts',
   'GLITCH HOP': 'equalizer', TERRORCORE: 'tunnel',
+  'SPRING POP': 'sakura', CAMPFIRE: 'stars', 'BOUNCE POP': 'hearts', 'K-POP': 'prism', MARIACHI: 'rays', BOLLYWOOD: 'mirrorball',
+  POLKA: 'checker', 'FUTURE FUNK': 'skyline', ANISON: 'rays', RIDDIM: 'wobble', OUTRUN: 'retrosun',
+  'ORCHESTRAL CORE': 'aurora',
 };
 
 // 同じジャンルで見分けにくい曲だけ、曲ごとに絵柄を指定
-const STYLE_BY_ID = { 'infinity-breaker': 'eye', 'clockwork-chaos': 'clock' };
+const STYLE_BY_ID = { 'infinity-breaker': 'eye', 'clockwork-chaos': 'clock', 'quantum-leap': 'sphere', 'shamisen-storm': 'lightning', 'lofi-library': 'rain' };
 
 function draw(g, e, S) {
   const rng = mulberry32(hashStr(e.id + 'jacket'));

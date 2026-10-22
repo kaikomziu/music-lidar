@@ -18,6 +18,7 @@ import { fxText } from './units.js';
 import { initLive, openLive, backToRoom } from './live.js';
 import { initPlayer, openPlayer, playerKeydown, stop as stopPlayer } from './player.js';
 import { TUTORIAL_DEF, TUT_NOTES, tutCaptions } from './tutorial.js';
+import { initAdmin, openAdmin, stopAdmin } from './admin.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -195,6 +196,7 @@ const SCREEN_URL = {
   live: ['live/', 'みんなでライブ'],
   home: ['home/', 'ホーム'],
   player: ['listen/', 'きくだけ'],
+  admin: ['admin/', '管理'],
 };
 function setScreenUrl(key) {
   const su = SCREEN_URL[key];
@@ -214,7 +216,10 @@ function show(name) {
     show.wt = setTimeout(() => w.classList.remove('go'), 600); // アニメが止まっていても必ず消す
   }
   if (state === 'player' && name !== 'player') stopPlayer();
+  if (state === 'admin' && name !== 'admin') stopAdmin();
+  const changed = state !== name;
   state = name;
+  if (changed) pingSoon();
   for (const s of document.querySelectorAll('.screen')) s.classList.toggle('active', s.id === name);
   document.body.classList.toggle('playing', name === 'game');
   if (name !== 'game') setScreenUrl(name);
@@ -792,6 +797,7 @@ window.addEventListener('keydown', (ev) => {
   if (state === 'editor' || state === 'charts') { makerKeydown(ev); return; }
   if (state === 'live') { if (ev.key === 'Escape') { $('live-back').click(); } return; }
   if (state === 'player') { playerKeydown(ev); return; }
+  if (state === 'admin') { if (ev.key === 'Escape') $('adm-back').click(); return; }
   if (state === 'quest' || state === 'gacha' || state === 'team') {
     if (ev.key === 'Escape') { if (gachaResultOpen()) closeGacha(); else goHome(); }
     return;
@@ -901,6 +907,7 @@ function renderHome() {
   $('hp-login')?.addEventListener('click', () => openAccount());
   for (const t of document.querySelectorAll('#home .need-login')) t.classList.toggle('locked', !s);
   $('h-team').textContent = s ? fxText(acc.teamFx()) : 'キャラ5人でスキルを組み合わせる';
+  $('btn-admin').hidden = !acc.isAdmin();
 }
 $('h-live').addEventListener('click', () => homeLive(true));
 $('h-live-back').addEventListener('click', () => { homeLive(false); $('h-live').focus({ preventScroll: true }); });
@@ -919,6 +926,15 @@ initMaker({
 $('btn-charts').addEventListener('click', () => openCharts());
 initPlayer({ entries, show: (n) => { stopPreview(); show(n); }, back: () => goHome(), current: () => state, esc, jacketURL, toast });
 $('btn-player').addEventListener('click', () => openPlayer());
+initAdmin({ entries, show: (n) => { stopPreview(); show(n); }, back: () => goHome(), current: () => state, esc, toast });
+$('btn-admin').addEventListener('click', () => openAdmin());
+
+// ログイン中は1分おきにサーバーへ合図(管理者ページの「いまオンライン」)。画面が変わったときも少し後に送る
+function pingNow() { if (acc.isLoggedIn() && !document.hidden) acc.ping(state); }
+var pingT = 0; // show() から先に呼ばれることがあるので var
+function pingSoon() { clearTimeout(pingT); pingT = setTimeout(pingNow, 1500); }
+setInterval(pingNow, 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) pingSoon(); });
 initLive({
   entries, show: (n) => { stopPreview(); show(n); }, toast, back: () => goHome(true), current: () => state, esc, jacketURL, openAccount,
   diffColor: DIFF_COLOR, selected: () => entries[sel], diff: () => diff,
@@ -933,7 +949,7 @@ const accReady = acc.init();
   await Promise.resolve(); // このファイルの残り(設定など)を読み終えてから動かす
   const screen = document.querySelector('meta[name="screen"]')?.content;
   if (!screen) return;
-  const needLogin = ['gacha', 'quest', 'team', 'live'].includes(screen);
+  const needLogin = ['gacha', 'quest', 'team', 'live', 'admin'].includes(screen);
   if (needLogin && !load('token', null)) {
     // ガチャ・クエスト・編成はログインが必要。ログインしていない人は普通のトップ扱い(曲URLと同じ)
     try { history.replaceState(null, '', ROOT_PATH); document.title = 'MUSIC LiDAR｜ブラウザで遊べる無料4キー音ゲー(リズムゲーム)'; } catch { /* noop */ }
@@ -949,7 +965,7 @@ const accReady = acc.init();
   // home/ はホームのまま
   else if (needLogin) {
     await accReady;
-    if (acc.isLoggedIn()) { if (screen === 'live') openLive(); else openMetaScreen(screen); }
+    if (acc.isLoggedIn()) { if (screen === 'live') openLive(); else if (screen === 'admin') openAdmin(); else openMetaScreen(screen); }
     else { syncUrl(entries[sel]); openAccount(); }
   }
   // result/ はプレイ結果が残っていないので選曲画面のまま

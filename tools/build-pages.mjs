@@ -71,6 +71,7 @@ const SCREENS = [
   { dir: 'listen', screen: 'player', title: 'きくだけ(オリジナル曲プレーヤー)｜MUSIC LiDAR',
     desc: 'MUSIC LiDAR のオリジナル曲を音楽プレーヤーで聴けます。ローファイ・ジャズ・シティポップ・和風・スピードコアなど、いろいろなジャンルのオリジナルBGMをシャッフルやくり返しで。無料・ブラウザだけで再生。' },
   // ここから下は検索に出さない画面
+  { dir: 'admin', screen: 'admin', noindex: true, title: '管理｜MUSIC LiDAR', desc: 'MUSIC LiDAR の管理者ページ。' },
   { dir: 'home', screen: 'home', noindex: true, title: 'ホーム｜MUSIC LiDAR', desc: 'MUSIC LiDAR のホーム。ライブ・編成・ガチャ・クエスト・みんなの譜面・譜面メーカーを選べます。' },
   { dir: 'result', screen: 'result', noindex: true, title: 'リザルト｜MUSIC LiDAR', desc: 'MUSIC LiDAR のプレイ結果。' },
   { dir: 'settings', screen: 'settings', noindex: true, title: '設定｜MUSIC LiDAR', desc: 'MUSIC LiDAR の設定。' },

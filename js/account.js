@@ -74,6 +74,12 @@ export async function gachaEvent(banner, count) {
   state = r.state; emit();
   return r.results;
 }
+// ログイン中は1分おきに「いまどの画面にいるか」を送る(管理者ページの「いまオンライン」用)
+export function ping(place) {
+  if (!token) return;
+  rpc('mlidar_ping', { p_token: token, p_place: place }).catch(() => {});
+}
+export const isAdmin = () => !!state?.admin;
 // 開催中・開催予定のガチャ(ログイン不要)
 export const fetchBanners = () => rpc('mlidar_banners', {});
 

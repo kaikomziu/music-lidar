@@ -2,6 +2,16 @@
 // 大きな機能追加 = 2つ目の数字を上げる / 不具合修正や小さな改善 = 3つ目の数字を上げる
 export const CHANGELOG = [
   {
+    version: '1.32.0', date: '2026-10-22',
+    notes: [
+      '新曲15曲を追加(全115曲)',
+      'やさしめ: Cherry Picnic(春ポップ)、Starlit Camp(キャンプファイヤー)、Puddle Jump(バウンスポップ)、Lofi Library(ローファイ)',
+      'ふつう: Polka Party(ポルカ)、Seoul Signal(K-POP)、Mariachi Sun(マリアッチ)、Bollywood Beat(ボリウッド)、Neon Boulevard(フューチャーファンク)',
+      'むずかしめ: Synth Racer(アウトラン)、Riddim Riot(リディム)、Brave Horizon(アニソン)、Shamisen Storm(津軽三味線ロック)',
+      '鬼畜: Quantum Leap(瞬間移動するギミック曲・Lv15)、Omega Requiem(オーケストラコア BPM210・Lv14)',
+    ],
+  },
+  {
     version: '1.31.0', date: '2026-10-22',
     notes: [
       '管理者ページを追加(管理者のアカウントだけ、ホーム右上の「管理」から開けます)',

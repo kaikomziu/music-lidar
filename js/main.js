@@ -19,6 +19,7 @@ import { initLive, openLive, backToRoom } from './live.js';
 import { initPlayer, openPlayer, playerKeydown, stop as stopPlayer } from './player.js';
 import { TUTORIAL_DEF, TUT_NOTES, tutCaptions } from './tutorial.js';
 import { initAdmin, openAdmin, stopAdmin } from './admin.js';
+import { initDan, openDan, bestDan, danName } from './dan.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -197,6 +198,7 @@ const SCREEN_URL = {
   home: ['home/', 'ホーム'],
   player: ['listen/', 'きくだけ'],
   admin: ['admin/', '管理'],
+  dan: ['dan/', '段位道場'],
 };
 function setScreenUrl(key) {
   const su = SCREEN_URL[key];
@@ -603,7 +605,7 @@ async function startGameInner(entry, d, custom, live) {
   }
   await hideLoading(isRetry ? 500 : 1400);
   playing = { entry, diff: d, custom, live };
-  document.body.classList.toggle('live', !!live);
+  document.body.classList.toggle('live', !!live || custom?.kind === 'dan');
   show('game');
   setVolumes(settings.bgm, settings.se);
   game = new Game(canvas, {
@@ -616,6 +618,7 @@ async function startGameInner(entry, d, custom, live) {
     jacket: jacketURL(entry, 128),
     label,
     captions: custom?.captions || null,
+    life: custom?.life || null,
     rivals: live ? () => live.rivals() : null,
   });
   live?.attach(game);
@@ -636,14 +639,14 @@ function quitGame() {
   }
   game?.destroy();
   game = null;
-  if (playing?.custom) { stopPreview(); playing.custom.onExit(null); return; }
+  if (playing?.custom) { stopPreview(); document.body.classList.remove('live'); playing.custom.onExit(null); return; }
   show('select');
   renderList();
   selectSong(sel, true);
 }
 
 function retry() {
-  if (playing?.live) return; // ライブ中はリトライなし
+  if (playing?.live || playing?.custom?.kind === 'dan') return; // ライブ・段位道場はリトライなし
   overlay('pause', false);
   game?.destroy();
   game = null;
@@ -668,7 +671,11 @@ function onGameEnd(r) {
   const { entry, diff: d, custom } = playing;
   game = null;
   lastResult = r;
-  if (custom?.kind === 'test' || custom?.kind === 'tutorial') { custom.onExit(r); return; }
+  if (custom?.kind === 'test' || custom?.kind === 'tutorial' || custom?.kind === 'dan') {
+    document.body.classList.remove('live');
+    if (custom.kind === 'dan') state = 'retry'; // 段位道場は続けて次の曲を始めるので「プレイ中」を外す
+    custom.onExit(r); return;
+  }
   $('r-live').hidden = !playing.live;
   $('btn-back').innerHTML = playing.live ? 'ルームへ <small>ENTER</small>' : '選曲へ <small>ENTER</small>';
   if (playing.live) playing.live.finish(r);
@@ -778,6 +785,7 @@ window.addEventListener('keydown', (ev) => {
       if (ev.key === 'Escape' || ev.key === 'Backspace') { ev.preventDefault(); $('h-live-back').click(); }
       else if (ev.key === '1') { ev.preventDefault(); goSelect(); }
       else if (ev.key === '2') { ev.preventDefault(); $('btn-live').click(); }
+      else if (ev.key === '3') { ev.preventDefault(); openDan(); }
       else if (ev.key === 'Enter' && !onBtn) { ev.preventDefault(); goSelect(); }
     } else if (ev.key === 'Enter' && !onBtn) { ev.preventDefault(); homeLive(true); }
     return;
@@ -798,6 +806,7 @@ window.addEventListener('keydown', (ev) => {
   if (state === 'live') { if (ev.key === 'Escape') { $('live-back').click(); } return; }
   if (state === 'player') { playerKeydown(ev); return; }
   if (state === 'admin') { if (ev.key === 'Escape') $('adm-back').click(); return; }
+  if (state === 'dan') { if (ev.key === 'Escape' && !modalOpen()) $('dan-back').click(); return; }
   if (state === 'quest' || state === 'gacha' || state === 'team') {
     if (ev.key === 'Escape') { if (gachaResultOpen()) closeGacha(); else goHome(); }
     return;
@@ -869,6 +878,7 @@ function closeModals() {
   overlay('changelog', false);
   overlay('tut-offer', false);
   overlay('tut-done', false);
+  overlay('dan-result', false);
 }
 function goSelect() {
   homeLive(false);
@@ -902,7 +912,7 @@ function renderHome() {
     jk.innerHTML = pick.map((e) => `<img src="${jacketURL(e, 128)}" alt="">`).join('');
   }
   $('h-player').innerHTML = s
-    ? `<span class="hp-hi">WELCOME BACK</span><b>${esc(s.name)}</b><span class="hp-sep"></span><span class="coin-ico">◎</span>${s.coins.toLocaleString()}<span class="hp-sep"></span><span class="muted">編成: ${esc(fxText(acc.teamFx()))}</span>`
+    ? `<span class="hp-hi">WELCOME BACK</span><b>${esc(s.name)}</b>${bestDan() ? `<span class="hp-dan">${danName(bestDan())}</span>` : ''}<span class="hp-sep"></span><span class="coin-ico">◎</span>${s.coins.toLocaleString()}<span class="hp-sep"></span><span class="muted">編成: ${esc(fxText(acc.teamFx()))}</span>`
     : `<span class="hp-hi">GUEST</span><span class="muted">ログインすると 編成・ガチャ・クエスト・みんなでライブ が遊べます(はじめに 1000 コイン)</span><button class="btn-line hp-login" id="hp-login">ログイン / 新規登録</button>`;
   $('hp-login')?.addEventListener('click', () => openAccount());
   for (const t of document.querySelectorAll('#home .need-login')) t.classList.toggle('locked', !s);
@@ -912,6 +922,7 @@ function renderHome() {
 $('h-live').addEventListener('click', () => homeLive(true));
 $('h-live-back').addEventListener('click', () => { homeLive(false); $('h-live').focus({ preventScroll: true }); });
 $('btn-solo').addEventListener('click', goSelect);
+$('btn-dan').addEventListener('click', () => openDan());
 for (const b of document.querySelectorAll('[data-tutorial]')) b.addEventListener('click', () => startTutorial());
 $('btn-tut-skip').addEventListener('click', () => { save('tutorialSkipped', true); overlay('tut-offer', false); if (!acc.isLoggedIn() && !load('nameSkipped', false)) openAccount(); });
 $('btn-tut-home').addEventListener('click', () => overlay('tut-done', false));
@@ -928,6 +939,8 @@ initPlayer({ entries, show: (n) => { stopPreview(); show(n); }, back: () => goHo
 $('btn-player').addEventListener('click', () => openPlayer());
 initAdmin({ entries, show: (n) => { stopPreview(); show(n); }, back: () => goHome(), current: () => state, esc, toast });
 $('btn-admin').addEventListener('click', () => openAdmin());
+initDan({ entries, show: (n) => { stopPreview(); show(n); }, back: () => goHome(true), current: () => state, esc, jacketURL, toast, overlay,
+  play: (entry, d, custom) => startGame(entry, d, custom) });
 
 // ログイン中は1分おきにサーバーへ合図(管理者ページの「いまオンライン」)。画面が変わったときも少し後に送る
 function pingNow() { if (acc.isLoggedIn() && !document.hidden) acc.ping(state); }
@@ -962,6 +975,7 @@ const accReady = acc.init();
   else if (screen === 'account') openAccount();
   else if (screen === 'changelog') openChangelog();
   else if (screen === 'player') openPlayer();
+  else if (screen === 'dan') openDan();
   // home/ はホームのまま
   else if (needLogin) {
     await accReady;

@@ -108,7 +108,11 @@ export class PointCloud {
 
 // ---------------------------------------------------------------------------
 export class Game {
-  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd, team, scroll, offset, jacket, label, rivals, captions }) {
+  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd, team, scroll, offset, jacket, label, rivals, captions, life }) {
+    // 段位道場の体力 { start, miss, good, great, perfect }(%)
+    this.lifeOpt = life || null;
+    this.life = life ? life.start : 100;
+    this.failed = false;
     this.captions = captions || null; // チュートリアル: [{ t, until, text, sub }]
     this.rivals = rivals || null; // みんなでライブ: () => [{ name, combo, me, done }]
     this.label = label || String(diff || '').toUpperCase();
@@ -257,6 +261,11 @@ export class Game {
 
   // res: 編成効果込みの判定 / raw: 効果なしの判定
   applyJudge(res, raw, d, lane) {
+    if (this.lifeOpt && !this.failed) {
+      const L = this.lifeOpt;
+      this.life = Math.min(100, this.life + (raw === 'PERFECT' ? L.perfect : raw === 'GREAT' ? L.great : raw === 'GOOD' ? -L.good : -L.miss));
+      if (this.life <= 0) { this.life = 0; this.failed = true; }
+    }
     this.counts[raw]++;
     this.judged++;
     this.sumScore += SCORE_W[raw];
@@ -314,11 +323,13 @@ export class Game {
       }
       while (this.laneIdx[l] < list.length && list[this.laneIdx[l]].done && list[this.laneIdx[l]].tailDone) this.laneIdx[l]++;
     }
+    if (this.failed && !this.ended) { this.finish(); return; }
     if (t > this.endAt + 0.8 && !this.ended) this.finish();
   }
 
   finish() {
     this.ended = true;
+    if (this.failed) { try { this.src.stop(); } catch { /* noop */ } }
     cancelAnimationFrame(this.raf);
     const score = this.score;
     const r = {
@@ -335,6 +346,7 @@ export class Game {
       tCounts: { ...this.tCounts },
       tMaxCombo: this.tMaxCombo,
       hasTeam: this.team.score > 0 || this.team.judge > 0 || this.team.guard > 0,
+      failed: this.failed, life: this.life,
     };
     r.rank = rankOf(score);
     this.onEnd?.(r);
@@ -673,6 +685,15 @@ export class Game {
     // 進行バー
     const p = Math.max(0, Math.min(1, t / this.endAt));
     g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(0, 0, W, 3);
+    if (this.lifeOpt) { // 段位道場の体力ゲージ
+      const bw = Math.min(340, W * 0.42), bx = (W - bw) / 2, by = small ? 52 : 10, lv = this.life / 100;
+      const lc = this.life > 50 ? '#6dffb0' : this.life > 25 ? '#ffd25e' : '#ff4f6e';
+      g.fillStyle = 'rgba(4,8,22,0.75)'; g.fillRect(bx - 2, by - 2, bw + 4, 14);
+      g.fillStyle = hexA(lc, 0.25); g.fillRect(bx, by, bw, 10);
+      g.fillStyle = lc; g.fillRect(bx, by, bw * lv, 10);
+      g.save(); g.font = '800 10px "Orbitron", sans-serif'; g.textBaseline = 'top'; g.textAlign = 'center';
+      g.fillStyle = '#fff'; g.fillText(`LIFE ${this.life.toFixed(1)}%`, W / 2, by + 13); g.restore();
+    }
     g.fillStyle = stColor; g.fillRect(0, 0, W * p, 3);
     g.fillStyle = '#fff'; g.fillRect(W * p - 2, 0, 2, 3);
 

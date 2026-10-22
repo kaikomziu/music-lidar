@@ -70,6 +70,8 @@ const SCREENS = [
     desc: 'MUSIC LiDAR の「みんなでライブ」。最大8人で同じ曲を同時にプレイし、プレイ中はみんなのコンボがリアルタイムに見える。最後は編成の効果込みのスコアで順位を競う、ブラウザで遊べる無料のオンライン音ゲー。' },
   { dir: 'listen', screen: 'player', title: 'きくだけ(オリジナル曲プレーヤー)｜MUSIC LiDAR',
     desc: 'MUSIC LiDAR のオリジナル曲を音楽プレーヤーで聴けます。ローファイ・ジャズ・シティポップ・和風・スピードコアなど、いろいろなジャンルのオリジナルBGMをシャッフルやくり返しで。無料・ブラウザだけで再生。' },
+  { dir: 'dan', screen: 'dan', title: '段位道場｜MUSIC LiDAR 無料ブラウザ音ゲー',
+    desc: 'MUSIC LiDAR の段位道場。4曲を続けてプレイし、体力ゲージが0にならずに最後まで行けたら合格。初段から十段、皆伝まで11段階の段位認定に挑戦しよう。' },
   // ここから下は検索に出さない画面
   { dir: 'admin', screen: 'admin', noindex: true, title: '管理｜MUSIC LiDAR', desc: 'MUSIC LiDAR の管理者ページ。' },
   { dir: 'home', screen: 'home', noindex: true, title: 'ホーム｜MUSIC LiDAR', desc: 'MUSIC LiDAR のホーム。ライブ・編成・ガチャ・クエスト・みんなの譜面・譜面メーカーを選べます。' },

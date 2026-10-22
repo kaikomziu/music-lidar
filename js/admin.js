@@ -85,12 +85,12 @@ function render() {
 
     <h3 class="adm-h">登録ユーザー(${data.accounts.length}人)</h3>
     <div class="adm-table-wrap"><table class="adm-table" id="adm-users-t">
-      <thead><tr>${th('name', '名前')}${th('last_seen', '最後のアクセス')}<th>いた画面</th>${th('joined', '登録日')}${th('plays', 'プレイ')}${th('gacha', 'ガチャ')}${th('units', 'キャラ')}${th('coins', 'コイン')}</tr></thead>
+      <thead><tr>${th('name', '名前')}${th('last_seen', '最後のアクセス')}<th>いた画面</th>${th('joined', '登録日')}${th('plays', 'プレイ')}${th('gacha', 'ガチャ')}${th('units', 'キャラ')}${th('coins', 'コイン')}${th('dan', '段位')}</tr></thead>
       <tbody>${sorted.map((a) => {
         const on = a.last_seen && now - a.last_seen < ONLINE_MS;
         return `<tr class="${on ? 'on' : ''}"><td>${on ? '<i class="dot"></i>' : ''}${esc(a.name)}${a.admin ? ' <span class="adm-badge">管理者</span>' : ''}</td>
           <td>${ago(a.last_seen, now)}<small>${jst(a.last_seen)}</small></td><td>${esc(PLACE[a.place] || a.place || '-')}</td><td>${jst(a.joined)}</td>
-          <td class="n">${a.plays}</td><td class="n">${a.gacha}</td><td class="n">${a.units}</td><td class="n">${a.coins.toLocaleString()}</td></tr>`;
+          <td class="n">${a.plays}</td><td class="n">${a.gacha}</td><td class="n">${a.units}</td><td class="n">${a.coins.toLocaleString()}</td><td>${['', '初段', '二段', '三段', '四段', '五段', '六段', '七段', '八段', '九段', '十段', '皆伝'][a.dan || 0] || '-'}</td></tr>`;
       }).join('')}</tbody></table></div>
 
     <h3 class="adm-h">最近のランキング記録</h3>

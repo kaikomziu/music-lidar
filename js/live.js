@@ -92,6 +92,8 @@ export function openLive() {
 
 async function pollLobby() {
   if (mode !== 'lobby' || ui.current() !== 'live') return;
+  // タブが見えていない間はルーム一覧を取りに行かない(Supabaseの転送量節約)。見えたら次の周期で再開
+  if (document.hidden) { schedule(pollLobby, POLL_LOBBY); return; }
   try {
     const list = await call('mlidar_live_list', {});
     if (mode !== 'lobby') return;

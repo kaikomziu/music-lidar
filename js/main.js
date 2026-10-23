@@ -36,6 +36,13 @@ let lastResult = null;
 // 曲の準備
 // ---------------------------------------------------------------------------
 // 音源ファイルの曲(def.audio)。譜面は def.fixedCharts、音は fetch して展開
+// tools/scramble_audio.py と同じ方法で元に戻す(鍵の文字と位置で XOR)
+function unscramble(ab, key) {
+  const u8 = new Uint8Array(ab);
+  const k = new TextEncoder().encode(key);
+  for (let i = 0; i < u8.length; i++) u8[i] ^= k[i % k.length] ^ ((i >> 8) & 255);
+  return u8.buffer;
+}
 function fileSongEntry(def) {
   const charts = {}, stats = {};
   const unpack = (arr) => arr.map(([t, lane, e]) => (e ? { t: t / 1000, lane, end: e / 1000 } : { t: t / 1000, lane }));
@@ -72,6 +79,8 @@ function fileSongEntry(def) {
             for (const p of parts) { u8.set(p, o); o += p.length; }
             ab = u8.buffer;
           } else ab = await res.arrayBuffer();
+          // 音源ファイルをそのまま聞ける形で置けない曲(ライセンス上)は、並べ替えた .bin で置いてここで元に戻す
+          if (def.audioKey) ab = unscramble(ab, def.audioKey);
           // AudioContext を使わずに展開(ユーザー操作前でも可)
           const buf = await new OfflineAudioContext(2, 1, 44100).decodeAudioData(ab);
           this.progress = 1;

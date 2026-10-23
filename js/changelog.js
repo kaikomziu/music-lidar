@@ -2,6 +2,10 @@
 // 大きな機能追加 = 2つ目の数字を上げる / 不具合修正や小さな改善 = 3つ目の数字を上げる
 export const CHANGELOG = [
   {
+    version: '1.35.0', date: '2026-10-23',
+    notes: ['しゃろうさんの「SUMMER TRIANGLE」を追加(OpenTracks より。音源を解析して BPM175 のリズムに合わせた譜面)'],
+  },
+  {
     version: '1.34.0', date: '2026-10-23',
     notes: [
       'YAJU-MC(やじゅまん)さんの「INMU KING」を追加(ニコニ・コモンズ nc499430 より。音源を解析して BPM133 のリズムに合わせた譜面)',

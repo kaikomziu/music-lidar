@@ -1089,3 +1089,11 @@ body.live #btn-p-retry { display: none; }
 .dan-res li.failed span { color: #ff4f6e; }
 .dan-reward { color: #ffd25e; font-weight: 700; min-height: 1.2em; }
 @media (max-width: 860px) { .hl-cards { grid-template-columns: 1fr; } }
+
+/* お気に入り(☆) */
+.sc-fav { float: left; margin: 1px 6px 0 0; font-size: 16px; line-height: 1; color: var(--muted); cursor: pointer; padding: 2px; border-radius: 4px; transition: color 0.15s, transform 0.15s; }
+.sc-fav:hover { color: #ffd25e; transform: scale(1.2); }
+.sc-fav.on { color: #ffd25e; text-shadow: 0 0 8px rgba(255, 210, 94, 0.7); }
+.d-fav { margin-top: 8px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--panel-line); background: rgba(0, 0, 0, 0.3); color: var(--muted); font-size: 12px; }
+.d-fav:hover { border-color: #ffd25e; color: #ffd25e; }
+.d-fav.on { border-color: #ffd25e; color: #ffd25e; background: rgba(255, 210, 94, 0.12); font-weight: 700; }

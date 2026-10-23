@@ -989,7 +989,7 @@ setInterval(pingNow, 60000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) pingSoon(); });
 initLive({
   entries, show: (n) => { stopPreview(); show(n); }, toast, back: () => goHome(true), current: () => state, esc, jacketURL, openAccount,
-  diffColor: DIFF_COLOR, selected: () => entries[sel], diff: () => diff,
+  diffColor: DIFF_COLOR, selected: () => entries[sel], diff: () => diff, isFav, toggleFav, bestOf,
   startLive: (entry, d, hooks) => startGame(entry, d, null, hooks),
 });
 $('btn-maker').addEventListener('click', () => openEditor(entries[sel]));

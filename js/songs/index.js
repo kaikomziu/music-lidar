@@ -16,6 +16,7 @@ import stellarGate from './stellar-gate.js';
 import lidarRush from './lidar-rush.js';
 import shiningStar from './shining-star.js';
 import inmuKing from './inmu-king.js';
+import summerTriangle from './summer-triangle.js';
 import wubFracture from './wub-fracture.js';
 import overdriveRiot from './overdrive-riot.js';
 import freezeFrame from './freeze-frame.js';
@@ -131,7 +132,7 @@ export default [
   progAscent, dragonGate, cloudPoint, pixelQuest, pulseGrid, swingCircuit, lowOrbit, ironPulse, garageShuffle, neonBoulevard, thunderRoad,
   // むずかしめ
   sakuraLattice, lastHorizon, celticRun, bigRoomBlast, glitchGarden, salsaFuego, blueNoteLane, glitterIdol, liquidSky, stellarGate, skyPrism, synthRacer, riddimRiot,
-  kawaiiBubble, lidarRush, shiningStar, inmuKing, wubFracture, offbeatSkater, nightDrift, psyForest, neonSamurai, braveHorizon, shamisenStorm, crystalFortress, hyperSakura, jungleLights,
+  kawaiiBubble, lidarRush, shiningStar, inmuKing, summerTriangle, wubFracture, offbeatSkater, nightDrift, psyForest, neonSamurai, braveHorizon, shamisenStorm, crystalFortress, hyperSakura, jungleLights,
   overdriveRiot, hardReflector,
   // 鬼畜・ギミック
   sugarRush, hyperpopGlitch, chipDungeon, circuitBreaker, mirageShift, freezeFrame, fractalStorm, kickMachinegun, velocityZero,

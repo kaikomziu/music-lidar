@@ -10,7 +10,7 @@ const POLL_LOBBY = 5000, POLL_ROOM = 2500, POLL_GAME = 3000, POLL_RESULT = 3000;
 const ERR = { NO_ROOM: 'ルームが見つかりません(解散したか、コードが違います)', ROOM_FULL: 'ルームが満員です(8人まで)', NOT_HOST: 'ホストだけが操作できます' };
 const errText = (e) => ERR[e?.message] || acc.errText(e);
 
-let ui = null; // { entries, show, toast, back, current, esc, jacketURL, startLive, openAccount, diffColor }
+let ui = null; // { entries, show, toast, back, current, esc, jacketURL, startLive, openAccount, diffColor, isFav, toggleFav, bestOf }
 let room = null; // サーバーから来た部屋の状態
 let timer = 0;
 let mode = 'off'; // off | lobby | room | game | result
@@ -44,7 +44,17 @@ export function initLive(api) {
   $('live-rooms').addEventListener('click', (ev) => { const b = ev.target.closest('[data-code]'); if (b) joinRoom(b.dataset.code); });
   $('live-leave').addEventListener('click', leaveRoom);
   $('live-start').addEventListener('click', startRound);
-  $('live-song').addEventListener('change', () => configRoom($('live-song').value, room.diff));
+  $('live-search').addEventListener('input', () => { pick.q = $('live-search').value; renderPick(true); });
+  $('live-sort').addEventListener('change', () => { pick.sort = $('live-sort').value; renderPick(true); });
+  $('live-filters').addEventListener('click', (ev) => { const b = ev.target.closest('.f-chip'); if (b) { pick[b.dataset.g] = b.dataset.v; renderPick(true); } });
+  $('live-list').addEventListener('click', (ev) => {
+    const star = ev.target.closest('.sc-fav');
+    const card = ev.target.closest('.song-card[data-id]');
+    if (!card) return;
+    const e = entryOf(card.dataset.id);
+    if (star) { ui.toggleFav(e); renderPick(true); return; }
+    if (isHost() && room.status !== 'play' && e.id !== room.song) configRoom(e.id, room.diff);
+  });
   $('live-diffs').addEventListener('click', (ev) => { const b = ev.target.closest('[data-diff]'); if (b && !b.disabled) setMyDiff(b.dataset.diff); });
   $('live-copy').addEventListener('click', () => {
     const text = `MUSIC LiDAR「みんなでライブ」ルームコード: ${room.code}`;
@@ -129,6 +139,7 @@ async function joinRoom(code) {
 
 function enterRoom() {
   mode = 'room';
+  pick.key = '';
   renderView();
   renderRoom();
   prepare();
@@ -175,13 +186,10 @@ function renderRoom() {
   $('live-jacket').src = e ? ui.jacketURL(e, 256) : '';
   $('live-title').textContent = e?.title || room.song;
   $('live-genre').textContent = e ? `${e.genre} ・ BPM ${Math.round(e.bpm)}` : '';
-  // 曲はホストだけが変えられる。難易度は人ごとに選ぶ
-  const sel = $('live-song');
-  if (!sel.options.length) {
-    sel.innerHTML = ui.entries.filter((x) => !x.local).map((x) => `<option value="${ui.esc(x.id)}">${ui.esc(x.title)}</option>`).join('');
-  }
-  if (document.activeElement !== sel) sel.value = room.song;
-  sel.disabled = !host;
+  // 曲はホストだけが変えられる(左の曲リスト)。難易度は人ごとに選ぶ
+  $('live-roombox').classList.toggle('host', host);
+  $('live-pickmsg').textContent = host ? (room.status === 'play' ? 'ライブ中は曲を変えられません' : '曲リストから選べます') : '曲はホストが選びます';
+  renderPick();
   const my = me();
   const lockDiff = room.status === 'play' && my?.in && !my.done;
   $('live-diffs').innerHTML = ['easy', 'normal', 'hard'].map((d) =>
@@ -207,6 +215,60 @@ function renderRoom() {
     anyPlaying ? (me()?.in ? '' : '次の曲から参加できます。終わるまで待っていてね') :
     host ? (room.members.length < 2 ? 'ルームコードを友だちに教えて呼ぼう。1人でもスタートできます' : '全員そろったらスタート!') :
     'ホストがスタートするのを待っています…';
+}
+
+// --- 曲リスト(ひとりでライブの選曲画面と同じ見た目)。ホストだけに出す ---
+const pick = { q: '', sort: 'default', lv: 'all', status: 'all', key: '' };
+const LV_FILTERS = [['all', 'すべて'], ['1-4', 'Lv1〜4'], ['5-9', 'Lv5〜9'], ['10-', 'Lv10以上']];
+const STATUS_FILTERS = [['all', 'すべて'], ['fav', '★ お気に入り'], ['new', '未プレイ'], ['nofc', '未フルコンボ']];
+
+function pickSongs(d) {
+  const q = pick.q.trim().toLowerCase();
+  const list = ui.entries.filter((e) => {
+    if (e.local) return false;
+    if (q && !`${e.title} ${e.genre} ${e.artist} ${Math.round(e.bpm)}`.toLowerCase().includes(q)) return false;
+    const lv = e.levels[d];
+    if (pick.lv === '1-4' && lv > 4) return false;
+    if (pick.lv === '5-9' && (lv < 5 || lv > 9)) return false;
+    if (pick.lv === '10-' && lv < 10) return false;
+    const b = ui.bestOf(e.id, d);
+    if (pick.status === 'fav' && !ui.isFav(e)) return false;
+    if (pick.status === 'new' && b) return false;
+    if (pick.status === 'nofc' && b?.fc) return false;
+    return true;
+  });
+  const by = {
+    level: (a, b) => a.levels[d] - b.levels[d], 'level-desc': (a, b) => b.levels[d] - a.levels[d],
+    bpm: (a, b) => a.bpm - b.bpm, 'bpm-desc': (a, b) => b.bpm - a.bpm, name: (a, b) => a.title.localeCompare(b.title, 'ja'),
+  }[pick.sort];
+  return by ? list.sort(by) : list;
+}
+
+// ポーリングのたびに作り直すとスクロールがずれるので、条件が変わったときだけ描き直す
+function renderPick(force = false) {
+  if (!room || !isHost()) return;
+  const d = me()?.diff || room.diff;
+  const key = [room.song, d, room.status === 'play', pick.q, pick.sort, pick.lv, pick.status].join('|');
+  if (!force && key === pick.key) return;
+  const songChanged = pick.key.split('|')[0] !== room.song;
+  pick.key = key;
+  const chip = (g, [v, label]) => `<button class="f-chip ${pick[g] === v ? 'sel' : ''}" data-g="${g}" data-v="${v}">${label}</button>`;
+  $('live-filters').innerHTML = `<span class="f-label">${d.toUpperCase()}</span>${LV_FILTERS.map((f) => chip('lv', f)).join('')}<span class="f-sep"></span>${STATUS_FILTERS.map((f) => chip('status', f)).join('')}`;
+  const list = pickSongs(d);
+  const locked = room.status === 'play';
+  $('live-list').classList.toggle('locked', locked);
+  $('live-list').innerHTML = list.length ? list.map((e) => {
+    const lv = ['easy', 'normal', 'hard'].map((x) => {
+      const b = ui.bestOf(e.id, x);
+      const mark = b?.ap ? 'AP' : b?.fc ? 'FC' : '';
+      return `<span class="lv ${x}">${e.levels[x]}${mark ? `<span class="mark">${mark}</span>` : ''}</span>`;
+    }).join('');
+    const fav = ui.isFav(e);
+    return `<button class="song-card${e.id === room.song ? ' sel' : ''}" data-id="${ui.esc(e.id)}" style="--c:${e.color}">
+      <img class="sc-jacket" src="${ui.jacketURL(e, 128)}" alt="" loading="lazy"><div class="sc-text"><span class="sc-fav${fav ? ' on' : ''}" title="${fav ? 'お気に入りから外す' : 'お気に入りにする'}">${fav ? '★' : '☆'}</span>
+      <div class="sc-title">${ui.esc(e.title)}</div><div class="sc-sub">${ui.esc(e.genre)} ・ BPM ${Math.round(e.bpm)}</div></div><div class="sc-lv">${lv}</div></button>`;
+  }).join('') : '<p class="list-empty">条件に合う曲がありません</p>';
+  if (songChanged) $('live-list').querySelector('.song-card.sel')?.scrollIntoView({ block: 'nearest' });
 }
 
 const diffTag = (d) => `<i class="lm-diff" style="--dc:${ui.diffColor[d] || '#fff'}">${String(d || '').toUpperCase()}${entryOf(room?.song) ? ' ' + entryOf(room.song).levels[d] : ''}</i>`;
@@ -343,6 +405,7 @@ function renderResult() {
 
 export function backToRoom() {
   liveGame = null;
+  pick.key = ''; // 記録(FC など)が変わっているかもしれない
   if (!room) { openLive(); return; }
   mode = 'room';
   ui.show('live');

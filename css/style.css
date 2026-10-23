@@ -1097,3 +1097,28 @@ body.live #btn-p-retry { display: none; }
 .d-fav { margin-top: 8px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--panel-line); background: rgba(0, 0, 0, 0.3); color: var(--muted); font-size: 12px; }
 .d-fav:hover { border-color: #ffd25e; color: #ffd25e; }
 .d-fav.on { border-color: #ffd25e; color: #ffd25e; background: rgba(255, 210, 94, 0.12); font-weight: 700; }
+
+/* みんなでライブ: ホストは左に曲リスト(ひとりでライブの選曲画面と同じ見た目) */
+#live .meta-body:has(.live-roombox.host:not([hidden])) { max-width: 1320px; }
+.live-pick { display: none; min-width: 0; }
+.live-roombox.host { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 0.75fr); align-items: start; }
+.live-roombox.host .live-pick { display: flex; flex-direction: column; gap: 8px; }
+.live-pick .song-list { max-height: calc(100vh - 230px); overflow-y: auto; display: grid; gap: 6px; padding: 2px 12px 8px 2px; }
+.live-pick .song-card { max-width: none; width: 100%; }
+.live-pick .song-card.sel { transform: none; }
+.live-pick .song-list.locked .song-card:not(.sel) { opacity: 0.5; }
+.live-pick > * { flex-shrink: 0; }
+.live-pick .song-col .song-list, .live-pick .song-list { flex: none; }
+.live-pick .filter-chips { flex-wrap: wrap; }
+.lr-pickmsg { margin: 0; font-size: 12px; color: var(--muted); }
+@media (max-width: 1100px) {
+  .live-roombox.host { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .live-roombox.host .live-pick { grid-row: span 2; }
+}
+@media (max-width: 760px) {
+  .live-roombox.host { grid-template-columns: 1fr; }
+  .live-roombox.host .live-pick { order: 2; grid-row: auto; }
+  .live-roombox.host .live-room-side { order: 3; }
+  .live-pick .song-list { display: grid; max-height: 55vh; overflow-x: hidden; }
+  .live-pick .song-card { min-width: 0; }
+}

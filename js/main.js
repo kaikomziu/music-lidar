@@ -349,7 +349,33 @@ function bestOf(id, d) {
 // --- 検索・並び替え・絞り込み ---
 const songView = { q: '', sort: load('songSort', 'default'), lv: load('songLv', 'all'), status: load('songStatus', 'all') };
 const LV_FILTERS = [['all', 'すべて'], ['1-4', 'Lv1〜4'], ['5-9', 'Lv5〜9'], ['10-', 'Lv10以上']];
-const STATUS_FILTERS = [['all', 'すべて'], ['new', '未プレイ'], ['nofc', '未フルコンボ'], ['fc', 'フルコンボ済'], ['local', '読み込んだ曲']];
+const STATUS_FILTERS = [['all', 'すべて'], ['fav', '★ お気に入り'], ['new', '未プレイ'], ['nofc', '未フルコンボ'], ['fc', 'フルコンボ済'], ['local', '読み込んだ曲']];
+
+// お気に入り(☆)。この端末に曲IDの一覧で保存する
+const favs = new Set(load('favs', []));
+const isFav = (e) => favs.has(e.id);
+function toggleFav(e) {
+  if (favs.has(e.id)) favs.delete(e.id); else favs.add(e.id);
+  save('favs', [...favs]);
+  toast(favs.has(e.id) ? `★ ${e.title} をお気に入りにしました` : `${e.title} をお気に入りから外しました`);
+  if (songView.status === 'fav') renderList();
+  else for (const c of $('song-list').querySelectorAll('.song-card[data-i]')) if (entries[+c.dataset.i] === e) c.querySelector('.sc-fav').replaceWith(favMark(e));
+  renderFav();
+}
+function favMark(e) {
+  const s = document.createElement('span');
+  s.className = 'sc-fav' + (isFav(e) ? ' on' : '');
+  s.textContent = isFav(e) ? '★' : '☆';
+  s.title = isFav(e) ? 'お気に入りから外す' : 'お気に入りにする';
+  s.addEventListener('click', (ev) => { ev.stopPropagation(); toggleFav(e); });
+  return s;
+}
+function renderFav() {
+  const e = entries[sel], on = isFav(e);
+  $('d-fav').classList.toggle('on', on);
+  $('d-fav').setAttribute('aria-pressed', on);
+  $('d-fav').textContent = on ? '★ お気に入り' : '☆ お気に入りにする';
+}
 
 function visibleSongs() {
   const q = songView.q.trim().toLowerCase();
@@ -365,6 +391,7 @@ function visibleSongs() {
     if (songView.status === 'nofc' && b?.fc) return false;
     if (songView.status === 'fc' && !b?.fc) return false;
     if (songView.status === 'local' && !e.local) return false;
+    if (songView.status === 'fav' && !isFav(e)) return false;
     return true;
   });
   const by = {
@@ -394,7 +421,7 @@ function renderList() {
   if (!view.length) {
     const p = document.createElement('p');
     p.className = 'list-empty';
-    p.textContent = '条件に合う曲がありません';
+    p.textContent = songView.status === 'fav' && !favs.size ? '曲の ☆ を押すとお気に入りに入ります' : '条件に合う曲がありません';
     list.appendChild(p);
   }
   view.forEach((i) => {
@@ -409,6 +436,7 @@ function renderList() {
       return `<span class="lv ${d}">${e.levels[d]}${mark ? `<span class="mark">${mark}</span>` : ''}</span>`;
     }).join('');
     b.innerHTML = `<img class="sc-jacket" src="${jacketURL(e, 128)}" alt=""><div class="sc-text"><div class="sc-title">${esc(e.title)}</div><div class="sc-sub">${esc(e.genre)} ・ BPM ${Math.round(e.bpm)}${e.local ? ' ・ LOCAL' : ''}</div></div><div class="sc-lv">${lv}</div>`;
+    b.querySelector('.sc-text').prepend(favMark(e));
     b.addEventListener('click', () => { if (sel === i) startGame(); else selectSong(i); });
     list.appendChild(b);
   });
@@ -447,6 +475,7 @@ function setDiff(d) {
 $('song-search').addEventListener('input', () => { songView.q = $('song-search').value; renderList(); });
 $('song-sort').value = songView.sort;
 $('song-sort').addEventListener('change', () => { songView.sort = $('song-sort').value; save('songSort', songView.sort); renderList(); });
+$('d-fav').addEventListener('click', () => toggleFav(entries[sel]));
 $('song-filters').addEventListener('click', (ev) => {
   const b = ev.target.closest('.f-chip');
   if (!b) return;
@@ -462,6 +491,7 @@ function renderDetail() {
   $('d-jacket').src = jacketURL(e, 256);
   $('d-index').textContent = `${String(sel + 1).padStart(2, '0')} / ${String(entries.length).padStart(2, '0')}`;
   $('d-title').textContent = e.title;
+  renderFav();
   $('d-meta').textContent = `${e.artist} ・ BPM ${Math.round(e.bpm)} ・ ${fmtTime(e.duration)}${e.gimmick ? ` ・ ギミック: ${e.gimmick}` : ''}`;
   $('d-credit').innerHTML = e.credit ? `${esc(e.credit)}${e.creditUrl ? ` <a href="${esc(e.creditUrl)}" target="_blank" rel="noopener">${esc(e.creditUrl.replace(/^https?:\/\//, '').replace(/\/$/, ''))}</a>` : ''}` : '';
   $('diffs').innerHTML = DIFFS.map((d) => `

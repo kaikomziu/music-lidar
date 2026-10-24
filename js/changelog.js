@@ -2,6 +2,16 @@
 // 大きな機能追加 = 2つ目の数字を上げる / 不具合修正や小さな改善 = 3つ目の数字を上げる
 export const CHANGELOG = [
   {
+    version: '1.39.0', date: '2026-10-24',
+    notes: [
+      '新曲10曲を追加(全127曲)',
+      'やさしめ: Firefly Path(バラード)、Lemon Soda(渋谷系)、Tropical Mango(トロピカルハウス)',
+      'ふつう: Dub Station(ダブ)、Gamelan Moon(ガムラン)、Swing Kid(ビッグバンド)',
+      'むずかしめ: Phonk Garage(フォンク)、Dark Shinobi(ダークシンセ)、Bluegrass Rush(ブルーグラス BPM180)',
+      '鬼畜: Lightspeed Flash(フラッシュコア BPM230・Lv14)',
+    ],
+  },
+  {
     version: '1.38.1', date: '2026-10-23',
     notes: ['みんなでライブのルーム一覧を、画面を見ていない(別タブ・最小化)間は更新しないようにして通信量を節約'],
   },

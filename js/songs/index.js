@@ -121,21 +121,31 @@ import shamisenStorm from './shamisen-storm.js';
 import synthRacer from './synth-racer.js';
 import quantumLeap from './quantum-leap.js';
 import omegaRequiem from './omega-requiem.js';
+import lemonSoda from './lemon-soda.js';
+import fireflyPath from './firefly-path.js';
+import tropicalMango from './tropical-mango.js';
+import dubStation from './dub-station.js';
+import gamelanMoon from './gamelan-moon.js';
+import swingKid from './swing-kid.js';
+import phonkGarage from './phonk-garage.js';
+import bluegrassRush from './bluegrass-rush.js';
+import darkShinobi from './dark-shinobi.js';
+import lightspeedFlash from './lightspeed-flash.js';
 
 export default [
   // やさしい曲
-  firstLight, helloLane, starLullaby, cottonCandy, cherryPicnic, snowGlobe, bubbleBath, plaza1995, sunnyParade, toyBoxMarch, sunflowerRoad, morningCoffee, starlitCamp, puddleJump, pianoRain, polarNight, gospelLight,
-  rainyWindow, lofiLibrary, islandSignal,
+  firstLight, helloLane, starLullaby, fireflyPath, cottonCandy, cherryPicnic, lemonSoda, snowGlobe, bubbleBath, plaza1995, sunnyParade, toyBoxMarch, sunflowerRoad, morningCoffee, starlitCamp, puddleJump, pianoRain, polarNight, gospelLight,
+  rainyWindow, lofiLibrary, islandSignal, tropicalMango,
   // ふつう
-  neonHighway, discoMirrorball, dembowLights, afroSunrise, jazzCafe, spaceWaltz, bluesHighway, polkaParty, harvestMoon, velvetRnb, velvetLounge, boomBapDays,
+  neonHighway, discoMirrorball, dubStation, dembowLights, afroSunrise, jazzCafe, spaceWaltz, bluesHighway, polkaParty, harvestMoon, velvetRnb, velvetLounge, boomBapDays,
   sunsetBossa, deepBlueCurrent, tangoNoir, desertWind, sambaCarnival, moombahHeat, paperPlanes, seoulSignal, koiPond, retroArcade, midnightAvenue, funkyStation, mariachiSun, bollywoodBeat, oceanDrive,
-  progAscent, dragonGate, cloudPoint, pixelQuest, pulseGrid, swingCircuit, lowOrbit, ironPulse, garageShuffle, neonBoulevard, thunderRoad,
+  progAscent, dragonGate, cloudPoint, pixelQuest, pulseGrid, swingCircuit, lowOrbit, ironPulse, garageShuffle, neonBoulevard, gamelanMoon, thunderRoad, swingKid,
   // むずかしめ
   sakuraLattice, lastHorizon, celticRun, bigRoomBlast, glitchGarden, salsaFuego, blueNoteLane, glitterIdol, liquidSky, stellarGate, skyPrism, synthRacer, riddimRiot,
   kawaiiBubble, lidarRush, shiningStar, inmuKing, summerTriangle, wubFracture, offbeatSkater, nightDrift, psyForest, neonSamurai, braveHorizon, shamisenStorm, crystalFortress, hyperSakura, jungleLights,
-  overdriveRiot, hardReflector,
+  phonkGarage, overdriveRiot, hardReflector, darkShinobi, bluegrassRush,
   // 鬼畜・ギミック
   sugarRush, hyperpopGlitch, chipDungeon, circuitBreaker, mirageShift, freezeFrame, fractalStorm, kickMachinegun, velocityZero,
   terminalVelocity, metalcoreFury, timeTwister, clockworkChaos, hyperScanBreaker, gabberStorm, finalProtocol, abyssGate, bulletHell404,
-  thunderRequiem, jackhammerJazz, sakuraBlizzard, breakcoreCollapse, overclockOmega, ultraSpiral, quantumLeap, eventHorizon, omegaRequiem, neutronOverdrive, infinityBreaker,
+  thunderRequiem, jackhammerJazz, sakuraBlizzard, breakcoreCollapse, overclockOmega, ultraSpiral, quantumLeap, lightspeedFlash, eventHorizon, omegaRequiem, neutronOverdrive, infinityBreaker,
 ];

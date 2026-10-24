@@ -42,6 +42,8 @@ const STYLE = {
   'SPRING POP': 'sakura', CAMPFIRE: 'stars', 'BOUNCE POP': 'hearts', 'K-POP': 'prism', MARIACHI: 'rays', BOLLYWOOD: 'mirrorball',
   POLKA: 'checker', 'FUTURE FUNK': 'skyline', ANISON: 'rays', RIDDIM: 'wobble', OUTRUN: 'retrosun',
   'ORCHESTRAL CORE': 'aurora',
+  'SHIBUYA-KEI': 'ribbon', BALLAD: 'stars', 'TROPICAL HOUSE': 'palms', DUB: 'waves', GAMELAN: 'lantern', 'BIG BAND': 'deco',
+  PHONK: 'smoke', BLUEGRASS: 'sunrise', DARKSYNTH: 'eye', FLASHCORE: 'speedlines',
 };
 
 // 同じジャンルで見分けにくい曲だけ、曲ごとに絵柄を指定

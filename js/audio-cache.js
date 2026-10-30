@@ -4,23 +4,33 @@ import { renderEvents } from './audio.js';
 import { hashStr } from './composer.js';
 
 const SYNTH_VERSION = 3; // 音色や合成方法を変えたら上げる
-const DB = 'mlidar-audio', STORE = 'songs';
+const DB = 'mlidar-audio', STORE = 'songs', USED = 'used';
+const MAX_CACHED = 24; // 端末に保存しておく曲数(1曲 約10〜20MB)。古く使ったものから消す
 
 function openDB() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB, 1);
-    req.onupgradeneeded = () => req.result.createObjectStore(STORE);
-    req.onsuccess = () => resolve(req.result);
+    const req = indexedDB.open(DB, 2);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+      if (!db.objectStoreNames.contains(USED)) db.createObjectStore(USED); // key → 最後に使った時刻
+    };
+    req.onsuccess = () => {
+      const db = req.result;
+      db.onversionchange = () => db.close(); // 新しい版のページが開いたら道をあける
+      resolve(db);
+    };
+    // 古い版のページが別タブで開いていて更新できないときは、保存なしで進める(読み込みが止まらないように)
+    req.onblocked = () => resolve(null);
     req.onerror = () => reject(req.error);
   });
 }
 const dbp = (() => { try { return openDB().catch(() => null); } catch { return Promise.resolve(null); } })();
 
-function tx(db, mode, fn) {
+function tx(db, mode, fn, stores = STORE) {
   return new Promise((resolve, reject) => {
-    const t = db.transaction(STORE, mode);
-    const st = t.objectStore(STORE);
-    const r = fn(st);
+    const t = db.transaction(stores, mode);
+    const r = Array.isArray(stores) ? fn(...stores.map((n) => t.objectStore(n))) : fn(t.objectStore(stores));
     t.oncomplete = () => resolve(r?.result);
     t.onerror = () => reject(t.error);
     t.onabort = () => reject(t.error);
@@ -37,6 +47,7 @@ async function readCache(key) {
   if (!db) return null;
   const rec = await tx(db, 'readonly', (st) => st.get(key));
   if (!rec) return null;
+  tx(db, 'readwrite', (u) => u.put(Date.now(), key), USED).catch(() => {});
   // AudioContext を使わずに作る(ユーザー操作前でも読めるように)
   const buf = new AudioBuffer({ numberOfChannels: 2, length: rec.length, sampleRate: rec.sr });
   [rec.L, rec.R].forEach((pcm, c) => {
@@ -55,12 +66,18 @@ async function writeCache(key, buf) {
     for (let i = 0; i < f.length; i++) i16[i] = Math.max(-1, Math.min(1, f[i])) * 32767;
     return i16.buffer;
   };
-  // 同じ曲の古い版は消す
-  const keys = await tx(db, 'readonly', (st) => st.getAllKeys());
-  await tx(db, 'readwrite', (st) => {
-    for (const k of keys || []) if (String(k).startsWith(id + ':') && k !== key) st.delete(k);
+  // 同じ曲の古い版と、長く使っていない曲は消す
+  const keys = (await tx(db, 'readonly', (st) => st.getAllKeys())) || [];
+  const used = new Map();
+  await tx(db, 'readonly', (u) => { const c = u.openCursor(); c.onsuccess = () => { const r = c.result; if (r) { used.set(r.key, r.value); r.continue(); } }; }, USED);
+  const drop = new Set(keys.filter((k) => String(k).startsWith(id + ':') && k !== key));
+  const rest = keys.filter((k) => k !== key && !drop.has(k)).sort((a, b) => (used.get(a) || 0) - (used.get(b) || 0));
+  for (const k of rest.slice(0, Math.max(0, rest.length - (MAX_CACHED - 1)))) drop.add(k);
+  await tx(db, 'readwrite', (st, u) => {
+    for (const k of drop) { st.delete(k); u.delete(k); }
     st.put({ sr: buf.sampleRate, length: buf.length, L: pack(0), R: pack(1) }, key);
-  });
+    u.put(Date.now(), key);
+  }, [STORE, USED]);
 }
 
 export async function loadSongAudio(id, events, duration, opts, onProgress = null) {

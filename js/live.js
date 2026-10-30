@@ -1,6 +1,7 @@
 // みんなでライブ: 同じ曲を同時にプレイ。プレイ中は数秒おきに相手のコンボだけ届き、最後は編成込みスコアで競う
 // サーバーへの問い合わせを減らすため、Realtime は使わず数秒おきの RPC 1本(mlidar_live_poll)だけにしている
 import { rpc } from './ranking.js';
+import { jacketImg } from './jacket.js';
 import { load } from './storage.js';
 import * as acc from './account.js';
 
@@ -267,7 +268,7 @@ function renderPick(force = false) {
     }).join('');
     const fav = ui.isFav(e);
     return `<button class="song-card${e.id === room.song ? ' sel' : ''}" data-id="${ui.esc(e.id)}" style="--c:${e.color}">
-      <img class="sc-jacket" src="${ui.jacketURL(e, 128)}" alt="" loading="lazy"><div class="sc-text"><span class="sc-fav${fav ? ' on' : ''}" title="${fav ? 'お気に入りから外す' : 'お気に入りにする'}">${fav ? '★' : '☆'}</span>
+      ${jacketImg(e, 128, 'sc-jacket')}<div class="sc-text"><span class="sc-fav${fav ? ' on' : ''}" title="${fav ? 'お気に入りから外す' : 'お気に入りにする'}">${fav ? '★' : '☆'}</span>
       <div class="sc-title">${ui.esc(e.title)}</div><div class="sc-sub">${ui.esc(e.genre)} ・ BPM ${Math.round(e.bpm)}</div></div><div class="sc-lv">${lv}</div></button>`;
   }).join('') : '<p class="list-empty">条件に合う曲がありません</p>';
   if (songChanged) $('live-list').querySelector('.song-card.sel')?.scrollIntoView({ block: 'nearest' });

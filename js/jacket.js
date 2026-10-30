@@ -4,6 +4,45 @@ import { mulberry32, hashStr } from './composer.js';
 const cache = new Map();
 export const clearJackets = () => cache.clear();
 
+// 一覧用の <img>。絵は画面に見えてから作る(127曲ぶんを一度に作ると1秒近く画面が止まるため)
+const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+const lazyEntries = new Map();
+let io = null;
+export function jacketImg(entry, size, cls = '') {
+  const key = entry.id + '@' + size;
+  const c = cls ? ` class="${cls}"` : '';
+  if (cache.has(key)) return `<img${c} src="${cache.get(key)}" alt="">`;
+  lazyEntries.set(entry.id, entry);
+  watchLazy();
+  return `<img${c} src="${BLANK}" data-jk="${key}" alt="">`;
+}
+function watchLazy() {
+  if (io) return;
+  io = new IntersectionObserver((list) => {
+    for (const it of list) {
+      if (!it.isIntersecting) continue;
+      io.unobserve(it.target);
+      fillLazy(it.target);
+    }
+  }, { rootMargin: '300px' });
+  const scan = (root) => { for (const img of root.querySelectorAll('img[data-jk]')) io.observe(img); };
+  new MutationObserver((muts) => {
+    for (const m of muts) for (const n of m.addedNodes) {
+      if (n.nodeType !== 1) continue;
+      if (n.matches('img[data-jk]')) io.observe(n); else scan(n);
+    }
+  }).observe(document.body, { childList: true, subtree: true });
+  scan(document);
+}
+function fillLazy(img) {
+  const key = img.dataset.jk;
+  if (!key) return;
+  const at = key.lastIndexOf('@');
+  const e = lazyEntries.get(key.slice(0, at));
+  if (e) img.src = jacketURL(e, +key.slice(at + 1));
+  img.removeAttribute('data-jk');
+}
+
 export function jacketURL(entry, size = 256) {
   const key = entry.id + '@' + size;
   if (cache.has(key)) return cache.get(key);

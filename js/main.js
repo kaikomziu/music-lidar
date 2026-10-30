@@ -5,7 +5,7 @@ import { loadSongAudio } from './audio-cache.js';
 import { showLoading, hideLoading } from './loading.js';
 import { analyzeFile, hashFile } from './analyzer.js';
 import { buildScroll, dropNotesInStops, gimmickLabel } from './gimmick.js';
-import { jacketURL, clearJackets } from './jacket.js';
+import { jacketURL, jacketImg, clearJackets } from './jacket.js';
 import { CHANGELOG, VERSION } from './changelog.js';
 import { Game, PointCloud, KEYS, DIFF_COLOR, visibleTime, IS_TOUCH, FX_LEVELS } from './game.js';
 import { load, save, getSettings, setSettings, DEFAULT_SETTINGS, clientId, getBest, recordBest } from './storage.js';
@@ -43,6 +43,17 @@ function unscramble(ab, key) {
   for (let i = 0; i < u8.length; i++) u8[i] ^= k[i % k.length] ^ ((i >> 8) & 255);
   return u8.buffer;
 }
+// 音源はメモリを大きく使う(1曲 数十MB)ので、最近使った数曲だけ持っておく。
+// 外した曲はまた使うときに読み直す(合成した曲は端末に保存してあるので速い)
+const KEEP_BUFFERS = 3;
+const recentBuf = [];
+function touchBuffer(e) {
+  const i = recentBuf.indexOf(e);
+  if (i >= 0) recentBuf.splice(i, 1);
+  recentBuf.push(e);
+  while (recentBuf.length > KEEP_BUFFERS) { const old = recentBuf.shift(); old.buffer = null; old.rendering = null; }
+}
+
 function fileSongEntry(def) {
   const charts = {}, stats = {};
   const unpack = (arr) => arr.map(([t, lane, e]) => (e ? { t: t / 1000, lane, end: e / 1000 } : { t: t / 1000, lane }));
@@ -58,7 +69,7 @@ function fileSongEntry(def) {
     previewAt: def.previewAt ?? def.duration * 0.3, credit: def.credit, creditUrl: def.creditUrl, onsets,
     buffer: null, rendering: null,
     load() {
-      if (this.buffer) return Promise.resolve(this.buffer);
+      if (this.buffer) { touchBuffer(this); return Promise.resolve(this.buffer); }
       if (!this.rendering) {
         this.rendering = (async () => {
           const res = await fetch(def.audio);
@@ -84,7 +95,9 @@ function fileSongEntry(def) {
           // AudioContext を使わずに展開(ユーザー操作前でも可)
           const buf = await new OfflineAudioContext(2, 1, 44100).decodeAudioData(ab);
           this.progress = 1;
-          return (this.buffer = buf);
+          this.buffer = buf;
+          touchBuffer(this);
+          return buf;
         })();
         this.rendering.catch(() => { this.rendering = null; });
       }
@@ -117,8 +130,8 @@ function builtinEntry(def) {
     previewAt: (def.preview ?? 32) * 60 / def.bpm, onsets,
     buffer: null, rendering: null,
     load() {
-      if (this.buffer) return Promise.resolve(this.buffer);
-      if (!this.rendering) this.rendering = loadSongAudio(def.id, events, duration, { sidechain: !!def.sidechain }, (p) => { this.progress = p; }).then((b) => (this.buffer = b));
+      if (this.buffer) { touchBuffer(this); return Promise.resolve(this.buffer); }
+      if (!this.rendering) this.rendering = loadSongAudio(def.id, events, duration, { sidechain: !!def.sidechain }, (p) => { this.progress = p; }).then((b) => { this.buffer = b; touchBuffer(this); return b; });
       return this.rendering;
     },
   };
@@ -153,17 +166,14 @@ function syncUrl(e) {
 }
 let diff = DIFFS.includes(load('diff', 'normal')) ? load('diff', 'normal') : 'normal';
 
-// 起動後に全曲をバックグラウンドで順に合成しておく
+// 起動後に、選んでいる曲の音源だけ裏で用意しておく。
+// (全曲を合成すると初回はCPUを数分使い続け、メモリも数GBになるのでしない。ほかの曲は選んだときに用意する)
 let warmed = false;
-async function warmup() {
+function warmup() {
   if (warmed) return;
   warmed = true;
-  const order = [entries[sel], ...entries.filter((e, i) => i !== sel && !e.local)];
-  for (const e of order) {
-    // プレイ中は重い合成をしない(音飛び・カクつき防止)
-    while (state === 'game' || state === 'retry') await new Promise((r) => setTimeout(r, 500));
-    try { await e.load(); } catch (err) { console.error(err); }
-  }
+  const e = entries[sel];
+  if (e && !e.local) e.load().catch((err) => console.error(err));
 }
 
 // ---------------------------------------------------------------------------
@@ -435,7 +445,7 @@ function renderList() {
       const mark = best?.ap ? 'AP' : best?.fc ? 'FC' : '';
       return `<span class="lv ${d}">${e.levels[d]}${mark ? `<span class="mark">${mark}</span>` : ''}</span>`;
     }).join('');
-    b.innerHTML = `<img class="sc-jacket" src="${jacketURL(e, 128)}" alt=""><div class="sc-text"><div class="sc-title">${esc(e.title)}</div><div class="sc-sub">${esc(e.genre)} ・ BPM ${Math.round(e.bpm)}${e.local ? ' ・ LOCAL' : ''}</div></div><div class="sc-lv">${lv}</div>`;
+    b.innerHTML = `${jacketImg(e, 128, 'sc-jacket')}<div class="sc-text"><div class="sc-title">${esc(e.title)}</div><div class="sc-sub">${esc(e.genre)} ・ BPM ${Math.round(e.bpm)}${e.local ? ' ・ LOCAL' : ''}</div></div><div class="sc-lv">${lv}</div>`;
     b.querySelector('.sc-text').prepend(favMark(e));
     b.addEventListener('click', () => { if (sel === i) startGame(); else selectSong(i); });
     list.appendChild(b);

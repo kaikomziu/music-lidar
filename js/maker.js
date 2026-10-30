@@ -6,7 +6,7 @@ import * as acc from './account.js';
 import { LANE_COLORS, KEYS } from './game.js';
 import * as api from './maker-api.js';
 import { openAccount } from './meta.js';
-import { jacketURL } from './jacket.js';
+import { jacketImg } from './jacket.js';
 
 const $ = (id) => document.getElementById(id);
 let ui = null;
@@ -338,7 +338,7 @@ function setTool(t) {
 function togglePlay() { if (ed.playing) stopPlay(); else startPlay(); }
 function startPlay() {
   const buf = ed.entry?.buffer;
-  if (!buf) { ui.toast('音源を準備中です'); return; }
+  if (!buf) { ed.entry?.load().catch(() => {}); ui.toast('音源を準備中です'); return; }
   const ctx = getCtx();
   if (ed.cur >= buf.duration - 0.1) ed.cur = 0;
   ed.src = ctx.createBufferSource();
@@ -827,7 +827,7 @@ function renderCharts() {
   const songTitle = (id) => ui.entries.find((e) => e.id === id)?.title || id;
   const color = (id) => ui.entries.find((e) => e.id === id)?.color || '#5ef2ff';
   list.innerHTML = chartRows.map((c) => `<li class="chart-row" data-id="${c.id}" style="--c:${color(c.song)}">
-    ${(() => { const e = ui.entries.find((x) => x.id === c.song); return e ? `<img class="cr-jacket" src="${jacketURL(e, 96)}" alt="">` : ''; })()}
+    ${(() => { const e = ui.entries.find((x) => x.id === c.song); return e ? jacketImg(e, 96, 'cr-jacket') : ''; })()}
     <div class="cr-lv"><small>Lv</small>${c.level}</div>
     <div class="cr-main">
       <div class="cr-title">${ui.esc(c.title)}</div>

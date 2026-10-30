@@ -2,6 +2,7 @@
 // シャイニングスターなど外部の曲・読み込んだ曲は出さない(作者が MUSIC LiDAR の内蔵曲だけ)
 import { getCtx, bgmOutFor, stopPreview } from './audio.js';
 import { load, save } from './storage.js';
+import { jacketImg } from './jacket.js';
 
 const $ = (id) => document.getElementById(id);
 let ui = null; // { entries, show, back, current, esc, jacketURL, toast }
@@ -84,7 +85,7 @@ function renderPlay() {
 function renderList() {
   const rows = tracks.map((t, i) => ({ t, i })).filter(({ t }) => !query || `${t.title} ${t.genre}`.toLowerCase().includes(query));
   $('pl-list').innerHTML = rows.length ? rows.map(({ t, i }) => `<li><button data-i="${i}" class="${i === cur ? 'cur' : ''}" style="--c:${t.color}">
-      <img src="${ui.jacketURL(t, 96)}" alt="" loading="lazy">
+      ${jacketImg(t, 96)}
       <span class="pl-tt"><b>${ui.esc(t.title)}</b><small>${ui.esc(t.genre)} ・ BPM ${Math.round(t.bpm)}</small></span>
       <span class="pl-len">${fmt(t.duration)}</span></button></li>`).join('') : '<li class="empty">見つかりませんでした</li>';
 }

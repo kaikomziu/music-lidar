@@ -12,6 +12,11 @@ const ERR = {
   BAD_TEAM: '編成が正しくありません',
   NOT_CLAIMABLE: 'まだ受け取れません',
   BANNER_CLOSED: 'このガチャは終了しました',
+  KA_USED: 'このかるわかGAMESアカウントは、すでに別のMUSIC LiDARアカウントと紐づいています',
+  ALREADY_LINKED: 'そのMUSIC LiDARアカウントは、すでに別のかるわかGAMESアカウントに引き継がれています',
+  LOCKED: '失敗が続いたため、しばらくしてからお試しください',
+  KA_LOAD: 'かるわかGAMESアカウントの読み込みに失敗しました。通信環境を確認してください',
+  MOVED: 'ログイン方法が変わりました。「かるわかGAMESアカウント」でログインしてください',
 };
 export const errText = (e) => ERR[e?.message] || 'エラー: ' + (e?.message || e);
 
@@ -50,14 +55,78 @@ export async function init() {
     try { state = await call('mlidar_state', {}); } catch (e) { console.error(e); }
   }
   emit();
+  autoKaLogin();
 }
 
-export async function register(name, pass) { setSession(await rpc('mlidar_register', { p_name: name, p_pass: pass })); }
-export async function login(name, pass) { setSession(await rpc('mlidar_login', { p_name: name, p_pass: pass })); }
+// ---- かるわかGAMESアカウントでのログイン ----
+// 共通部品(game-links の karuwaka-account.js)を読み込んで使う。ログイン状態は kaikomziu.github.io の全ゲームで共通。
+const KA_SRC = 'https://kaikomziu.github.io/game-links/js/karuwaka-account.js';
+let kaPromise = null;
+function loadKa() {
+  if (window.KaAccount) return Promise.resolve(window.KaAccount);
+  if (!kaPromise) {
+    kaPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = KA_SRC;
+      s.setAttribute('data-badge', 'off'); // 右下の「ログイン」ボタンは出さない
+      s.onload = () => resolve(window.KaAccount);
+      s.onerror = () => { kaPromise = null; reject(new Error('KA_LOAD')); };
+      document.head.appendChild(s);
+    });
+  }
+  return kaPromise;
+}
+export const kaProfile = () => window.KaAccount?.user() || null;
+
+// ログイン画面を出し、ログインできたらMUSIC LiDARにもログインする。'ok' | 'unlinked'(初めて: 新規か引き継ぎを選ぶ) | null(閉じた)
+export async function kaLogin() {
+  const KA = await loadKa();
+  await KA.ready;
+  if (!(await KA.requireLogin())) return null;
+  const r = await rpc('mlidar_ka_login', { p_ka_token: KA.token() });
+  if (!r.linked) return 'unlinked';
+  setSession(r);
+  return 'ok';
+}
+// 新しく始める(コインとキャラ3体つき)
+export async function kaNew() {
+  const KA = await loadKa();
+  setSession(await rpc('mlidar_ka_new', { p_ka_token: KA.token() }));
+  return true;
+}
+// 以前のMUSIC LiDARのアカウントを、名前とパスワードで引き継ぐ
+export async function kaClaim(name, pass) {
+  const KA = await loadKa();
+  const r = await rpc('mlidar_ka_claim', { p_ka_token: KA.token(), p_name: name, p_pass: pass });
+  if (r.error) throw new Error(r.error);
+  setSession(r);
+  return true;
+}
+// 以前の方式でログイン中の人が、いまのアカウントをかるわかGAMESアカウントに紐づける
+export async function kaLink() {
+  const KA = await loadKa();
+  await KA.ready;
+  if (!(await KA.requireLogin())) return null;
+  state = await rpc('mlidar_ka_link', { p_token: token, p_ka_token: KA.token() });
+  emit();
+  return true;
+}
+// ほかのゲームでかるわかGAMESアカウントにログイン済みなら、MUSIC LiDARにも自動でログインする(紐づけ済みの場合だけ)
+async function autoKaLogin() {
+  if (token) return;
+  try {
+    const KA = await loadKa();
+    if (!(await KA.ready)) return;
+    const r = await rpc('mlidar_ka_login', { p_ka_token: KA.token() });
+    if (r.linked) setSession(r);
+  } catch (e) { /* 通信できなくても、そのままゲストで遊べる */ }
+}
+// ログアウトは、かるわかGAMESアカウントからのログアウトも兼ねる(ほかのゲームでもログアウトされる)
 export async function logout() {
   const t = token;
   token = null; state = null; save('token', null); emit();
   try { await rpc('mlidar_logout', { p_token: t }); } catch { /* already gone */ }
+  try { await window.KaAccount?.logout(); } catch { /* ignore */ }
 }
 
 export async function refresh() { if (token) { state = await call('mlidar_state', {}); emit(); } }

@@ -16,9 +16,8 @@ export function initMeta(api) {
 
   // アカウント
   $('btn-name').addEventListener('click', openAccount);
-  for (const t of document.querySelectorAll('.acc-tab')) t.addEventListener('click', () => setAccTab(t.dataset.tab));
-  $('acc-form').addEventListener('submit', (ev) => { ev.preventDefault(); submitAccount(); });
-  $('btn-acc-guest').addEventListener('click', () => { save('nameSkipped', true); closeAccount(); });
+  $('account-modal').addEventListener('click', onAccountClick);
+  $('account-modal').addEventListener('submit', onAccountSubmit);
   $('btn-acc-logout').addEventListener('click', async () => { await acc.logout(); ui.toast('ログアウトしました'); closeAccount(); });
   $('btn-acc-close').addEventListener('click', closeAccount);
 
@@ -68,7 +67,39 @@ export function renderHeader() {
 // ---------------------------------------------------------------------------
 // アカウント
 // ---------------------------------------------------------------------------
-let accTab = 'login';
+// ログインは「かるわかGAMESアカウント」。ログイン画面の中身は、この下のコードで作る(HTMLの<form>は使わない)。
+// 以前のMUSIC LiDARアカウントは、「引き継ぐ」でかるわかGAMESアカウントに紐づけられる。
+const accIn = () => $('acc-in');
+function accStart() {
+  accIn().innerHTML = `
+    <h2>ACCOUNT</h2>
+    <p class="muted">MUSIC LiDARは「かるわかGAMESアカウント」でログインします。かるわかGAMESのほかのゲームと同じアカウントです。</p>
+    <p class="acc-msg" id="acc-msg"></p>
+    <div class="modal-actions"><button type="button" id="btn-acc-guest" class="btn-line">ゲストで遊ぶ</button><button type="button" id="btn-acc-ka" class="btn-glow">ログイン / 新規登録</button></div>
+    <p class="muted small">ログインするとコイン・ガチャ・編成・クエストが使え、データはサーバーに保存されて別の端末からも続きを遊べます。以前のMUSIC LiDARのアカウントがある人は、ログイン後に引き継げます。</p>`;
+}
+function accChoice(display) {
+  accIn().innerHTML = `
+    <h2>ACCOUNT</h2>
+    <p class="muted">「${esc(display)}」でログインしました。MUSIC LiDARを遊ぶのは初めてですか？</p>
+    <p class="acc-msg" id="acc-msg"></p>
+    <div class="modal-actions" style="flex-direction:column;align-items:stretch;gap:8px">
+      <button type="button" id="btn-acc-new" class="btn-glow">はじめて遊ぶ(1000コインとキャラ3体をもらう)</button>
+      <button type="button" id="btn-acc-claim-open" class="btn-line">以前のMUSIC LiDARのアカウントを引き継ぐ</button>
+    </div>`;
+}
+function accClaim() {
+  accIn().innerHTML = `
+    <h2>ACCOUNT</h2>
+    <p class="muted">以前のMUSIC LiDARで使っていた、プレイヤー名とパスワードを入力してください。コイン・キャラ・記録がそのまま引き継がれます。</p>
+    <form id="acc-claim-form" autocomplete="off">
+      <label class="f-row"><span>プレイヤー名</span><input type="text" id="acc-claim-name" maxlength="16" autocomplete="off"></label>
+      <label class="f-row"><span>パスワード</span><input type="password" id="acc-claim-pass" maxlength="72" autocomplete="off"></label>
+      <p class="acc-msg" id="acc-msg"></p>
+      <div class="modal-actions"><button type="button" id="btn-acc-back" class="btn-line">戻る</button><button type="submit" id="btn-acc-claim" class="btn-glow">引き継ぐ</button></div>
+    </form>`;
+  setTimeout(() => $('acc-claim-name')?.focus(), 50);
+}
 export function openAccount() {
   const s = acc.getState();
   $('acc-in').hidden = !!s;
@@ -76,36 +107,68 @@ export function openAccount() {
   if (s) {
     $('acc-who').textContent = s.name;
     $('acc-stats').textContent = `コイン ${s.coins.toLocaleString()} ・ キャラ ${Object.keys(s.units).length}種類 ・ 累計 ${s.stats.plays || 0} プレイ`;
-  } else setAccTab(accTab);
-  $('acc-msg').textContent = '';
+    renderLinkRow(s);
+  } else accStart();
   document.getElementById('account-modal').classList.add('on');
-  if (!s) setTimeout(() => $('acc-name').focus(), 50);
 }
 function closeAccount() { document.getElementById('account-modal').classList.remove('on'); }
-function setAccTab(t) {
-  accTab = t;
-  for (const b of document.querySelectorAll('.acc-tab')) b.classList.toggle('sel', b.dataset.tab === t);
-  $('acc-submit').textContent = t === 'login' ? 'ログイン' : '登録してはじめる';
-  $('acc-pass').autocomplete = t === 'login' ? 'current-password' : 'new-password';
-  $('acc-pass2-row').hidden = t === 'login';
-  $('acc-note').textContent = t === 'login' ? '' : '登録すると1000コインと★1キャラ3体がもらえます。パスワードは忘れると戻せないので注意。';
-}
-async function submitAccount() {
-  const name = $('acc-name').value.trim(), pass = $('acc-pass').value;
-  const msg = $('acc-msg');
-  if (accTab === 'register' && pass !== $('acc-pass2').value) { msg.textContent = 'パスワードが一致しません'; return; }
-  msg.textContent = '通信中…';
-  $('acc-submit').disabled = true;
-  try {
-    if (accTab === 'login') await acc.login(name, pass); else await acc.register(name, pass);
-    $('acc-pass').value = ''; $('acc-pass2').value = '';
-    closeAccount();
-    ui.toast(accTab === 'login' ? `おかえりなさい、${name}` : `ようこそ、${name}! 1000コインを受け取りました`);
-  } catch (e) {
-    msg.textContent = acc.errText(e);
-  } finally {
-    $('acc-submit').disabled = false;
+// ログイン中の表示: かるわかGAMESアカウントと紐づいていない(以前のアカウントでログイン中の)人には、引き継ぎを案内する
+function renderLinkRow(s) {
+  let row = $('acc-link-row');
+  if (!row) {
+    row = document.createElement('div');
+    row.id = 'acc-link-row';
+    $('acc-stats').after(row);
   }
+  row.innerHTML = s.linked
+    ? `<p class="muted small">✅ かるわかGAMESアカウントと連携済み</p>`
+    : `<p class="muted small">このアカウントは以前の方式でログイン中です。かるわかGAMESアカウントに引き継ぐと、これからはそちらでログインできます(コイン・キャラ・記録はそのまま)。</p>
+       <p class="acc-msg" id="acc-msg"></p>
+       <div class="modal-actions"><button type="button" id="btn-acc-link" class="btn-glow">かるわかGAMESアカウントに引き継ぐ</button></div>`;
+}
+async function accAction(fn, btn) {
+  const msg = () => $('acc-msg');
+  if (btn) btn.disabled = true;
+  try { return await fn(); }
+  catch (e) { if (msg()) msg().textContent = acc.errText(e); return null; }
+  finally { if (btn) btn.disabled = false; }
+}
+async function onAccountClick(ev) {
+  const id = ev.target.closest('button')?.id;
+  if (!id) return;
+  const btn = $(id);
+  if (id === 'btn-acc-guest') { save('nameSkipped', true); closeAccount(); }
+  else if (id === 'btn-acc-ka') {
+    // かるわかGAMESのログイン画面(ほかのゲームと共通)を出し、ログインできたらMUSIC LiDARにもログインする
+    closeAccount();
+    const r = await accAction(() => acc.kaLogin());
+    if (r === 'ok') ui.toast(`おかえりなさい、${acc.getState().name}`);
+    else if (r === 'unlinked') {
+      // このかるわかGAMESアカウントでは初めて: 新しく始めるか、以前のアカウントを引き継ぐかを選ばせる
+      $('acc-in').hidden = false; $('acc-out').hidden = true;
+      accChoice(acc.kaProfile()?.display_name || '');
+      document.getElementById('account-modal').classList.add('on');
+    }
+  }
+  else if (id === 'btn-acc-new') {
+    const r = await accAction(() => acc.kaNew(), btn);
+    if (r) { closeAccount(); ui.toast(`ようこそ、${acc.getState().name}! 1000コインを受け取りました`); }
+  }
+  else if (id === 'btn-acc-claim-open') accClaim();
+  else if (id === 'btn-acc-back') accChoice(acc.kaProfile()?.display_name || '');
+  else if (id === 'btn-acc-link') {
+    closeAccount();
+    const r = await accAction(() => acc.kaLink());
+    if (r) ui.toast('かるわかGAMESアカウントに引き継ぎました');
+    openAccount();
+  }
+}
+async function onAccountSubmit(ev) {
+  if (ev.target.id !== 'acc-claim-form') return;
+  ev.preventDefault();
+  $('acc-msg').textContent = '通信中…';
+  const r = await accAction(() => acc.kaClaim($('acc-claim-name').value.trim(), $('acc-claim-pass').value), $('btn-acc-claim'));
+  if (r) { closeAccount(); ui.toast(`引き継ぎました。おかえりなさい、${acc.getState().name}`); }
 }
 
 // ---------------------------------------------------------------------------

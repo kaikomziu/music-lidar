@@ -21,6 +21,14 @@ import { initPlayer, openPlayer, playerKeydown, stop as stopPlayer } from './pla
 import { TUTORIAL_DEF, TUT_NOTES, tutCaptions } from './tutorial.js';
 import { initAdmin, openAdmin, stopAdmin } from './admin.js';
 import { initDan, openDan, bestDan, danName } from './dan.js';
+import { initExtras, renderDaily, dailyResult, drawJudgeGraph, setShareResult, courseFromUrl } from './extras.js';
+
+// ゴースト(自己ベストの判定の記録)を端末に保存。1判定 =「判定の頭文字 + 時刻(10ms単位・36進)」
+const GH = { PERFECT: 'P', GREAT: 'G', GOOD: 'D', MISS: 'M' }, GH_R = { P: 'PERFECT', G: 'GREAT', D: 'GOOD', M: 'MISS' };
+const saveGhost = (id, d, log) => { try { save(`ghost:${id}:${d}`, log.map(([t, res]) => GH[res] + Math.max(0, Math.round(t * 100)).toString(36)).join(',')); } catch { /* 容量オーバー */ } };
+const loadGhost = (id, d) => { const s = load(`ghost:${id}:${d}`, ''); return s ? s.split(',').map((x) => [parseInt(x.slice(1), 36) / 100, GH_R[x[0]]]) : null; };
+const OPT_TAG = { mirror: 'MIRROR', random: 'RANDOM', hidden: 'HIDDEN', sudden: 'SUDDEN' };
+const optTag = (o) => [OPT_TAG[o.lane], OPT_TAG[o.vis]].filter(Boolean).map((x) => ' ・ ' + x).join('');
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -300,6 +308,8 @@ function enterFromTitle(opts = {}) {
   // 曲ページから来たときは最初だけ、その曲の選曲画面へ。普段はホーム(モード選択)へ
   if (openedBySongUrl && !enteredOnce && !opts.home) goSelect(); else goHome();
   enteredOnce = true;
+  // コースの共有リンク(?course=…)から来たら、そのコースを開く
+  if (courseFromUrl()) { homeLive(true); return; }
   warmup();
   // はじめての人にはチュートリアルをすすめる(アカウントの案内はそのあと)
   if (!opts.quiet && !load('tutorialDone', false) && !load('tutorialSkipped', false)) offerTutorial();
@@ -635,18 +645,21 @@ let playing = null; // { entry, diff }
 let starting = false;
 // custom: 譜面メーカーの譜面 { kind: 'custom'|'test', notes, scroll, title, level, chartId, startFrom, onExit(result?) }
 // live: みんなでライブのつなぎ口 { attach(game), rivals(), finish(r), quit() }
-async function startGame(entry = entries[sel], d = diff, custom = null, live = null) {
+// extra: { daily }(デイリーチャレンジ)
+async function startGame(entry = entries[sel], d = diff, custom = null, live = null, extra = null) {
   if (state === 'game' || starting) return;
   starting = true;
-  try { await startGameInner(entry, d, custom, live); } finally { starting = false; }
+  try { await startGameInner(entry, d, custom, live, extra); } finally { starting = false; }
 }
-async function startGameInner(entry, d, custom, live) {
+async function startGameInner(entry, d, custom, live, extra) {
   document.activeElement?.blur?.();
   getCtx();
   stopPreview();
   // 読み込み中画面(準備済みでも曲名とTipsを少し見せる)
   const isRetry = state === 'retry';
-  const label = custom ? (custom.label || (custom.kind === 'test' ? 'TEST PLAY' : `CUSTOM Lv${custom.level}`)) : `${d.toUpperCase()} Lv${entry.levels[d]}`;
+  // プレイオプション(デイリーチャレンジは決まった条件。チュートリアルはなし)
+  const opts = extra?.daily ? extra.daily.opts : custom?.kind === 'tutorial' ? {} : { lane: settings.lane, vis: settings.vis };
+  const label = (custom ? (custom.label || (custom.kind === 'test' ? 'TEST PLAY' : `CUSTOM Lv${custom.level}`)) : `${extra?.daily ? 'DAILY ' : ''}${d.toUpperCase()} Lv${entry.levels[d]}`) + optTag(opts);
   showLoading({
     entry, title: custom ? custom.title : entry.title, sub: label,
     status: entry.buffer ? 'READY' : '音源を準備中…(初回のみ少しかかります)',
@@ -656,7 +669,7 @@ async function startGameInner(entry, d, custom, live) {
     try { await entry.load(); } catch (err) { console.error(err); toast('音源の生成に失敗しました'); hideLoading(); return; }
   }
   await hideLoading(isRetry ? 500 : 1400);
-  playing = { entry, diff: d, custom, live };
+  playing = { entry, diff: d, custom, live, extra, label };
   document.body.classList.toggle('live', !!live || custom?.kind === 'dan');
   show('game');
   setVolumes(settings.bgm, settings.se);
@@ -673,6 +686,8 @@ async function startGameInner(entry, d, custom, live) {
     life: custom?.life || null,
     rivals: live ? () => live.rivals() : null,
     mv: entry.local || custom?.kind === 'tutorial' ? null : createMV(entry.id, entry.bpm, entry.offset || 0, {}, entry.mvAuto?.()),
+    opts,
+    ghost: !custom && !live && settings.ghost !== false ? loadGhost(entry.id, d) : null,
   });
   live?.attach(game);
   $('btn-p-quit').textContent = live ? 'ライブを抜ける' : '選曲へ';
@@ -704,7 +719,7 @@ function retry() {
   game?.destroy();
   game = null;
   state = 'retry';
-  startGame(playing.entry, playing.diff, playing.custom);
+  startGame(playing.entry, playing.diff, playing.custom, null, playing.extra);
 }
 
 // 数字を数え上げる演出
@@ -733,6 +748,7 @@ function onGameEnd(r) {
   $('btn-back').innerHTML = playing.live ? 'ルームへ <small>ENTER</small>' : '選曲へ <small>ENTER</small>';
   if (playing.live) playing.live.finish(r);
   const isNew = custom ? false : recordBest(entry.id, d, r);
+  if (isNew && r.log?.length) saveGhost(entry.id, d, r.log);
   show('result');
   document.documentElement.style.setProperty('--accent', entry.color);
   $('r-title').textContent = entry.title;
@@ -762,6 +778,10 @@ function onGameEnd(r) {
   $('r-reward').innerHTML = '';
   $('r-counts').innerHTML = Object.entries(r.counts).map(([k, v]) => `<div><small style="color:${C[k]}">${k}</small><b>${v}</b></div>`).join('') +
     `<div class="fs">FAST ${r.fast} ・ SLOW ${r.slow}</div>`;
+  drawJudgeGraph(r, entry.buffer?.duration || entry.duration || 120);
+  setShareResult(entry, playing.label, r);
+  $('r-daily').hidden = true;
+  if (playing.extra?.daily) dailyResult(playing.extra.daily, r, () => state === 'result' && lastResult === r);
   const on = $('r-online');
   const name = load('name', '');
   if (custom) {
@@ -839,6 +859,8 @@ window.addEventListener('keydown', (ev) => {
       else if (ev.key === '1') { ev.preventDefault(); goSelect(); }
       else if (ev.key === '2') { ev.preventDefault(); $('btn-live').click(); }
       else if (ev.key === '3') { ev.preventDefault(); openDan(); }
+      else if (ev.key === '4') { ev.preventDefault(); $('btn-daily').click(); }
+      else if (ev.key === '5') { ev.preventDefault(); $('btn-course').click(); }
       else if (ev.key === 'Enter' && !onBtn) { ev.preventDefault(); goSelect(); }
     } else if (ev.key === 'Enter' && !onBtn) { ev.preventDefault(); homeLive(true); }
     return;
@@ -932,6 +954,8 @@ function closeModals() {
   overlay('tut-offer', false);
   overlay('tut-done', false);
   overlay('dan-result', false);
+  overlay('course', false);
+  overlay('calib', false);
 }
 function goSelect() {
   homeLive(false);
@@ -954,6 +978,7 @@ function homeLive(on) {
   $('home-main').hidden = on;
   $('home-live').hidden = !on;
   $('h-live').classList.toggle('open', on);
+  if (on) renderDaily();
   if (on) setTimeout(() => { if (state === 'home') $('btn-solo').focus({ preventScroll: true }); }, 30);
 }
 const homeLiveOpen = () => !$('home-live').hidden;
@@ -994,6 +1019,18 @@ initAdmin({ entries, show: (n) => { stopPreview(); show(n); }, back: () => goHom
 $('btn-admin').addEventListener('click', () => openAdmin());
 initDan({ entries, show: (n) => { stopPreview(); show(n); }, back: () => goHome(true), current: () => state, esc, jacketURL, toast, overlay,
   play: (entry, d, custom) => startGame(entry, d, custom) });
+initExtras({
+  entries, esc, jacketURL, toast, overlay, rankRows, fmtScore,
+  play: (entry, d, custom, live, extra) => startGame(entry, d, custom, live, extra),
+  settings: () => settings, saveSettings: (s) => { settings = s; setSettings(s); syncSettingsUI(); },
+  rankId: () => myRankId(), playerName: () => acc.getState()?.name || load('name', ''),
+  state: () => state, game: () => game, goHome: (liveMenu) => goHome(liveMenu),
+});
+
+// オフライン対応: 一度読み込んだファイルを端末に保存しておく(公開サイトのみ。ローカル開発では古いファイルが残らないよう使わない)
+if ('serviceWorker' in navigator && (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname) || location.search.includes('sw=1'))) {
+  navigator.serviceWorker.register(ROOT_PATH + 'sw.js', { scope: ROOT_PATH }).catch((e) => console.warn('sw', e));
+}
 
 // ログイン中は1分おきにサーバーへ合図(管理者ページの「いまオンライン」)。画面が変わったときも少し後に送る
 function pingNow() { if (acc.isLoggedIn() && !document.hidden) acc.ping(state); }
@@ -1048,6 +1085,7 @@ const SLIDERS = [
   ['s-se', 'se', (v) => `${Math.round(v * 100)}`],
   ['s-lane', 'laneW', (v) => `${v}px`],
   ['s-judge', 'judgePos', (v) => `${Math.round(v * 100)}%`],
+  ['s-offset', 'offset', (v) => `${v > 0 ? '+' : ''}${v}ms`],
 ];
 function syncSettingsUI() {
   for (const [id, key, fmt] of SLIDERS) {
@@ -1058,9 +1096,16 @@ function syncSettingsUI() {
   $('s-name').value = load('name', '');
   $('s-beam').checked = !!settings.hitBeam;
   $('o-beam').textContent = settings.hitBeam ? 'ON' : 'OFF';
+  $('s-laneopt').value = settings.lane || 'normal';
+  $('s-vis').value = settings.vis || 'none';
+  $('s-ghost').checked = settings.ghost !== false;
+  $('o-ghost').textContent = settings.ghost !== false ? 'ON' : 'OFF';
   $('s-mv').checked = settings.mv !== false;
   $('o-mv').textContent = settings.mv !== false ? 'ON' : 'OFF';
 }
+$('s-laneopt').addEventListener('change', () => { settings.lane = $('s-laneopt').value; setSettings(settings); });
+$('s-vis').addEventListener('change', () => { settings.vis = $('s-vis').value; setSettings(settings); });
+$('s-ghost').addEventListener('change', () => { settings.ghost = $('s-ghost').checked; $('o-ghost').textContent = settings.ghost ? 'ON' : 'OFF'; setSettings(settings); });
 $('s-mv').addEventListener('change', () => {
   settings.mv = $('s-mv').checked;
   $('o-mv').textContent = settings.mv ? 'ON' : 'OFF';

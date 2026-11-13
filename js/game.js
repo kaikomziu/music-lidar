@@ -108,7 +108,7 @@ export class PointCloud {
 
 // ---------------------------------------------------------------------------
 export class Game {
-  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd, team, scroll, offset, jacket, label, rivals, captions, life, mv }) {
+  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd, team, scroll, offset, jacket, label, rivals, captions, life, mv, opts, ghost }) {
     // 段位道場の体力 { start, miss, good, great, perfect }(%)
     this.lifeOpt = life || null;
     this.life = life ? life.start : 100;
@@ -133,7 +133,17 @@ export class Game {
     this.mv = mv || null; // オリジナル曲のMV(mv.js)。設定でOFFなら描かない
     this.onEnd = onEnd;
 
-    this.notes = notes.map((n) => ({ ...n, done: false, res: null, holding: false, tailDone: !n.end, tailRes: null }));
+    // プレイオプション: lane = normal / mirror(左右反転) / random(レーン入れ替え)、vis = none / hidden(手前で消える) / sudden(奥を隠す)
+    this.opts = { lane: 'normal', vis: 'none', ...(opts || {}) };
+    const map = [0, 1, 2, 3];
+    if (this.opts.lane === 'mirror') map.reverse();
+    if (this.opts.lane === 'random') for (let i = 3; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [map[i], map[j]] = [map[j], map[i]]; }
+    this.notes = notes.map((n) => ({ ...n, lane: map[n.lane], done: false, res: null, holding: false, tailDone: !n.end, tailRes: null }));
+    // 判定タイミングの調整(ms)。叩くのが遅めの人はプラスにすると、その分を差し引いて判定する
+    this.inOffset = (settings.offset || 0) / 1000;
+    // 判定の記録 [判定した曲の時刻, 判定, ズレ(秒・MISSは null)]。リザルトのグラフとゴースト用
+    this.log = [];
+    this.jt = 0;
     this.byLane = [[], [], [], []];
     for (const n of this.notes) this.byLane[n.lane].push(n);
     this.laneIdx = [0, 0, 0, 0];
@@ -156,6 +166,28 @@ export class Game {
     this.v = settings.hs * 4.4;
     this.T = visibleTime(settings.hs);
     this.lastNoteT = this.notes.length ? Math.max(...this.notes.map((n) => n.end ?? n.t)) : 0;
+    this.setGhost(ghost);
+  }
+
+  // ゴースト(自己ベストの判定の記録)から、各時刻での自己ベストのスコアを前もって計算しておく
+  setGhost(log) {
+    this.ghost = null;
+    if (!log?.length) return;
+    const total = this.total;
+    let sum = 0, combo = 0, max = 0;
+    const T = [], S = [];
+    for (const [t, res] of log) {
+      sum += SCORE_W[res] ?? 0;
+      if (res === 'MISS') combo = 0; else { combo++; max = Math.max(max, combo); }
+      T.push(t); S.push(Math.round((950000 * sum) / total + (50000 * max) / total));
+    }
+    if (log.length !== total) return; // 譜面が変わっていたら使わない
+    this.ghost = { T, S, i: -1 };
+  }
+  ghostScore(t) {
+    const g = this.ghost;
+    while (g.i + 1 < g.T.length && g.T[g.i + 1] <= t) g.i++;
+    return g.i < 0 ? 0 : g.S[g.i];
   }
 
   // startFrom: 曲の途中から始める(譜面メーカーのテストプレイ用)。ノーツは呼び出し側で絞っておく
@@ -226,7 +258,8 @@ export class Game {
   press(lane, perfTime) {
     if (this.paused || this.ended || this.pressed[lane]) return;
     this.pressed[lane] = true;
-    const t = this.songTime(perfTime);
+    const t = this.songTime(perfTime) - this.inOffset;
+    this.jt = t;
     this.pressT[lane] = t;
     playTap();
     const list = this.byLane[lane];
@@ -249,7 +282,8 @@ export class Game {
     if (!this.pressed[lane]) return;
     this.pressed[lane] = false;
     if (this.paused || this.ended) return;
-    const t = this.songTime(perfTime);
+    const t = this.songTime(perfTime) - this.inOffset;
+    this.jt = t;
     for (const n of this.byLane[lane]) {
       if (!n.holding) continue;
       n.holding = false;
@@ -269,6 +303,7 @@ export class Game {
     }
     this.counts[raw]++;
     this.judged++;
+    this.log.push([+this.jt.toFixed(3), raw, d == null ? null : +d.toFixed(4)]);
     this.sumScore += SCORE_W[raw];
     this.sumAcc += ACC_W[raw];
     if (raw === 'MISS') this.combo = 0;
@@ -306,6 +341,7 @@ export class Game {
 
   // --- 進行 ---------------------------------------------------------------
   update(t) {
+    this.jt = t;
     for (let l = 0; l < 4; l++) {
       const list = this.byLane[l];
       for (let i = this.laneIdx[l]; i < list.length; i++) {
@@ -348,6 +384,7 @@ export class Game {
       tMaxCombo: this.tMaxCombo,
       hasTeam: this.team.score > 0 || this.team.judge > 0 || this.team.guard > 0,
       failed: this.failed, life: this.life,
+      log: this.log, opts: { ...this.opts },
     };
     r.rank = rankOf(score);
     this.onEnd?.(r);
@@ -535,7 +572,7 @@ export class Game {
     g.restore();
 
     // 隠し(サドゥン)ギミック: レーンの奥を覆う
-    const cover = this.scroll.coverAt(t);
+    const cover = Math.max(this.scroll.coverAt(t), this.opts.vis === 'sudden' ? 0.42 : 0); // SUDDEN: 奥を隠す
     if (cover > 0.01) {
       const zc = Z_FAR - cover * (Z_FAR - Z_J);
       g.save();
@@ -662,8 +699,10 @@ export class Game {
     const g = this.g;
     const u0 = n.lane - 2 + 0.05, u1 = n.lane - 1 - 0.05;
     const behind = z < Z_J ? Math.max(0, (z - Z_J * 0.75) / (Z_J * 0.25)) : 1;
+    const hid = this.opts.vis === 'hidden' ? Math.max(0, Math.min(1, (z - 15) / 5)) : 1; // HIDDEN: 判定ラインの手前で消える
+    if (hid <= 0) return;
     g.save();
-    g.globalAlpha = alpha * behind;
+    g.globalAlpha = alpha * behind * hid;
     this.quad(G, u0, u1, z, z + 0.55);
     const [, yb] = this.proj(G, 0, z), [, yt] = this.proj(G, 0, z + 0.55);
     const ng = g.createLinearGradient(0, yt, 0, yb);
@@ -740,6 +779,12 @@ export class Game {
     g.fillStyle = 'rgba(200,220,255,0.85)';
     const accY = small ? 46 : 60;
     g.fillText(this.accuracy.toFixed(2) + '%', W - 16, accY);
+    if (this.ghost) { // ゴースト: 同じ時点の自己ベストとの差
+      const dlt = this.score - this.ghostScore(t);
+      g.font = `700 ${small ? 10 : 12}px "Orbitron", sans-serif`;
+      g.fillStyle = dlt >= 0 ? '#7dffb0' : '#ff7a8e';
+      g.fillText(`BEST ${dlt >= 0 ? '+' : '−'}${Math.abs(dlt).toLocaleString()}`, W - 16, accY + (small ? 15 : 19));
+    }
     if (status) {
       const aw = g.measureText(this.accuracy.toFixed(2) + '%').width;
       g.font = `800 ${small ? 10 : 11}px "Orbitron", sans-serif`;

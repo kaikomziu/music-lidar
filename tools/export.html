@@ -23,7 +23,7 @@
 // 注意: 大きな Blob を fetch で送ると失敗する環境があるので、送るのは Uint8Array にする。
 import { composeSong } from '../js/composer.js';
 import { renderEvents, loudnessGain } from '../js/audio.js';
-import { hasMV, createMV } from '../js/mv.js';
+import { hasMV, createMV, analyzeSections } from '../js/mv.js';
 import SONGS from '../js/songs/index.js';
 
 const $ = (id) => document.getElementById(id);
@@ -86,10 +86,11 @@ function encode(buf) {
   return new Promise((r) => { p.pend.set(id, r); p.w.postMessage({ id, buf }, [buf]); });
 }
 
-async function exportVideo(def, name, duration) {
+async function exportVideo(def, name, duration, events) {
   await post('/x/vstart?' + qs({ name, fps: FPS, title: def.title, artist: 'MUSIC LiDAR', album: 'MUSIC LiDAR', genre: def.genre }));
   const g = new OffscreenCanvas(W, H).getContext('2d', { willReadFrequently: true });
-  const mv = createMV(def.id, def.bpm, 0, { scale: 0.75, maxW: 960 });
+  const mv = createMV(def.id, def.bpm, 0, { scale: 0.75, maxW: 960 },
+    { title: def.title, genre: def.genre, color: def.color, sections: analyzeSections(events, def.bpm, duration) });
   const N = Math.ceil(duration * FPS);
   const inflight = []; // 変換中のフレーム(順番を保ったまま送る)
   let parts = [], size = 0;
@@ -122,7 +123,7 @@ async function main() {
   const force = (def) => cfg.all || cfg.ids.includes(def.id);
   const list = SONGS.map((d, i) => ({ d, i, name: safe(d.title) }))
     .filter(({ d }) => !d.audio && pick(d)) // 外部音源の曲は対象外
-    .map((x) => ({ ...x, a: force(x.d) || !has3.has(x.name + '.mp3'), v: hasMV(x.d.id) && (force(x.d) || !has4.has(x.name + '.mp4')) }))
+    .map((x) => ({ ...x, a: force(x.d) || !has3.has(x.name + '.mp3'), v: force(x.d) || !has4.has(x.name + '.mp4') }))
     .filter((x) => x.a || x.v);
   E.total = list.length;
   if (cfg.ids.length) {
@@ -140,7 +141,7 @@ async function main() {
         const buf = await renderEvents(events, duration, { sidechain: !!x.d.sidechain });
         await post('/x/wav?' + qs({ name: x.name, title: x.d.title, artist: 'MUSIC LiDAR', album: 'MUSIC LiDAR', genre: x.d.genre, track: x.i + 1 }), wavBytes(buf));
         if (x.a) log(`音声 ${x.name}`);
-        if (x.v) videoChain = videoChain.then(() => exportVideo(x.d, x.name, buf.duration).then(() => log(`MV ${x.name}`)))
+        if (x.v) videoChain = videoChain.then(() => exportVideo(x.d, x.name, buf.duration, events).then(() => log(`MV ${x.name}`)))
           .catch((e) => { E.errors.push(x.name + ' MV: ' + e); log(`失敗 ${x.name} MV: ${e}`); });
       } catch (e) {
         E.errors.push(x.name + ': ' + e); log(`失敗 ${x.name}: ${e}`);

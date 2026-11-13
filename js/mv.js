@@ -892,14 +892,15 @@ const MVS = {
   'final-protocol': finalProtocol,
   'kawaii-bubble': kawaiiBubble,
 };
-export const hasMV = (id) => !!MVS[id];
+export const hasMV = (id) => !!MVS[id]; // 手作りのMVがあるか(曲リストの MV マーク用)
 
 // ---------------------------------------------------------------------------
 // 再生
 // ---------------------------------------------------------------------------
 // opts.scale / opts.maxW: 裏キャンバスの解像度(動画の書き出しでは高めにする)
-export function createMV(id, bpm, offset = 0, { scale = 0.5, maxW = 800 } = {}) {
-  const def = MVS[id];
+// auto: 手作りのMVがない曲用の情報 { title, genre, color, sections }(あれば自動MVを作る)
+export function createMV(id, bpm, offset = 0, { scale = 0.5, maxW = 800 } = {}, auto = null) {
+  const def = MVS[id] || (auto ? autoDef(auto) : null);
   if (!def) return null;
   const cv = document.createElement('canvas');
   const og = cv.getContext('2d');
@@ -930,4 +931,295 @@ export function createMV(id, bpm, offset = 0, { scale = 0.5, maxW = 800 } = {}) 
       g.restore();
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// 自動MV: 手作りのMVがない曲は、ジャンルからテーマを選び、曲の構成から場面を組み立てる
+//  - 場面の切り替え: 曲の中のクラッシュ(シンバル)の拍
+//  - 落ち着いた場面/盛り上がる場面: 区間ごとの音の多さ(0=静か 1=ふつう 2=サビ)
+//  - 色: 曲のテーマカラー
+// ---------------------------------------------------------------------------
+const QUIET = new Set(['pad', 'riser', 'downer', 'crash']);
+// 曲のイベント列 → [{ from, to, lvl }](拍)
+export function analyzeSections(events, bpm, duration) {
+  const end = Math.ceil(duration * bpm / 60);
+  let cuts = [...new Set(events.filter((e) => e.type === 'crash').map((e) => Math.round(e.beat)))].sort((a, b) => a - b);
+  const pts = [0];
+  for (const b of cuts) if (b - pts[pts.length - 1] >= 8 && end - b >= 6) pts.push(b);
+  // 区切りが少ない曲は32拍ごとに割る
+  const out = [];
+  pts.push(end);
+  for (let i = 0; i < pts.length - 1; i++) {
+    let a = pts[i];
+    const b = pts[i + 1];
+    while (b - a > 48) { out.push([a, a + 32]); a += 32; }
+    out.push([a, b]);
+  }
+  const en = out.map(([a, b]) => {
+    let s = 0;
+    for (const e of events) if (!QUIET.has(e.type) && e.beat >= a && e.beat < b) s += e.vel ?? 1;
+    return s / Math.max(1, b - a);
+  });
+  const mx = Math.max(...en, 1e-6);
+  return out.map(([from, to], i) => ({ from, to, lvl: en[i] < mx * 0.5 ? 0 : en[i] < mx * 0.82 ? 1 : 2 }));
+}
+
+function hexHsl(hex) {
+  const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  let h = 0;
+  if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return { h: (h * 60 + 360) % 360, s: d ? d / (1 - Math.abs(2 * l - 1)) : 0, l };
+}
+const hsl = (h, s, l, a = 1) => `hsla(${((h % 360) + 360) % 360},${s}%,${l}%,${a})`;
+
+// --- 自動MV用の部品 ---
+const BOKEH = table(26, 97, (r) => ({ x: r(), y: r(), r: 0.02 + r() * 0.06, sp: 0.2 + r() * 0.6, ph: r() * TAU, k: Math.floor(r() * 3) }));
+const RAIN = table(90, 101, (r) => ({ x: r(), y: r(), l: 0.02 + r() * 0.05, sp: 0.8 + r() * 0.8 }));
+const CROWD = table(40, 113, (r) => ({ x: r(), h: 0.05 + r() * 0.05, ph: r() * TAU }));
+function eqBars(c, n, col, amp) {
+  const g = c.g, w = c.w / n;
+  g.fillStyle = col;
+  for (let i = 0; i < n; i++) {
+    const v = 0.15 + 0.45 * Math.abs(Math.sin(i * 1.7 + c.t * 3.1) * Math.cos(i * 0.6 - c.t * 1.3)) + 0.4 * c.pulse * Math.abs(Math.sin(i * 2.3));
+    const h = v * c.h * 0.45 * amp;
+    g.globalAlpha = 0.85;
+    g.fillRect(i * w + 2, c.h - h, w - 4, h);
+  }
+  g.globalAlpha = 1;
+}
+function stageBeams(c, n, cols, alpha, speed = 1) {
+  const g = c.g;
+  g.save();
+  g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < n; i++) {
+    const x = c.w * (i + 0.5) / n, a = Math.sin(c.t * speed * (0.7 + i * 0.13) + i) * 0.5;
+    const len = c.h * 1.3, spread = 0.09;
+    const gr = g.createLinearGradient(x, 0, x + Math.sin(a) * len, Math.cos(a) * len);
+    gr.addColorStop(0, cols[i % cols.length]); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.globalAlpha = alpha;
+    g.beginPath(); g.moveTo(x, 0);
+    g.lineTo(x + Math.sin(a - spread) * len, Math.cos(a - spread) * len);
+    g.lineTo(x + Math.sin(a + spread) * len, Math.cos(a + spread) * len);
+    g.fill();
+  }
+  g.restore();
+}
+function crowd(c, col) {
+  const g = c.g;
+  g.fillStyle = col;
+  for (const p of CROWD) {
+    const jump = Math.max(0, Math.sin(c.beat * Math.PI * 2 + p.ph)) * c.h * 0.02;
+    const x = p.x * c.w, y = c.h - p.h * c.h - jump;
+    g.beginPath(); g.arc(x, y, c.h * 0.025, 0, TAU); g.fill();
+    g.fillRect(x - c.h * 0.03, y + c.h * 0.02, c.h * 0.06, c.h * 0.2);
+  }
+}
+function rain(c, col, speed = 1) {
+  const g = c.g;
+  g.strokeStyle = col; g.lineWidth = 1;
+  g.beginPath();
+  for (const p of RAIN) {
+    const y = frac(p.y + c.t * 0.5 * speed * p.sp) * 1.1 - 0.05, x = frac(p.x + y * 0.08);
+    g.moveTo(x * c.w, y * c.h); g.lineTo((x - 0.006) * c.w, (y - p.l) * c.h);
+  }
+  g.globalAlpha = 0.5; g.stroke(); g.globalAlpha = 1;
+}
+function bokeh(c, cols, alpha = 0.35) {
+  const g = c.g;
+  for (const b of BOKEH) {
+    const x = frac(b.x + Math.sin(c.t * b.sp * 0.3 + b.ph) * 0.02), y = b.y + Math.sin(c.t * b.sp + b.ph) * 0.02;
+    g.globalAlpha = alpha * (0.6 + 0.4 * Math.sin(c.t * b.sp * 2 + b.ph));
+    g.fillStyle = cols[b.k % cols.length];
+    g.beginPath(); g.arc(x * c.w, y * c.h, b.r * c.h, 0, TAU); g.fill();
+  }
+  g.globalAlpha = 1;
+}
+function waves(c, horizon, top, bottom, speed = 1) {
+  const g = c.g, hy = c.h * horizon;
+  for (let k = 0; k < 6; k++) {
+    const y0 = hy + (c.h - hy) * (k / 6) ** 1.3;
+    g.fillStyle = k % 2 ? top : bottom;
+    g.beginPath(); g.moveTo(0, c.h);
+    for (let x = 0; x <= c.w; x += 8) g.lineTo(x, y0 + Math.sin(x * 0.03 / (1 + k * 0.3) + c.t * speed * (1 + k * 0.2) + k) * (2 + k * 2));
+    g.lineTo(c.w, c.h); g.fill();
+  }
+}
+function palm(c, x, base, h, col, lean = 0.15) {
+  const g = c.g, tx = x + h * lean, ty = base - h;
+  g.strokeStyle = col; g.lineWidth = Math.max(2, h * 0.05); g.lineCap = 'round';
+  g.beginPath(); g.moveTo(x, base); g.quadraticCurveTo(x + h * lean * 0.2, base - h * 0.5, tx, ty); g.stroke();
+  g.fillStyle = col;
+  for (let i = 0; i < 7; i++) {
+    const a = -Math.PI / 2 + (i - 3) * 0.55 + Math.sin(c.t * 1.2 + i) * 0.05, L = h * 0.45;
+    const ex = tx + Math.cos(a) * L, ey = ty + Math.sin(a) * L + L * 0.35;
+    g.beginPath(); g.moveTo(tx, ty);
+    g.quadraticCurveTo(tx + Math.cos(a) * L * 0.6, ty + Math.sin(a) * L * 0.6 - L * 0.15, ex, ey);
+    g.quadraticCurveTo(tx + Math.cos(a) * L * 0.5, ty + Math.sin(a) * L * 0.5 + L * 0.05, tx, ty);
+    g.fill();
+  }
+}
+function hills(c, y, col, amp, freq, speed) {
+  const g = c.g;
+  g.fillStyle = col;
+  g.beginPath(); g.moveTo(0, c.h);
+  for (let x = 0; x <= c.w; x += 6) g.lineTo(x, y - Math.sin(x * freq + c.t * speed) * amp - Math.sin(x * freq * 2.3 + 1 + c.t * speed * 1.3) * amp * 0.4);
+  g.lineTo(c.w, c.h); g.fill();
+}
+function birds(c, col) {
+  const g = c.g;
+  g.strokeStyle = col; g.lineWidth = 1.5;
+  for (let i = 0; i < 5; i++) {
+    const x = frac(i * 0.21 + c.t * 0.03) * c.w * 1.2 - c.w * 0.1, y = c.h * (0.2 + i * 0.05) + Math.sin(c.t + i) * 4;
+    const f = Math.sin(c.t * 6 + i) * 4;
+    g.beginPath(); g.moveTo(x - 7, y - f); g.lineTo(x, y); g.lineTo(x + 7, y - f); g.stroke();
+  }
+}
+function lightning(c, seed, col, alpha) {
+  if (alpha <= 0) return;
+  const g = c.g, r = rng(seed);
+  let x = c.w * (0.2 + r() * 0.6), y = 0;
+  g.save();
+  g.strokeStyle = col; g.lineWidth = 3; g.globalAlpha = alpha; g.shadowColor = col; g.shadowBlur = 16;
+  g.beginPath(); g.moveTo(x, y);
+  while (y < c.h * 0.8) { x += (r() - 0.5) * c.w * 0.08; y += c.h * (0.04 + r() * 0.06); g.lineTo(x, y); }
+  g.stroke();
+  g.restore();
+}
+function vinyl(c, x, y, r, rot, label) {
+  const g = c.g;
+  g.fillStyle = '#0b0b10'; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+  g.strokeStyle = 'rgba(255,255,255,0.07)'; g.lineWidth = 1;
+  for (let k = 0.4; k < 0.98; k += 0.06) { g.beginPath(); g.arc(x, y, r * k, 0, TAU); g.stroke(); }
+  g.strokeStyle = 'rgba(255,255,255,0.18)'; g.lineWidth = 2; // 光の反射
+  g.beginPath(); g.arc(x, y, r * 0.8, rot, rot + 0.5); g.stroke();
+  g.beginPath(); g.arc(x, y, r * 0.8, rot + Math.PI, rot + Math.PI + 0.5); g.stroke();
+  g.fillStyle = label; g.beginPath(); g.arc(x, y, r * 0.3, 0, TAU); g.fill();
+  g.fillStyle = '#0b0b10'; g.beginPath(); g.arc(x, y, r * 0.04, 0, TAU); g.fill();
+}
+function pixelScape(c, col, sky, speed) {
+  const g = c.g, px = Math.max(4, Math.round(c.h / 45));
+  g.fillStyle = sky;
+  for (let i = 0; i < 40; i++) {
+    const x = Math.floor(frac(i * 0.137 - c.t * 0.01) * c.w / px) * px, y = Math.floor((i * 0.071 % 0.5) * c.h / px) * px;
+    if ((Math.floor(c.t * 2) + i) % 5) g.fillRect(x, y, px, px);
+  }
+  g.fillStyle = col;
+  const off = c.t * speed * 30;
+  for (let x = 0; x < c.w + px; x += px) {
+    const k = Math.floor((x + off) / px);
+    const h = (3 + Math.floor(Math.abs(Math.sin(k * 0.21) * 6 + Math.sin(k * 0.05) * 4))) * px;
+    g.fillRect(x - (off % px), c.h - h, px, h);
+  }
+}
+
+// テーマ: [lvl, 描く関数(c, P)] の並び。P は曲の色から作った配色
+const THEMES = {
+  retro: [
+    [0, (c, P) => { vgrad(c, [P.dk, P.mid, P.hot]); twinkle(c, SKY, '#fff'); retroSun(c, c.w / 2, c.h * 0.62, c.h * 0.22, '#ffe066', P.main, P.mid); c.g.fillStyle = P.dk; c.g.fillRect(0, c.h * 0.62, c.w, c.h); grid(c, 0.62, P.main, 0.4, 0.8); }],
+    [1, (c, P) => { vgrad(c, [P.dk, P.mid, P.hot]); retroSun(c, c.w / 2, c.h * 0.55, c.h * 0.24, '#ffe066', P.main, P.mid); hills(c, c.h * 0.6, P.dk2, c.h * 0.08, 0.02, 0); c.g.fillStyle = P.dk; c.g.fillRect(0, c.h * 0.6, c.w, c.h); grid(c, 0.6, P.main, 1); }],
+    [2, (c, P) => { vgrad(c, [P.dk, P.mid]); retroSun(c, c.w / 2, c.h * 0.5, c.h * (0.2 + 0.02 * c.pulse), '#ffe066', P.main, P.mid); skyline(c, BLDS, c.h * 0.62, P.dk2, '#ffd36b', 0.3 + 0.4 * c.pulse); c.g.fillStyle = P.dk; c.g.fillRect(0, c.h * 0.62, c.w, c.h); grid(c, 0.62, P.sub, 1.8); }],
+  ],
+  space: [
+    [0, (c, P) => { vgrad(c, ['#010208', P.dk]); twinkle(c, SKY, '#fff', 0.5); dotSphere(c, c.w / 2, c.h / 2, c.h * 0.28, P.main, c.t * 0.2, 0.8); }],
+    [1, (c, P) => { vgrad(c, ['#010208', P.dk]); starfield(c, STARS, 0.3, '#fff'); ringSegments(c, c.h * 0.3, 6, P.main, c.t * 0.4, 0.6); ringSegments(c, c.h * 0.4, 10, P.sub, -c.t * 0.3, 0.4, 2); }],
+    [2, (c, P) => { vgrad(c, [P.dk, '#000']); tunnel(c, 6, 1.1, P.main, { rot: c.t * 0.3, lw: 2.4 }); starfield(c, STARS, 0.9, '#fff', 2.6); radialLines(c, 24, P.sub, 0.1 + 0.2 * c.pulse, c.t * 0.2, 0.35); }],
+  ],
+  cyber: [
+    [0, (c, P) => { vgrad(c, ['#000', P.dk]); pointTerrain(c, P.main, 0.3, 0.6, { alpha: 0.7 }); }],
+    [1, (c, P) => { vgrad(c, [P.dk, '#000']); tunnel(c, 4, 0.8, P.main, { rot: Math.PI / 4, lw: 2.4 }); starfield(c, STARS, 0.5, '#fff'); }],
+    [2, (c, P) => { vgrad(c, ['#000', P.dk]); pointTerrain(c, P.main, 1.8, 1.2); radialLines(c, 24, P.sub, 0.12 + 0.2 * c.pulse, c.t * 0.3, 0.4); glitch(c, c.pulse * 0.6, Math.floor(c.beat * 2)); }],
+    [2, (c, P) => { vgrad(c, [P.dk, '#000']); tunnel(c, 4, 1.4, P.main, { rot: Math.PI / 4 + c.t * 0.4, lw: 2.6 }); tunnel(c, 6, 1.1, P.sub, { rot: -c.t * 0.4, n: 10, alpha: 0.7 }); starfield(c, STARS, 1, '#fff'); }],
+  ],
+  club: [
+    [0, (c, P) => { vgrad(c, ['#030308', P.dk]); bokeh(c, [P.main, P.sub, '#fff'], 0.25); eqBars(c, 24, P.main, 0.5); }],
+    [1, (c, P) => { vgrad(c, ['#020206', P.dk]); stageBeams(c, 5, [P.main, P.sub], 0.35, 0.8); eqBars(c, 32, P.sub, 0.8); crowd(c, '#05050a'); }],
+    [2, (c, P) => { vgrad(c, ['#000', P.dk]); stageBeams(c, 7, [P.main, P.sub, '#ffffff'], 0.3 + 0.35 * c.pulse, 1.6); tunnel(c, 4, 1.2, P.main, { n: 8, alpha: 0.5 }); crowd(c, '#000'); }],
+  ],
+  wa: [
+    [0, (c, P) => { vgrad(c, ['#0d0420', P.dk, P.mid]); twinkle(c, SKY, '#fff'); moon(c, c.w * 0.72, c.h * 0.3, c.h * 0.12, '#fff4e8'); fallingPetals(c, PETALS, P.light, 0.5); }],
+    [1, (c, P) => { vgrad(c, ['#12031c', P.dk]); for (let i = 8; i >= 0; i--) { const d = (i + 1 - frac(c.t * 0.5)) / 9, s = c.h * 0.25 / (0.15 + d); torii(c, c.w / 2, c.h * 0.55 + s * 0.48, s, '#e0384f', clamp01((1 - d) * 1.5)); } fallingPetals(c, PETALS, P.light, 1.1, 0.6); }],
+    [2, (c, P) => { vgrad(c, [P.dk, P.mid]); radialLines(c, 20, P.main, 0.15 + 0.25 * c.pulse, c.t * 0.3, 0.2); for (let ring = 0; ring < 3; ring++) { const n = 6 + ring * 4, R = c.h * (0.16 + ring * 0.16) * (1 + 0.06 * c.pulse); for (let i = 0; i < n; i++) { const a = (i / n) * TAU + c.t * (ring % 2 ? -0.4 : 0.4); sakura(c, c.w / 2 + Math.cos(a) * R, c.h / 2 + Math.sin(a) * R, c.h * (0.05 + ring * 0.012), a + c.t, ring === 1 ? '#fff0f8' : P.light, 0.9); } } }],
+  ],
+  cute: [
+    [0, (c, P) => { vgrad(c, [P.pa, P.pb, '#d6ecff']); fluffyClouds(c, c.h * 0.9, 0.01); risingBubbles(c, 0.7, 0.9, 0.9); }],
+    [1, (c, P) => { vgrad(c, [P.pa, P.pb]); risingBubbles(c, 0.9, 0.7, 0.8); c.g.fillStyle = '#fff6fb'; c.g.fillRect(0, c.h * 0.82, c.w, c.h); for (let i = 0; i < 5; i++) blob(c, c.w * (0.14 + i * 0.18), c.h * 0.82, c.h * (i % 2 ? 0.07 : 0.09), [P.light, '#c9b3ff', '#a8e2ff', '#ffe39b', '#b6f5d8'][i], (i % 2) * 0.5); }],
+    [2, (c, P) => { candySwirl(c, [P.pa, '#e6d4ff', '#c9e8ff', '#fff2c4'], c.t * 0.4); risingBubbles(c, 1.6, 0.7, 0.85); for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU + c.t * 0.8, R = c.h * 0.3; sparkle(c, c.w / 2 + Math.cos(a) * R * 1.3, c.h / 2 + Math.sin(a) * R, c.h * 0.03, '#fff', 0.9); } heart(c, c.w / 2, c.h / 2 + c.h * 0.05, c.h * (0.12 + 0.04 * c.pulse), P.main); }],
+  ],
+  night: [
+    [0, (c, P) => { vgrad(c, ['#05060f', P.dk]); bokeh(c, [P.main, '#ffcf7a', P.sub], 0.3); rain(c, 'rgba(200,220,255,0.8)', 0.6); }],
+    [1, (c, P) => { vgrad(c, ['#04050e', P.dk]); twinkle(c, SKY, '#fff'); moon(c, c.w * 0.75, c.h * 0.25, c.h * 0.1, '#fff3d0', 0.45); skyline(c, BLDS, c.h * 0.85, '#05060c', '#ffcf7a', 0.2); }],
+    [2, (c, P) => { vgrad(c, ['#05060f', P.dk]); bokeh(c, [P.main, '#ffcf7a', P.sub], 0.45); vinyl(c, c.w / 2, c.h / 2, c.h * (0.32 + 0.01 * c.pulse), c.t * 2, P.main); }],
+  ],
+  tropical: [
+    [0, (c, P) => { vgrad(c, ['#ff9a5a', '#ff5f7e', P.mid]); retroSun(c, c.w / 2, c.h * 0.58, c.h * 0.2, '#fff1a8', '#ff8a3d', '#ff5f7e'); waves(c, 0.6, '#3a1a5a', '#24123e', 0.6); }],
+    [1, (c, P) => { vgrad(c, ['#ffb36b', '#ff6f8e', P.mid]); retroSun(c, c.w / 2, c.h * 0.55, c.h * 0.18, '#fff1a8', '#ff8a3d', '#ff6f8e'); waves(c, 0.62, '#2d1648', '#1c0e32', 1); palm(c, c.w * 0.1, c.h, c.h * 0.7, '#1a0a26', 0.2); palm(c, c.w * 0.9, c.h, c.h * 0.6, '#1a0a26', -0.25); }],
+    [2, (c, P) => { vgrad(c, ['#ffd36b', '#ff6f8e']); radialLines(c, 18, '#fff4c0', 0.25 + 0.25 * c.pulse, c.t * 0.3, 0.1); retroSun(c, c.w / 2, c.h * 0.52, c.h * (0.22 + 0.02 * c.pulse), '#fff8d0', '#ffb347', '#ff8a6a'); waves(c, 0.64, '#2d1648', '#1c0e32', 1.6); palm(c, c.w * 0.08, c.h, c.h * 0.75, '#1a0a26', 0.2); palm(c, c.w * 0.92, c.h, c.h * 0.65, '#1a0a26', -0.25); }],
+  ],
+  rock: [
+    [0, (c, P) => { vgrad(c, ['#000', '#0c0608']); stageBeams(c, 1, [P.main], 0.4, 0.3); crowd(c, '#000'); }],
+    [1, (c, P) => { vgrad(c, ['#000', P.dk]); stageBeams(c, 6, [P.main, '#ffffff'], 0.35, 1.1); crowd(c, '#000'); }],
+    [2, (c, P) => { vgrad(c, ['#000', P.dk]); stageBeams(c, 8, [P.main, P.sub, '#ffffff'], 0.3 + 0.35 * c.pulse, 2); lightning(c, Math.floor(c.beat), '#e8f0ff', c.pulse > 0.6 && Math.floor(c.beat) % 2 === 0 ? c.pulse : 0); crowd(c, '#000'); }],
+  ],
+  boss: [
+    [0, (c, P) => { vgrad(c, ['#0a0003', P.dk]); hexGrid(c, P.main, 0.15 + 0.12 * c.pulse); hazard(c, c.h * 0.08, c.h * 0.06, P.main, 0.4); hazard(c, c.h * 0.86, c.h * 0.06, P.main, -0.4); }],
+    [1, (c, P) => { vgrad(c, ['#0a0003', P.dk]); hexGrid(c, P.main, 0.1); ringSegments(c, c.h * 0.42, 6, P.main, c.t * 0.5, 0.6); bossEye(c, c.w / 2, c.h / 2, c.h * 0.15 * (1 + 0.04 * c.pulse), P.main, c.t * 0.8); }],
+    [2, (c, P) => { vgrad(c, [P.dk, '#000']); radialLines(c, 36, P.main, 0.2 + 0.3 * c.pulse, c.t * 1.5, 0.25); ringSegments(c, c.h * 0.42, 8, P.sub, c.t, 0.7); bossEye(c, c.w / 2, c.h / 2, c.h * 0.17 * (1 + 0.06 * c.pulse), P.main, c.t * 1.2); glitch(c, c.pulse * 0.5, Math.floor(c.beat * 2)); }],
+  ],
+  field: [
+    [0, (c, P) => { vgrad(c, ['#8fd3ff', '#ffe2b8']); retroSun(c, c.w * 0.7, c.h * 0.5, c.h * 0.14, '#fff6c8', '#ffc56b', '#ffe2b8'); hills(c, c.h * 0.7, '#7cc97a', c.h * 0.04, 0.012, 0.05); hills(c, c.h * 0.82, '#4fa865', c.h * 0.05, 0.018, 0.1); fluffyClouds(c, c.h * 0.22, 0.008); }],
+    [1, (c, P) => { vgrad(c, ['#6ec6ff', '#d8f1ff']); fluffyClouds(c, c.h * 0.2, 0.02); birds(c, '#2a3a4a'); hills(c, c.h * 0.68, '#86d07f', c.h * 0.05, 0.014, 0.2); hills(c, c.h * 0.8, '#5cb86a', c.h * 0.06, 0.02, 0.35); hills(c, c.h * 0.92, '#3f9a55', c.h * 0.04, 0.03, 0.55); }],
+    [2, (c, P) => { vgrad(c, ['#ffd27a', '#ffefc8']); radialLines(c, 20, '#fff8dc', 0.3 + 0.25 * c.pulse, c.t * 0.2, 0.05); retroSun(c, c.w / 2, c.h * 0.55, c.h * (0.18 + 0.02 * c.pulse), '#fffbe0', '#ffb347', '#ffefc8'); hills(c, c.h * 0.72, '#7cc97a', c.h * 0.05, 0.014, 0.4); hills(c, c.h * 0.86, '#4fa865', c.h * 0.05, 0.022, 0.7); birds(c, '#3a2a1a'); }],
+  ],
+  chip: [
+    [0, (c, P) => { vgrad(c, ['#0a0a2a', P.dk]); pixelScape(c, P.main, '#fff', 0.5); }],
+    [1, (c, P) => { vgrad(c, ['#0a0a2a', P.dk]); pixelScape(c, P.main, '#fff', 1.5); }],
+    [2, (c, P) => { vgrad(c, ['#000', P.dk]); tunnel(c, 4, 1.2, P.main, { rot: Math.PI / 4, lw: 4, n: 10 }); pixelScape(c, P.sub, '#fff', 2.5); }],
+  ],
+};
+const THEME_RULES = [
+  ['boss', /BOSS BATTLE|ORCHESTRAL|SYMPHONIC|POWER METAL|TERROR/],
+  ['wa', /^WA-|SAKURA|GAMELAN|CHINESE/],
+  ['chip', /CHIP|GIMMICK/],
+  ['cute', /KAWAII|IDOL|KIDS|TOY|HAPPY|J-CORE|BOUNCE|MUSIC BOX|K-POP|^POP$|J-POP|SPRING POP/],
+  ['field', /BEGINNER|ACOUSTIC|SHIBUYA|FOLK|COUNTRY|BLUEGRASS|CELTIC|CAMPFIRE|MARCH|POLKA/],
+  ['retro', /SYNTH|OUTRUN|CITY POP|FUTURE FUNK|VAPOR|EUROBEAT|DISCO|^FUNK/],
+  ['tropical', /BOSSA|REGGAE|SAMBA|TROPICAL|MOOMBAH|^DUB$|AFRO|SALSA|MARIACHI|DEMBOW|ARABIAN|BOLLYWOOD|TANGO/],
+  ['night', /LO-FI|JAZZ|LOUNGE|BALLAD|PIANO|R&B|SOUL|BLUES|CHILL|WALTZ|GOSPEL|WINTER|HIP HOP|BIG BAND|SWING/],
+  ['rock', /ROCK|METAL|PUNK/],
+  ['space', /TRANCE|PSY|PROGRESSIVE|AMBIENT/],
+  ['cyber', /DRUM|JUNGLE|NEURO|LIQUID|CORE|SPEED|GABBER|BREAK|HARDSTYLE|FLASH|DARK|JUMP UP/],
+];
+export const themeOf = (genre) => (THEME_RULES.find(([, re]) => re.test(genre || '')) || ['club'])[0];
+
+// 自動MVの定義({ scenes })を作る。info = { title, genre, color, sections }
+function autoDef(info) {
+  const { h } = hexHsl(info.color || '#5ef2ff');
+  const P = {
+    main: info.color || '#5ef2ff', sub: hsl(h + 150, 90, 65), light: hsl(h, 90, 82),
+    dk: hsl(h, 55, 7), dk2: hsl(h, 50, 10), mid: hsl(h, 55, 18), hot: hsl(h + 20, 60, 34),
+    pa: hsl(h, 90, 90), pb: hsl(h + 40, 80, 88),
+  };
+  const theme = THEMES[themeOf(info.genre)];
+  const used = [0, 0, 0];
+  const secs = info.sections?.length ? info.sections : [{ from: 0, to: 1e9, lvl: 1 }];
+  const last = secs[secs.length - 1].to;
+  const scenes = secs.map((s, i) => {
+    const pool = theme.filter(([lv]) => lv === s.lvl);
+    const list = pool.length ? pool : theme;
+    const fn = list[used[s.lvl]++ % list.length][1];
+    return {
+      from: s.from, to: i === secs.length - 1 ? 1e9 : s.to,
+      draw(c) {
+        fn(c, P);
+        if (i === 0 && c.lb < 12) { // はじめに曲名
+          const a = ease((c.lb - 1) / 2) * (1 - ease((c.lb - 9) / 2));
+          text(c, info.title, c.w / 2, c.h * 0.42, c.h * 0.09, '#ffffff', a, { glow: 16, spacing: 3 });
+          text(c, info.genre, c.w / 2, c.h * 0.53, c.h * 0.035, '#ffffff', a * 0.75, { weight: 600, spacing: 5 });
+        }
+        if (c.beat > last - 8) { c.g.fillStyle = `rgba(0,0,0,${ease((c.beat - (last - 8)) / 8)})`; c.g.fillRect(0, 0, c.w, c.h); } // おわりは暗く
+      },
+    };
+  });
+  return { scenes };
 }

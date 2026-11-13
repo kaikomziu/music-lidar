@@ -6,7 +6,7 @@ import { showLoading, hideLoading } from './loading.js';
 import { analyzeFile, hashFile } from './analyzer.js';
 import { buildScroll, dropNotesInStops, gimmickLabel } from './gimmick.js';
 import { jacketURL, jacketImg, clearJackets } from './jacket.js';
-import { hasMV, createMV } from './mv.js';
+import { hasMV, createMV, analyzeSections } from './mv.js';
 import { CHANGELOG, VERSION } from './changelog.js';
 import { Game, PointCloud, KEYS, DIFF_COLOR, visibleTime, IS_TOUCH, FX_LEVELS } from './game.js';
 import { load, save, getSettings, setSettings, DEFAULT_SETTINGS, clientId, getBest, recordBest } from './storage.js';
@@ -129,6 +129,8 @@ function builtinEntry(def) {
     id: def.id, urlId: def.urlId, title: def.title, artist: def.artist, genre: def.genre, bpm: def.bpm, color: def.color,
     levels: def.levels, charts, stats, local: false, duration, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [],
     previewAt: (def.preview ?? 32) * 60 / def.bpm, onsets,
+    // 手作りMVがない曲の自動MV用(曲の構成は使うときに調べる)
+    mvAuto() { return (this._mv ||= { title: def.title, genre: def.genre, color: def.color, sections: analyzeSections(events, def.bpm, duration) }); },
     buffer: null, rendering: null,
     load() {
       if (this.buffer) { touchBuffer(this); return Promise.resolve(this.buffer); }
@@ -670,7 +672,7 @@ async function startGameInner(entry, d, custom, live) {
     captions: custom?.captions || null,
     life: custom?.life || null,
     rivals: live ? () => live.rivals() : null,
-    mv: entry.local || custom?.kind === 'tutorial' ? null : createMV(entry.id, entry.bpm, entry.offset || 0),
+    mv: entry.local || custom?.kind === 'tutorial' ? null : createMV(entry.id, entry.bpm, entry.offset || 0, {}, entry.mvAuto?.()),
   });
   live?.attach(game);
   $('btn-p-quit').textContent = live ? 'ライブを抜ける' : '選曲へ';

@@ -25,7 +25,7 @@ python tools/export.py <id> <id>    # 作り直した曲を書き出し直す
 python tools/export.py --all        # 全曲を書き出し直す
 ```
 
-- ブラウザで `tools/export.html` が開き、曲の合成・MVの描画をして、ffmpeg で `mp3/<曲名>.mp3` と `mp4/<曲名>.mp4`(MVがある曲のみ)にする。終わるまでタブは閉じない
+- ブラウザで `tools/export.html` が開き、曲の合成・MVの描画をして、ffmpeg で `mp3/<曲名>.mp3` と `mp4/<曲名>.mp4`(MV入り。特製MVがない曲はジャンル別の自動MV)にする。終わるまでタブは閉じない
 - ファイル名は曲名だけ(曲順の番号は付けない。曲を足すと番号がずれるため)
 - 音源ファイルの曲(`audio` を指定した外部音源の曲)はライセンスのため対象外
 - ffmpeg が必要(`winget install Gyan.FFmpeg`)

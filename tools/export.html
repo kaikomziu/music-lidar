@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<title>MUSIC LiDAR 書き出し</title>
+<style>
+  body { margin: 0; padding: 24px; background: #070a1c; color: #dfe6ff; font: 14px/1.6 system-ui, "Noto Sans JP", sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 8px; }
+  #bar { height: 10px; background: #1a2040; border-radius: 5px; overflow: hidden; margin: 12px 0; }
+  #bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #5ef2ff, #ff6b9e); }
+  #log { white-space: pre-wrap; font: 12px/1.5 ui-monospace, Consolas, monospace; color: #9aa6d8; max-height: 60vh; overflow: auto; }
+</style>
+</head>
+<body>
+<h1>MUSIC LiDAR 書き出し</h1>
+<div id="status">準備中…</div>
+<div id="bar"><i></i></div>
+<div id="log"></div>
+<script type="module">
+// tools/export.py から開くページ。曲を合成して WAV を、MV を描いて JPEG フレームをサーバーへ送る。
+// 速くするために: 曲の合成は3曲ずつ同時、JPEG 変換は Worker 4本で並行(ページが裏にあっても間引かれない)。
+// 注意: 大きな Blob を fetch で送ると失敗する環境があるので、送るのは Uint8Array にする。
+import { composeSong } from '../js/composer.js';
+import { renderEvents, loudnessGain } from '../js/audio.js';
+import { hasMV, createMV } from '../js/mv.js';
+import SONGS from '../js/songs/index.js';
+
+const $ = (id) => document.getElementById(id);
+const W = 1280, H = 720, FPS = 30, AUDIO_PAR = 3, WORKERS = 4, BATCH = 10;
+const E = (window.__exp = { state: 'start', done: 0, total: 0, errors: [] });
+const safe = (s) => s.replace(/[\\/:*?"<>|]/g, '').trim();
+const qs = (o) => Object.entries(o).map(([k, x]) => k + '=' + encodeURIComponent(x)).join('&');
+function log(msg) {
+  $('log').textContent += msg + '\n';
+  fetch('/x/log', { method: 'POST', body: msg }).catch(() => {});
+}
+async function post(path, body = '') {
+  for (let k = 0; ; k++) {
+    try {
+      const j = await (await fetch(path, { method: 'POST', body })).json();
+      if (!j.ok) throw new Error(j.err || 'NG');
+      return j;
+    } catch (e) {
+      if (k >= 4) throw e;
+      await new Promise((r) => setTimeout(r, 800));
+    }
+  }
+}
+
+// 16bit ステレオ WAV。ゲームと同じ音量補正をかけ、割れないように頭打ち
+function wavBytes(buf) {
+  const L = buf.getChannelData(0), R = buf.numberOfChannels > 1 ? buf.getChannelData(1) : L;
+  let pk = 0;
+  for (let i = 0; i < L.length; i++) pk = Math.max(pk, Math.abs(L[i]), Math.abs(R[i]));
+  const g = Math.min(loudnessGain(buf), 0.99 / Math.max(pk, 1e-6));
+  const n = L.length, out = new Uint8Array(44 + n * 4), dv = new DataView(out.buffer);
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, 'RIFF'); dv.setUint32(4, 36 + n * 4, true); str(8, 'WAVE'); str(12, 'fmt ');
+  dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 2, true);
+  dv.setUint32(24, buf.sampleRate, true); dv.setUint32(28, buf.sampleRate * 4, true); dv.setUint16(32, 4, true); dv.setUint16(34, 16, true);
+  str(36, 'data'); dv.setUint32(40, n * 4, true);
+  for (let i = 0, o = 44; i < n; i++, o += 4) {
+    dv.setInt16(o, Math.max(-1, Math.min(1, L[i] * g)) * 32767, true);
+    dv.setInt16(o + 2, Math.max(-1, Math.min(1, R[i] * g)) * 32767, true);
+  }
+  return out;
+}
+
+// JPEG 変換の Worker たち
+const WSRC = `const oc = new OffscreenCanvas(${W}, ${H}), cx = oc.getContext('2d');
+onmessage = async (e) => {
+  cx.putImageData(new ImageData(new Uint8ClampedArray(e.data.buf), ${W}, ${H}), 0, 0);
+  const ab = await (await oc.convertToBlob({ type: 'image/jpeg', quality: 0.92 })).arrayBuffer();
+  postMessage({ id: e.data.id, ab }, [ab]);
+};`;
+const wurl = URL.createObjectURL(new Blob([WSRC], { type: 'text/javascript' }));
+const pool = Array.from({ length: WORKERS }, () => {
+  const w = new Worker(wurl), pend = new Map();
+  w.onmessage = (e) => { pend.get(e.data.id)(new Uint8Array(e.data.ab)); pend.delete(e.data.id); };
+  return { w, pend };
+});
+let jid = 0;
+function encode(buf) {
+  const p = pool[jid % WORKERS], id = ++jid;
+  return new Promise((r) => { p.pend.set(id, r); p.w.postMessage({ id, buf }, [buf]); });
+}
+
+async function exportVideo(def, name, duration) {
+  await post('/x/vstart?' + qs({ name, fps: FPS, title: def.title, artist: 'MUSIC LiDAR', album: 'MUSIC LiDAR', genre: def.genre }));
+  const g = new OffscreenCanvas(W, H).getContext('2d', { willReadFrequently: true });
+  const mv = createMV(def.id, def.bpm, 0, { scale: 0.75, maxW: 960 });
+  const N = Math.ceil(duration * FPS);
+  const inflight = []; // 変換中のフレーム(順番を保ったまま送る)
+  let parts = [], size = 0;
+  const flush = async () => {
+    const body = new Uint8Array(size);
+    let o = 0;
+    for (const p of parts) { body.set(p, o); o += p.length; }
+    parts = []; size = 0;
+    await post('/x/vframe?' + qs({ name }), body);
+  };
+  const t0 = performance.now();
+  for (let f = 0; f < N; f++) {
+    g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+    mv.draw(g, W, H, f / FPS);
+    inflight.push(encode(g.getImageData(0, 0, W, H).data.buffer));
+    if (inflight.length >= WORKERS * 2) { const j = await inflight.shift(); parts.push(j); size += j.length; }
+    if (parts.length >= BATCH) await flush();
+    if (f % 150 === 0) $('status').textContent = `${def.title} のMV ${f}/${N} フレーム(${Math.round(f / ((performance.now() - t0) / 1000 + 1e-3))} fps)`;
+  }
+  while (inflight.length) { const j = await inflight.shift(); parts.push(j); size += j.length; }
+  if (parts.length) await flush();
+  await post('/x/vend?' + qs({ name }));
+}
+
+async function main() {
+  const cfg = await (await fetch('/x/config')).json();
+  const has3 = new Set(cfg.mp3), has4 = new Set(cfg.mp4);
+  // id を指定したらその曲だけ(書き出し直し)。指定がなければ、まだ書き出していない曲だけ
+  const pick = cfg.ids.length ? (def) => cfg.ids.includes(def.id) : () => true;
+  const force = (def) => cfg.all || cfg.ids.includes(def.id);
+  const list = SONGS.map((d, i) => ({ d, i, name: safe(d.title) }))
+    .filter(({ d }) => !d.audio && pick(d)) // 外部音源の曲は対象外
+    .map((x) => ({ ...x, a: force(x.d) || !has3.has(x.name + '.mp3'), v: hasMV(x.d.id) && (force(x.d) || !has4.has(x.name + '.mp4')) }))
+    .filter((x) => x.a || x.v);
+  E.total = list.length;
+  if (cfg.ids.length) {
+    const miss = cfg.ids.filter((id) => !SONGS.some((d) => d.id === id && !d.audio));
+    if (miss.length) log('見つからない/対象外の id: ' + miss.join(', '));
+  }
+  log(`書き出し先 ${cfg.out} ・ 対象 ${list.length}曲(mp3 ${list.filter((x) => x.a).length} / mp4 ${list.filter((x) => x.v).length})`);
+  // 音声: 3曲ずつ同時に合成。MV のある曲は、合成が終わったら続けて動画も作る(動画は1曲ずつ)
+  let next = 0, videoChain = Promise.resolve();
+  const worker = async () => {
+    while (next < list.length) {
+      const x = list[next++];
+      try {
+        const { events, duration } = composeSong(x.d);
+        const buf = await renderEvents(events, duration, { sidechain: !!x.d.sidechain });
+        await post('/x/wav?' + qs({ name: x.name, title: x.d.title, artist: 'MUSIC LiDAR', album: 'MUSIC LiDAR', genre: x.d.genre, track: x.i + 1 }), wavBytes(buf));
+        if (x.a) log(`音声 ${x.name}`);
+        if (x.v) videoChain = videoChain.then(() => exportVideo(x.d, x.name, buf.duration).then(() => log(`MV ${x.name}`)))
+          .catch((e) => { E.errors.push(x.name + ' MV: ' + e); log(`失敗 ${x.name} MV: ${e}`); });
+      } catch (e) {
+        E.errors.push(x.name + ': ' + e); log(`失敗 ${x.name}: ${e}`);
+      }
+      E.done++;
+      $('bar').firstElementChild.style.width = (E.done / Math.max(1, E.total)) * 100 + '%';
+      if (!x.v) $('status').textContent = `音声 ${E.done}/${E.total}`;
+    }
+  };
+  await Promise.all(Array.from({ length: AUDIO_PAR }, worker));
+  await videoChain;
+  E.state = 'done';
+  const msg = E.errors.length ? `完了(失敗 ${E.errors.length}件)` : '完了';
+  $('status').textContent = msg + '。このタブは閉じて大丈夫です';
+  await fetch('/x/done', { method: 'POST', body: `ページ側の処理が${msg}` });
+}
+main().catch((e) => { E.state = 'error'; E.errors.push(String(e)); log('エラー: ' + e); fetch('/x/done', { method: 'POST', body: 'エラー: ' + e }); });
+</script>
+</body>
+</html>

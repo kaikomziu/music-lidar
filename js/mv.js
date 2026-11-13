@@ -691,12 +691,206 @@ const finalProtocol = {
   ],
 };
 
+// Kawaii Bubble (KAWAII FUTURE BASS 160): パステルの空にシャボン玉。まんまるのキャラが跳ねて、ハートがはじける
+const KW_BG = ['#ffd6ee', '#e6d4ff', '#c9e8ff'];
+const BUBBLES = table(40, 83, (r) => ({ x: r(), y: r(), r: 0.025 + r() * 0.06, sp: 0.5 + r() * 0.9, sw: 0.4 + r() * 1.2, ph: r() * TAU }));
+const KW_COLS = ['#ff8fcf', '#b18cff', '#7fd4ff', '#ffd36b', '#8ff0c4'];
+function bubble(c, x, y, r, alpha = 1, tint = '#ffffff') {
+  const g = c.g;
+  g.save();
+  g.globalAlpha = alpha;
+  const gr = g.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
+  gr.addColorStop(0, 'rgba(255,255,255,0.05)'); gr.addColorStop(0.8, 'rgba(255,255,255,0.12)'); gr.addColorStop(1, tint);
+  g.fillStyle = gr;
+  g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+  g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = Math.max(1, r * 0.06);
+  g.beginPath(); g.arc(x, y, r, 0, TAU); g.stroke();
+  g.fillStyle = 'rgba(255,255,255,0.9)'; // 光の反射
+  g.beginPath(); g.ellipse(x - r * 0.38, y - r * 0.42, r * 0.22, r * 0.12, -0.7, 0, TAU); g.fill();
+  g.restore();
+}
+// はじけた瞬間の小さな線
+function pop(c, x, y, r, k, col) {
+  const g = c.g;
+  g.save();
+  g.strokeStyle = col; g.globalAlpha = 1 - k; g.lineWidth = 2; g.lineCap = 'round';
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * TAU, r0 = r * (0.6 + k * 0.8), r1 = r * (0.9 + k * 1.1);
+    g.beginPath(); g.moveTo(x + Math.cos(a) * r0, y + Math.sin(a) * r0); g.lineTo(x + Math.cos(a) * r1, y + Math.sin(a) * r1); g.stroke();
+  }
+  g.restore();
+}
+function risingBubbles(c, speed = 1, scale = 1, alpha = 1) {
+  for (const b of BUBBLES) {
+    const y = 1.15 - frac(b.y + c.t * 0.05 * speed * b.sp) * 1.3;
+    const x = b.x + Math.sin(c.t * b.sw + b.ph) * 0.03;
+    const r = b.r * c.h * scale * (1 + 0.08 * c.pulse);
+    bubble(c, x * c.w, y * c.h, r, alpha, KW_COLS[Math.floor(b.ph * 10) % KW_COLS.length] + '66');
+  }
+}
+function heart(c, x, y, s, col, alpha = 1) {
+  const g = c.g;
+  g.save();
+  g.globalAlpha = alpha; g.fillStyle = col;
+  g.beginPath();
+  g.moveTo(x, y + s * 0.35);
+  g.bezierCurveTo(x - s * 1.1, y - s * 0.35, x - s * 0.5, y - s * 1.05, x, y - s * 0.45);
+  g.bezierCurveTo(x + s * 0.5, y - s * 1.05, x + s * 1.1, y - s * 0.35, x, y + s * 0.35);
+  g.fill();
+  g.restore();
+}
+function sparkle(c, x, y, s, col, alpha = 1) {
+  const g = c.g;
+  g.save();
+  g.globalAlpha = alpha; g.fillStyle = col;
+  g.beginPath();
+  for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU - Math.PI / 2, r = i % 2 ? s * 0.28 : s; const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r; if (i) g.lineTo(px, py); else g.moveTo(px, py); }
+  g.fill();
+  g.restore();
+}
+// まんまるのキャラ(拍で跳ねて、着地でつぶれる)
+function blob(c, x, base, r, col, phase = 0) {
+  const g = c.g;
+  const k = frac(c.beat + phase), jump = Math.sin(k * Math.PI) * r * 1.1;
+  const squash = k < 0.12 ? 1 - (0.12 - k) * 2.2 : 1;
+  const y = base - r * squash - jump;
+  g.save();
+  g.fillStyle = 'rgba(120,80,160,0.18)'; // 影
+  g.beginPath(); g.ellipse(x, base + 2, r * (1 - jump / (r * 3)), r * 0.18, 0, 0, TAU); g.fill();
+  g.translate(x, y); g.scale(1 / squash, squash);
+  g.fillStyle = col;
+  g.beginPath(); g.arc(0, 0, r, 0, TAU); g.fill();
+  g.fillStyle = 'rgba(255,255,255,0.55)';
+  g.beginPath(); g.ellipse(-r * 0.4, -r * 0.45, r * 0.25, r * 0.14, -0.6, 0, TAU); g.fill();
+  g.fillStyle = '#3a2a4a'; // 目(ときどきまばたき)
+  const blink = frac(c.t * 0.3 + phase) < 0.04;
+  for (const sd of [-1, 1]) {
+    if (blink) g.fillRect(sd * r * 0.32 - r * 0.1, -r * 0.05, r * 0.2, r * 0.05);
+    else { g.beginPath(); g.arc(sd * r * 0.32, -r * 0.05, r * 0.1, 0, TAU); g.fill(); }
+  }
+  g.fillStyle = 'rgba(255,110,160,0.55)'; // ほっぺ
+  for (const sd of [-1, 1]) { g.beginPath(); g.ellipse(sd * r * 0.55, r * 0.18, r * 0.14, r * 0.08, 0, 0, TAU); g.fill(); }
+  g.strokeStyle = '#3a2a4a'; g.lineWidth = Math.max(1, r * 0.06); g.lineCap = 'round'; // 口
+  g.beginPath(); g.arc(0, r * 0.12, r * 0.12, 0.15 * Math.PI, 0.85 * Math.PI); g.stroke();
+  g.restore();
+}
+// 回るキャンディのうず(放射状のしま)
+function candySwirl(c, cols, rot, alpha = 1) {
+  const g = c.g, cx = c.w / 2, cy = c.h / 2, R = Math.hypot(c.w, c.h);
+  g.save(); g.globalAlpha = alpha;
+  const n = cols.length * 3;
+  for (let i = 0; i < n; i++) {
+    const a = rot + (i / n) * TAU;
+    g.fillStyle = cols[i % cols.length];
+    g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, R, a, a + TAU / n + 0.01); g.fill();
+  }
+  g.restore();
+}
+function fluffyClouds(c, y, speed) {
+  const g = c.g;
+  g.fillStyle = 'rgba(255,255,255,0.9)';
+  for (let i = 0; i < 6; i++) {
+    const x = frac(i / 6 + c.t * speed) * (c.w + c.h) - c.h * 0.5, r = c.h * (0.07 + (i % 3) * 0.02);
+    g.beginPath(); g.arc(x, y, r, 0, TAU); g.arc(x + r * 0.9, y + r * 0.15, r * 0.75, 0, TAU); g.arc(x - r * 0.9, y + r * 0.2, r * 0.7, 0, TAU); g.fill();
+  }
+}
+const kawaiiBubble = {
+  scenes: [
+    { from: 0, to: 16, draw(c) { // パステルの空にシャボン玉がのぼっていく
+      vgrad(c, KW_BG);
+      fluffyClouds(c, c.h * 0.9, 0.01);
+      risingBubbles(c, 0.7, 1, ease(c.lb / 4));
+      const a = ease((c.lb - 2) / 3) * (1 - ease((c.lb - 13.5) / 2));
+      text(c, 'Kawaii Bubble', c.w / 2, c.h * 0.42, c.h * 0.11, '#ff6fb8', a, { font: 'Noto Sans JP', weight: 700, glow: 10 });
+      if (a > 0) { heart(c, c.w / 2 - c.h * 0.42, c.h * 0.42, c.h * 0.04, '#ff8fcf', a); heart(c, c.w / 2 + c.h * 0.42, c.h * 0.42, c.h * 0.04, '#b18cff', a); }
+    } },
+    { from: 16, to: 48, draw(c) { // まんまるキャラが拍で跳ねる
+      vgrad(c, KW_BG);
+      risingBubbles(c, 0.8, 0.8, 0.8);
+      fluffyClouds(c, c.h * 0.86, 0.015);
+      c.g.fillStyle = '#fff0f8'; c.g.fillRect(0, c.h * 0.86, c.w, c.h);
+      blob(c, c.w * 0.5, c.h * 0.86, c.h * 0.13, '#ffb3e6');
+      blob(c, c.w * 0.28, c.h * 0.86, c.h * 0.08, '#c9b3ff', 0.5);
+      blob(c, c.w * 0.72, c.h * 0.86, c.h * 0.08, '#a8e2ff', 0.5);
+      for (let i = 0; i < 5; i++) sparkle(c, c.w * (0.1 + i * 0.2), c.h * (0.15 + (i % 2) * 0.12), c.h * 0.025 * (0.6 + 0.6 * Math.max(0, Math.sin(c.t * 3 + i))), '#fff', 0.9);
+    } },
+    { from: 48, to: 64, draw(c) { // ため: シャボン玉が真ん中に集まる
+      vgrad(c, ['#ffc4e6', '#d9c4ff']);
+      for (const b of BUBBLES) {
+        const a = b.ph + c.t * (0.5 + c.p * 3) * b.sp, r = (0.12 + b.y * 0.5) * c.h * (1 - c.p * 0.7);
+        bubble(c, c.w / 2 + Math.cos(a) * r * 1.4, c.h / 2 + Math.sin(a) * r, b.r * c.h * 0.8, 0.9, KW_COLS[Math.floor(b.ph * 10) % 5] + '66');
+      }
+      heart(c, c.w / 2, c.h / 2 + c.h * 0.04, c.h * (0.05 + c.p * 0.08), '#ff6fb8', 0.9);
+      if (c.lb >= 8) { c.g.fillStyle = `rgba(255,255,255,${0.35 * c.pulse})`; c.g.fillRect(0, 0, c.w, c.h); }
+    } },
+    { from: 64, to: 128, draw(c) { // ドロップ: ハートがはじける/みんなで跳ねる、を16拍ごとに
+      const alt = Math.floor(c.lb / 16) % 2;
+      if (!alt) {
+        vgrad(c, ['#ffb8e0', '#d6b8ff']);
+        const g = c.g;
+        for (let i = 0; i < 5; i++) { // 拍ごとに広がる輪
+          const k = frac(c.beat) + i, R = k * c.h * 0.22;
+          g.strokeStyle = KW_COLS[(Math.floor(c.beat) + i) % 5]; g.globalAlpha = clamp01(1 - k / 5) * 0.8; g.lineWidth = 6;
+          g.beginPath(); g.arc(c.w / 2, c.h / 2, R, 0, TAU); g.stroke();
+        }
+        g.globalAlpha = 1;
+        risingBubbles(c, 1.6, 0.7, 0.85);
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * TAU + c.t * 0.8, R = c.h * (0.3 + 0.04 * c.pulse);
+          sparkle(c, c.w / 2 + Math.cos(a) * R * 1.3, c.h / 2 + Math.sin(a) * R, c.h * 0.03, '#fff', 0.9);
+        }
+        heart(c, c.w / 2, c.h / 2 + c.h * 0.05, c.h * (0.12 + 0.04 * c.pulse), '#ff4fa8');
+      } else {
+        vgrad(c, ['#c9e8ff', '#ffd6ee']);
+        risingBubbles(c, 1.4, 0.7, 0.8);
+        c.g.fillStyle = '#fff0f8'; c.g.fillRect(0, c.h * 0.8, c.w, c.h);
+        for (let i = 0; i < 7; i++) blob(c, c.w * (0.08 + i * 0.14), c.h * 0.8, c.h * (i % 2 ? 0.07 : 0.09), ['#ffb3e6', '#c9b3ff', '#a8e2ff', '#ffe39b', '#b6f5d8'][i % 5], (i % 2) * 0.5);
+        for (let i = 0; i < 6; i++) heart(c, c.w * (0.1 + i * 0.16), c.h * (0.2 + 0.05 * Math.sin(c.t * 2 + i)), c.h * 0.03, KW_COLS[i % 5], 0.8);
+      }
+    } },
+    { from: 128, to: 144, draw(c) { // ブレイク: 大きなシャボン玉がふわふわ
+      vgrad(c, ['#e6d4ff', '#c9e8ff']);
+      risingBubbles(c, 0.3, 0.6, 0.6);
+      const x = c.w / 2 + Math.sin(c.t * 0.6) * c.w * 0.05, y = c.h * 0.48 + Math.sin(c.t * 0.9) * c.h * 0.04, r = c.h * 0.26;
+      const g = c.g; // 虹色の膜
+      g.save(); g.globalAlpha = 0.35;
+      const gr = g.createLinearGradient(x - r, y - r, x + r, y + r);
+      KW_COLS.forEach((col, i) => gr.addColorStop(i / 4, col));
+      g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+      g.restore();
+      bubble(c, x, y, r, 1);
+      if (c.lb >= 8) blob(c, x, y + r * 0.45, r * 0.32, '#ffb3e6'); // 中にキャラ
+    } },
+    { from: 144, to: 176, draw(c) { // ラスト: キャンディのうずとハート
+      candySwirl(c, ['#ffd6ee', '#e6d4ff', '#c9e8ff', '#fff2c4'], c.t * 0.4);
+      risingBubbles(c, 1.8, 0.75, 0.9);
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * TAU - c.t * 0.9, R = c.h * 0.3;
+        heart(c, c.w / 2 + Math.cos(a) * R * 1.4, c.h / 2 + Math.sin(a) * R, c.h * 0.04, KW_COLS[i % 5], 0.9);
+      }
+      heart(c, c.w / 2, c.h / 2 + c.h * 0.05, c.h * (0.13 + 0.05 * c.pulse), '#ff4fa8');
+      blob(c, c.w / 2, c.h * 0.93, c.h * 0.07, '#ffb3e6');
+    } },
+    { from: 176, to: 1e9, draw(c) { // おわり: シャボン玉がひとつずつはじける
+      vgrad(c, KW_BG);
+      BUBBLES.slice(0, 16).forEach((b, i) => {
+        const x = (0.1 + (i % 8) * 0.115) * c.w, y = (0.3 + Math.floor(i / 8) * 0.25) * c.h, r = c.h * 0.05;
+        const k = (c.lb - i * 0.25) / 0.6;
+        if (k < 0) bubble(c, x, y, r, 1, KW_COLS[i % 5] + '66');
+        else if (k < 1) pop(c, x, y, r, k, KW_COLS[i % 5]);
+      });
+      text(c, '♡ THANK YOU ♡', c.w / 2, c.h * 0.82, c.h * 0.06, '#ff6fb8', ease((c.lb - 3) / 2), { weight: 800, spacing: 3 });
+    } },
+  ],
+};
+
 const MVS = {
   'lidar-rush': lidarRush,
   'neon-highway': neonHighway,
   'hyper-sakura': hyperSakura,
   'star-lullaby': starLullaby,
   'final-protocol': finalProtocol,
+  'kawaii-bubble': kawaiiBubble,
 };
 export const hasMV = (id) => !!MVS[id];
 

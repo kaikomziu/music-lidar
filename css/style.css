@@ -1123,3 +1123,6 @@ body.live #btn-p-retry { display: none; }
   .live-pick .song-list { display: grid; max-height: 55vh; overflow-x: hidden; }
   .live-pick .song-card { min-width: 0; }
 }
+
+/* MVつきの曲のマーク */
+.mv-tag { display: inline-block; margin-left: 4px; padding: 0 5px; border-radius: 4px; font: 700 10px/16px 'Orbitron', sans-serif; letter-spacing: 1px; color: #0a0d1c; background: linear-gradient(90deg, #ff6b9e, #ffd25e); vertical-align: 1px; }

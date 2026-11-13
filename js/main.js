@@ -6,6 +6,7 @@ import { showLoading, hideLoading } from './loading.js';
 import { analyzeFile, hashFile } from './analyzer.js';
 import { buildScroll, dropNotesInStops, gimmickLabel } from './gimmick.js';
 import { jacketURL, jacketImg, clearJackets } from './jacket.js';
+import { hasMV, createMV } from './mv.js';
 import { CHANGELOG, VERSION } from './changelog.js';
 import { Game, PointCloud, KEYS, DIFF_COLOR, visibleTime, IS_TOUCH, FX_LEVELS } from './game.js';
 import { load, save, getSettings, setSettings, DEFAULT_SETTINGS, clientId, getBest, recordBest } from './storage.js';
@@ -445,7 +446,7 @@ function renderList() {
       const mark = best?.ap ? 'AP' : best?.fc ? 'FC' : '';
       return `<span class="lv ${d}">${e.levels[d]}${mark ? `<span class="mark">${mark}</span>` : ''}</span>`;
     }).join('');
-    b.innerHTML = `${jacketImg(e, 128, 'sc-jacket')}<div class="sc-text"><div class="sc-title">${esc(e.title)}</div><div class="sc-sub">${esc(e.genre)} ・ BPM ${Math.round(e.bpm)}${e.local ? ' ・ LOCAL' : ''}</div></div><div class="sc-lv">${lv}</div>`;
+    b.innerHTML = `${jacketImg(e, 128, 'sc-jacket')}<div class="sc-text"><div class="sc-title">${esc(e.title)}</div><div class="sc-sub">${esc(e.genre)} ・ BPM ${Math.round(e.bpm)}${e.local ? ' ・ LOCAL' : ''}${hasMV(e.id) ? ' <span class="mv-tag" title="MVつき">MV</span>' : ''}</div></div><div class="sc-lv">${lv}</div>`;
     b.querySelector('.sc-text').prepend(favMark(e));
     b.addEventListener('click', () => { if (sel === i) startGame(); else selectSong(i); });
     list.appendChild(b);
@@ -669,6 +670,7 @@ async function startGameInner(entry, d, custom, live) {
     captions: custom?.captions || null,
     life: custom?.life || null,
     rivals: live ? () => live.rivals() : null,
+    mv: entry.local || custom?.kind === 'tutorial' ? null : createMV(entry.id, entry.bpm, entry.offset || 0),
   });
   live?.attach(game);
   $('btn-p-quit').textContent = live ? 'ライブを抜ける' : '選曲へ';
@@ -1054,7 +1056,14 @@ function syncSettingsUI() {
   $('s-name').value = load('name', '');
   $('s-beam').checked = !!settings.hitBeam;
   $('o-beam').textContent = settings.hitBeam ? 'ON' : 'OFF';
+  $('s-mv').checked = settings.mv !== false;
+  $('o-mv').textContent = settings.mv !== false ? 'ON' : 'OFF';
 }
+$('s-mv').addEventListener('change', () => {
+  settings.mv = $('s-mv').checked;
+  $('o-mv').textContent = settings.mv ? 'ON' : 'OFF';
+  setSettings(settings);
+});
 $('s-beam').addEventListener('change', () => {
   settings.hitBeam = $('s-beam').checked;
   $('o-beam').textContent = settings.hitBeam ? 'ON' : 'OFF';

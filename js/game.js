@@ -108,7 +108,7 @@ export class PointCloud {
 
 // ---------------------------------------------------------------------------
 export class Game {
-  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd, team, scroll, offset, jacket, label, rivals, captions, life }) {
+  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd, team, scroll, offset, jacket, label, rivals, captions, life, mv }) {
     // 段位道場の体力 { start, miss, good, great, perfect }(%)
     this.lifeOpt = life || null;
     this.life = life ? life.start : 100;
@@ -130,6 +130,7 @@ export class Game {
     this.diff = diff;
     this.color = color;
     this.cloud = cloud;
+    this.mv = mv || null; // オリジナル曲のMV(mv.js)。設定でOFFなら描かない
     this.onEnd = onEnd;
 
     this.notes = notes.map((n) => ({ ...n, done: false, res: null, holding: false, tailDone: !n.end, tailRes: null }));
@@ -418,7 +419,13 @@ export class Game {
     g.fillStyle = bg; g.fillRect(0, 0, W, H);
     const F = this.F;
     const energy = (0.35 + Math.min(1, this.tCombo / 60) * 0.65) * F.pulse;
-    this.cloud.draw(g, W, H, Math.max(0, t), this.bpm, energy, this.color, F.cloud);
+    const mvOn = !!this.mv && this.settings.mv !== false;
+    if (mvOn) {
+      // MVは背景。ノーツが見やすいように少し暗くし、点群の演出は弱める
+      this.mv.draw(g, W, H, Math.max(0, t));
+      g.fillStyle = 'rgba(2,3,10,0.38)'; g.fillRect(0, 0, W, H);
+    }
+    this.cloud.draw(g, W, H, Math.max(0, t), this.bpm, energy, this.color, F.cloud * (mvOn ? 0.3 : 1));
 
     // レーン床(始まりは奥へ伸びていく)
     const zNear = Z_J * 0.82;

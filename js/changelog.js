@@ -2,6 +2,14 @@
 // 大きな機能追加 = 2つ目の数字を上げる / 不具合修正や小さな改善 = 3つ目の数字を上げる
 export const CHANGELOG = [
   {
+    version: '1.42.0', date: '2026-11-13',
+    notes: [
+      'オリジナル曲5曲にMV(ミュージックビデオ)がつきました。プレイ中の背景に、曲の展開に合わせた映像が流れます',
+      'MVつきの曲: LiDAR Rush / Neon Highway / Hyper Sakura / Star Lullaby / Final Protocol(曲リストに MV マーク)',
+      '設定の「MV(対応曲のみ)」でON/OFFを切り替えられます。ノーツが見にくいときや軽くしたいときはOFFに',
+    ],
+  },
+  {
     version: '1.41.0', date: '2026-11-03',
     notes: [
       'ログインを「かるわかGAMESアカウント」に変更しました(かるわかGAMESのほかのゲームと共通のアカウントです)',

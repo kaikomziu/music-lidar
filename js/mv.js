@@ -897,7 +897,8 @@ export const hasMV = (id) => !!MVS[id];
 // ---------------------------------------------------------------------------
 // 再生
 // ---------------------------------------------------------------------------
-export function createMV(id, bpm, offset = 0) {
+// opts.scale / opts.maxW: 裏キャンバスの解像度(動画の書き出しでは高めにする)
+export function createMV(id, bpm, offset = 0, { scale = 0.5, maxW = 800 } = {}) {
   const def = MVS[id];
   if (!def) return null;
   const cv = document.createElement('canvas');
@@ -907,7 +908,7 @@ export function createMV(id, bpm, offset = 0) {
     // g に W×H で描く。t は曲の時刻(秒)
     draw(g, W, H, t) {
       // 裏キャンバスは画面の約半分(最大 800px 幅)
-      const sx = Math.min(0.5, 800 / Math.max(1, W));
+      const sx = Math.min(scale, maxW / Math.max(1, W));
       const w = Math.max(160, Math.round(W * sx)), h = Math.max(90, Math.round(H * sx));
       if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
       const beat = Math.max(0, (t - offset) / spb);

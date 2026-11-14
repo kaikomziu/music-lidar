@@ -10,6 +10,8 @@ const $ = (id) => document.getElementById(id);
 const LEAD_MS = 4000; // スタートの合図から曲の頭までの時間(全員この時刻に曲が始まる)
 const MAX_MEMBERS = 8;
 const COMBO_MS = 500; // プレイ中にコンボを送る間隔
+const ALIVE_MS = 5000; // 生存確認(ping)の間隔
+const DEAD_MS = 16000; // これだけ何も届かなければ切れたとみなす
 const PEER_SRC = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
 const ID_PREFIX = 'mlidar-live-'; // ホストの接続ID = これ + ルームコード
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // 見間違えやすい 0/O・1/I/L は使わない
@@ -29,7 +31,8 @@ let bestRtt = Infinity;
 let liveGame = null; // { getCombo(), round, entry, diff, game }
 let busy = false;
 let net = null; // { peer, host, conns: Map(相手ID → 接続)(ホスト), conn(参加者) }
-let comboTimer = 0, pingTimer = 0, castTimer = 0;
+let comboTimer = 0, pingTimer = 0, castTimer = 0, cbTimer = 0, aliveTimer = 0;
+let lastHeard = 0; // 参加者: 最後にホストから何か届いた時刻
 
 const hostNow = () => Date.now() + clockOff;
 const entryOf = (id) => ui.entries.find((e) => e.id === id && !e.local);
@@ -90,8 +93,8 @@ async function openPeer(id) {
 }
 
 function closeNet() {
-  clearInterval(comboTimer); clearInterval(pingTimer); clearTimeout(castTimer);
-  comboTimer = pingTimer = castTimer = 0;
+  clearInterval(comboTimer); clearInterval(pingTimer); clearTimeout(castTimer); clearTimeout(cbTimer); clearInterval(aliveTimer);
+  comboTimer = pingTimer = castTimer = cbTimer = aliveTimer = 0;
   if (!net) return;
   const n = net;
   net = null;
@@ -124,15 +127,29 @@ function broadcast() {
   castTimer = setTimeout(() => {
     castTimer = 0;
     if (!net?.host || !room) return;
+    clearTimeout(cbTimer); cbTimer = 0; // 全体の状態にコンボも入っているので別送はいらない
     const data = { t: 'state', room: { ...room, me: undefined } };
     for (const c of net.conns.values()) if (c.open) c.send(data);
     onRoomUpdate();
   }, 60);
 }
 
+// コンボだけが変わったときは、ルーム全体ではなく「ID → コンボ」だけを配る(通信量を大きく減らす)
+function castCombos() {
+  if (!net?.host || castTimer || cbTimer) return;
+  cbTimer = setTimeout(() => {
+    cbTimer = 0;
+    if (!net?.host || !room) return;
+    const data = { t: 'cb', c: Object.fromEntries(room.members.filter((m) => m.in && !m.done).map((m) => [m.id, m.combo])) };
+    for (const c of net.conns.values()) if (c.open) c.send(data);
+    onCombos();
+  }, COMBO_MS / 2);
+}
+
 function hostAccept(conn) {
   conn.on('data', (msg) => {
     if (!msg || typeof msg !== 'object') return;
+    conn.seen = Date.now();
     if (msg.t === 'hello') {
       if (room.members.length >= MAX_MEMBERS) { conn.send({ t: 'err', e: 'ROOM_FULL' }); setTimeout(() => conn.close(), 300); return; }
       net.conns.set(conn.peer, conn);
@@ -166,7 +183,7 @@ function hostHandle(id, msg, conn = null) {
       if (room.status === 'play' && m.in && !m.done) return; // プレイ中は変えられない
       if (['easy', 'normal', 'hard'].includes(msg.d)) m.diff = msg.d;
       break;
-    case 'combo': m.combo = Math.max(0, msg.v | 0); break;
+    case 'combo': m.combo = Math.max(0, msg.v | 0); castCombos(); return;
     case 'finish':
       if (msg.round !== room.round || !m.in || m.done) return;
       Object.assign(m, {
@@ -188,25 +205,49 @@ function hostHandle(id, msg, conn = null) {
 function clientListen(conn) {
   conn.on('data', (msg) => {
     if (!msg || typeof msg !== 'object' || !net || net.conn !== conn) return;
+    lastHeard = Date.now();
     if (msg.t === 'state') {
       room = { ...msg.room, me: net.id };
       onRoomUpdate();
+    } else if (msg.t === 'cb') {
+      for (const m of room?.members || []) if (m.id in msg.c && m.id !== room.me) m.combo = msg.c[m.id] | 0;
+      onCombos();
     } else if (msg.t === 'pong') {
       // 往復が一番短かったときの値を使う(いちばん正確)
       const now = Date.now(), rtt = now - msg.c;
       if (rtt <= bestRtt * 1.2) { bestRtt = Math.min(bestRtt, rtt); clockOff = msg.h - (msg.c + now) / 2; }
     }
   });
-  conn.on('close', () => {
-    if (!net || net.conn !== conn) return;
-    closeNet();
-    room = null;
-    ui.toast(ERR.CLOSED, 3500);
-    if (mode === 'room' && ui.current() === 'live') { mode = 'lobby'; renderView(); }
-    else if (mode === 'result') renderResult();
-  });
+  conn.on('close', () => { if (net?.conn === conn) lostHost(); });
 }
-function ping() { if (net?.conn?.open) net.conn.send({ t: 'ping', c: Date.now() }); }
+
+// ホストとの接続が切れた(閉じた・黙って消えた)
+function lostHost() {
+  closeNet();
+  room = null;
+  ui.toast(ERR.CLOSED, 3500);
+  if (mode === 'room' && ui.current() === 'live') { mode = 'lobby'; renderView(); }
+  else if (mode === 'result') renderResult();
+}
+
+function ping() {
+  if (!net?.conn) return;
+  if (Date.now() - lastHeard > DEAD_MS) { lostHost(); return; } // 返事がない = 切れている
+  if (net.conn.open) net.conn.send({ t: 'ping', c: Date.now() });
+}
+
+// ホスト: しばらく何も送ってこない参加者は外す(回線が切れても close が来ないことがある)
+function sweepDead() {
+  if (!net?.host) return;
+  const now = Date.now();
+  for (const [id, c] of net.conns) if (now - (c.seen || 0) > DEAD_MS) { c.close(); hostDrop(id, c); }
+}
+
+// コンボだけ届いたとき: 見えている所だけ描き直す(プレイ中の画面は毎フレーム rivals() を読む)
+function onCombos() {
+  if (mode === 'room' && ui.current() === 'live') renderRoom();
+  else if (mode === 'result') renderResult();
+}
 
 // ルームの状態が届いた(ホストは自分で変えた)ときの処理
 function onRoomUpdate() {
@@ -257,6 +298,7 @@ async function createRoom() {
     net = { peer, host: true, id: peer.id, conns: new Map() };
     clockOff = 0;
     peer.on('connection', hostAccept);
+    aliveTimer = setInterval(sweepDead, ALIVE_MS);
     peer.on('disconnected', () => { try { peer.reconnect(); } catch { /* noop */ } }); // 仲介サーバーとだけ切れた(つながっている人とは続く)
     room = {
       id: code, code, host: peer.id, me: peer.id, song: e.id, diff: ui.diff(), status: 'wait', round: 0, start_at: 0,
@@ -280,18 +322,26 @@ async function joinRoom(code) {
     net.conn = conn;
     // ホストとつながって、最初の状態が届くまで待つ
     await new Promise((res, rej) => {
-      const to = setTimeout(() => rej(new Error('NO_ROOM')), 12000);
-      peer.on('error', (e) => { clearTimeout(to); rej(new Error(e.type === 'peer-unavailable' ? 'NO_ROOM' : 'NET')); });
-      conn.on('open', () => conn.send({ t: 'hello', name: myName(), diff: ui.diff() }));
-      conn.on('data', (msg) => {
-        if (msg?.t === 'err') { clearTimeout(to); rej(new Error(msg.e)); }
-        if (msg?.t === 'state') { clearTimeout(to); room = { ...msg.room, me: peer.id }; res(); }
-      });
+      const onErr = (e) => end(new Error(e.type === 'peer-unavailable' ? 'NO_ROOM' : 'NET'));
+      const onOpen = () => conn.send({ t: 'hello', name: myName(), diff: ui.diff() });
+      const onData = (msg) => {
+        if (msg?.t === 'err') end(new Error(msg.e));
+        if (msg?.t === 'state') { room = { ...msg.room, me: peer.id }; end(); }
+      };
+      const to = setTimeout(() => end(new Error('NO_ROOM')), 12000);
+      // 待ち受け用のリスナーは終わったら外す(残すと同じ状態を二重に処理してしまう)
+      function end(err) {
+        clearTimeout(to);
+        peer.off('error', onErr); conn.off('open', onOpen); conn.off('data', onData);
+        err ? rej(err) : res();
+      }
+      peer.on('error', onErr); conn.on('open', onOpen); conn.on('data', onData);
     });
+    lastHeard = Date.now();
     clientListen(conn);
     // 時計合わせ: 最初に何回か、その後も時々
     for (let i = 0; i < 5; i++) setTimeout(ping, i * 250);
-    pingTimer = setInterval(ping, 5000);
+    pingTimer = setInterval(ping, ALIVE_MS);
     playedRound = room.status === 'play' ? room.round : 0; // ライブ中に入ったら次の曲から
     enterRoom();
   } catch (err) { closeNet(); room = null; ui.toast(errText(err)); }

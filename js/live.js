@@ -1,48 +1,47 @@
-// みんなでライブ: 同じ曲を同時にプレイ。プレイ中は数秒おきに相手のコンボだけ届き、最後は編成込みスコアで競う
-// サーバーへの問い合わせを減らすため、Realtime は使わず数秒おきの RPC 1本(mlidar_live_poll)だけにしている
-import { rpc } from './ranking.js';
+// みんなでライブ: 同じ曲を同時にプレイ。プレイ中はみんなのコンボがほぼリアルタイムで届き、最後は編成込みスコアで競う
+// 通信は WebRTC(ブラウザどうしの直接通信)。ルームを作った人(ホスト)のブラウザがルームの状態を持ち、
+// 参加した人はホストとだけつながる。最初につながるための仲介(シグナリング)だけ PeerJS の公開サーバーを使う。
+// (サーバーにデータを置かないので、ルームはホストがいる間だけ。ホストが抜けると解散)
 import { jacketImg } from './jacket.js';
 import { load } from './storage.js';
 import * as acc from './account.js';
 
 const $ = (id) => document.getElementById(id);
-const LEAD_MS = 4000; // サーバーの開始時刻から曲の頭までの時間(全員この時刻に曲が始まる)
-const POLL_LOBBY = 5000, POLL_ROOM = 2500, POLL_GAME = 3000, POLL_RESULT = 3000;
-const ERR = { NO_ROOM: 'ルームが見つかりません(解散したか、コードが違います)', ROOM_FULL: 'ルームが満員です(8人まで)', NOT_HOST: 'ホストだけが操作できます' };
-const errText = (e) => ERR[e?.message] || acc.errText(e);
+const LEAD_MS = 4000; // スタートの合図から曲の頭までの時間(全員この時刻に曲が始まる)
+const MAX_MEMBERS = 8;
+const COMBO_MS = 500; // プレイ中にコンボを送る間隔
+const PEER_SRC = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
+const ID_PREFIX = 'mlidar-live-'; // ホストの接続ID = これ + ルームコード
+const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // 見間違えやすい 0/O・1/I/L は使わない
+const PEER_OPTS = { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] } };
+const ERR = {
+  NO_ROOM: 'ルームが見つかりません(解散したか、コードが違います)', ROOM_FULL: 'ルームが満員です(8人まで)',
+  NET: 'つながりませんでした。通信環境を確かめて、もう一度試してください', CLOSED: 'ホストとの接続が切れました(ルームが解散しました)',
+};
+const errText = (e) => ERR[e?.message] || String(e?.message || e);
 
-let ui = null; // { entries, show, toast, back, current, esc, jacketURL, startLive, openAccount, diffColor, isFav, toggleFav, bestOf }
-let room = null; // サーバーから来た部屋の状態
-let timer = 0;
+let ui = null; // { entries, show, toast, back, current, esc, jacketURL, startLive, openAccount, diffColor, isFav, toggleFav, bestOf, selected, diff }
+let room = null; // ルームの状態(ホストが持っていて、変わるたびに全員へ配る)
 let mode = 'off'; // off | lobby | room | game | result
 let playedRound = 0;
-let startTimer = 0;
-let clockOff = 0; // サーバー時刻 - 手元の時刻
-let liveGame = null; // { getCombo(), round, entry, diff }
+let clockOff = 0; // ホストの時計 - 自分の時計(ホストは 0)
+let bestRtt = Infinity;
+let liveGame = null; // { getCombo(), round, entry, diff, game }
 let busy = false;
+let net = null; // { peer, host, conns: Map(相手ID → 接続)(ホスト), conn(参加者) }
+let comboTimer = 0, pingTimer = 0, castTimer = 0;
 
-const token = () => load('token', null);
-const serverNow = () => Date.now() + clockOff;
+const hostNow = () => Date.now() + clockOff;
 const entryOf = (id) => ui.entries.find((e) => e.id === id && !e.local);
 const me = () => room?.members.find((m) => m.id === room.me);
-const isHost = () => room && room.host === room.me;
-
-async function call(fn, args) {
-  const t0 = Date.now();
-  const r = await rpc(fn, { p_token: token(), ...args });
-  if (r && r.now) {
-    const off = r.now - (t0 + Date.now()) / 2;
-    clockOff = clockOff ? clockOff * 0.7 + off * 0.3 : off;
-  }
-  return r;
-}
+const isHost = () => !!(room && net?.host);
+const myName = () => acc.getState()?.name || load('name', '') || 'ゲスト';
 
 export function initLive(api) {
   ui = api;
   $('btn-live').addEventListener('click', openLive);
   $('live-create').addEventListener('click', createRoom);
   $('live-join-form').addEventListener('submit', (ev) => { ev.preventDefault(); joinRoom($('live-code').value); });
-  $('live-rooms').addEventListener('click', (ev) => { const b = ev.target.closest('[data-code]'); if (b) joinRoom(b.dataset.code); });
   $('live-leave').addEventListener('click', leaveRoom);
   $('live-start').addEventListener('click', startRound);
   $('live-search').addEventListener('input', () => { pick.q = $('live-search').value; renderPick(true); });
@@ -54,30 +53,176 @@ export function initLive(api) {
     if (!card) return;
     const e = entryOf(card.dataset.id);
     if (star) { ui.toggleFav(e); renderPick(true); return; }
-    if (isHost() && room.status !== 'play' && e.id !== room.song) configRoom(e.id, room.diff);
+    if (isHost() && room.status !== 'play' && e.id !== room.song) configRoom(e.id);
   });
   $('live-diffs').addEventListener('click', (ev) => { const b = ev.target.closest('[data-diff]'); if (b && !b.disabled) setMyDiff(b.dataset.diff); });
   $('live-copy').addEventListener('click', () => {
     const text = `MUSIC LiDAR「みんなでライブ」ルームコード: ${room.code}`;
     navigator.clipboard?.writeText(room.code).then(() => ui.toast('ルームコードをコピーしました'), () => ui.toast(text));
   });
-  $('live-back').addEventListener('click', () => { const r = room; stop(); room = null; mode = 'off'; clearTimeout(startTimer); ui.back(); if (r) call('mlidar_live_leave', { p_room: r.id }).catch(() => {}); });
-  // ページを閉じたら抜ける
-  window.addEventListener('pagehide', () => {
-    if (!room || !token()) return;
-    try {
-      fetch('https://kifnzvktwbomxthzvvgy.supabase.co/rest/v1/rpc/mlidar_live_leave', {
-        method: 'POST', keepalive: true,
-        headers: { apikey: API_KEY, Authorization: 'Bearer ' + API_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ p_token: token(), p_room: room.id }),
-      });
-    } catch { /* noop */ }
+  $('live-back').addEventListener('click', () => { closeNet(); room = null; mode = 'off'; ui.back(); });
+  window.addEventListener('pagehide', () => closeNet()); // ページを閉じたら抜ける
+}
+
+// ---------------------------------------------------------------------------
+// 通信(WebRTC / PeerJS)
+// ---------------------------------------------------------------------------
+function loadPeerJs() {
+  if (window.Peer) return Promise.resolve();
+  return (loadPeerJs.p ||= new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = PEER_SRC; s.async = true;
+    s.onload = () => res();
+    s.onerror = () => { loadPeerJs.p = null; s.remove(); rej(new Error('NET')); };
+    document.head.appendChild(s);
+  }));
+}
+
+// 接続IDを決めてシグナリングサーバーに登録する(id なしなら自動で決まる)
+async function openPeer(id) {
+  await loadPeerJs();
+  return new Promise((res, rej) => {
+    const p = id ? new window.Peer(id, PEER_OPTS) : new window.Peer(PEER_OPTS);
+    const to = setTimeout(() => { p.destroy(); rej(new Error('NET')); }, 12000);
+    p.once('open', () => { clearTimeout(to); res(p); });
+    p.once('error', (e) => { clearTimeout(to); p.destroy(); rej(new Error(e.type === 'unavailable-id' ? 'TAKEN' : 'NET')); });
   });
 }
-const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZm56dmt0d2JvbXh0aHp2dmd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4MzgxMzgsImV4cCI6MjA5MzQxNDEzOH0.M7nXP-u--6J_6rRpgz1cJj21_7KX6MtfTmZy77Xf_IE';
 
-function stop() { clearTimeout(timer); timer = 0; }
-function schedule(fn, ms) { clearTimeout(timer); timer = setTimeout(fn, ms); }
+function closeNet() {
+  clearInterval(comboTimer); clearInterval(pingTimer); clearTimeout(castTimer);
+  comboTimer = pingTimer = castTimer = 0;
+  if (!net) return;
+  const n = net;
+  net = null;
+  try { if (!n.host) n.conn?.send({ t: 'leave' }); } catch { /* noop */ }
+  setTimeout(() => n.peer.destroy(), 100); // 「抜けます」を送り切ってから閉じる
+}
+
+// 自分の操作をホストへ(ホスト自身は直接処理する)
+function send(msg) {
+  if (!net) return;
+  if (net.host) hostHandle(room.me, msg);
+  else if (net.conn?.open) net.conn.send(msg);
+}
+
+// --- ホスト側 ---
+const newMember = (id, name, diff) => ({
+  id, name: String(name || 'ゲスト').slice(0, 16), diff: ['easy', 'normal', 'hard'].includes(diff) ? diff : 'normal',
+  ready: false, in: false, done: false, combo: 0, score: null, raw: null, max_combo: null, fc: false, ap: false,
+});
+
+function randomCode() {
+  let s = '';
+  for (let i = 0; i < 5; i++) s += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+  return s;
+}
+
+// 状態が変わったら全員に配る(短い間にまとめて1回)
+function broadcast() {
+  if (!net?.host || castTimer) return;
+  castTimer = setTimeout(() => {
+    castTimer = 0;
+    if (!net?.host || !room) return;
+    const data = { t: 'state', room: { ...room, me: undefined } };
+    for (const c of net.conns.values()) if (c.open) c.send(data);
+    onRoomUpdate();
+  }, 60);
+}
+
+function hostAccept(conn) {
+  conn.on('data', (msg) => {
+    if (!msg || typeof msg !== 'object') return;
+    if (msg.t === 'hello') {
+      if (room.members.length >= MAX_MEMBERS) { conn.send({ t: 'err', e: 'ROOM_FULL' }); setTimeout(() => conn.close(), 300); return; }
+      net.conns.set(conn.peer, conn);
+      if (!room.members.some((m) => m.id === conn.peer)) room.members.push(newMember(conn.peer, msg.name, msg.diff));
+      conn.send({ t: 'welcome', id: conn.peer });
+      broadcast();
+      return;
+    }
+    if (net.conns.get(conn.peer) !== conn) return;
+    hostHandle(conn.peer, msg, conn);
+  });
+  conn.on('close', () => hostDrop(conn.peer, conn));
+  conn.on('error', () => hostDrop(conn.peer, conn));
+}
+
+function hostDrop(id, conn) {
+  if (!net?.host || net.conns.get(id) !== conn) return;
+  net.conns.delete(id);
+  room.members = room.members.filter((m) => m.id !== id);
+  broadcast();
+}
+
+// 参加者(とホスト自身)からの操作を反映する
+function hostHandle(id, msg, conn = null) {
+  const m = room?.members.find((x) => x.id === id);
+  if (msg.t === 'ping') { conn?.send({ t: 'pong', c: msg.c, h: Date.now() }); return; }
+  if (!m) return;
+  switch (msg.t) {
+    case 'ready': m.ready = !!msg.v; break;
+    case 'diff':
+      if (room.status === 'play' && m.in && !m.done) return; // プレイ中は変えられない
+      if (['easy', 'normal', 'hard'].includes(msg.d)) m.diff = msg.d;
+      break;
+    case 'combo': m.combo = Math.max(0, msg.v | 0); break;
+    case 'finish':
+      if (msg.round !== room.round || !m.in || m.done) return;
+      Object.assign(m, {
+        done: true, score: msg.score | 0, raw: msg.raw | 0, max_combo: msg.max_combo | 0,
+        fc: !!msg.fc, ap: !!msg.ap, combo: msg.combo | 0,
+      });
+      break;
+    case 'leave':
+      net.conns.get(id)?.close();
+      net.conns.delete(id);
+      room.members = room.members.filter((x) => x.id !== id);
+      break;
+    default: return;
+  }
+  broadcast();
+}
+
+// --- 参加者側 ---
+function clientListen(conn) {
+  conn.on('data', (msg) => {
+    if (!msg || typeof msg !== 'object' || !net || net.conn !== conn) return;
+    if (msg.t === 'state') {
+      room = { ...msg.room, me: net.id };
+      onRoomUpdate();
+    } else if (msg.t === 'pong') {
+      // 往復が一番短かったときの値を使う(いちばん正確)
+      const now = Date.now(), rtt = now - msg.c;
+      if (rtt <= bestRtt * 1.2) { bestRtt = Math.min(bestRtt, rtt); clockOff = msg.h - (msg.c + now) / 2; }
+    }
+  });
+  conn.on('close', () => {
+    if (!net || net.conn !== conn) return;
+    closeNet();
+    room = null;
+    ui.toast(ERR.CLOSED, 3500);
+    if (mode === 'room' && ui.current() === 'live') { mode = 'lobby'; renderView(); }
+    else if (mode === 'result') renderResult();
+  });
+}
+function ping() { if (net?.conn?.open) net.conn.send({ t: 'ping', c: Date.now() }); }
+
+// ルームの状態が届いた(ホストは自分で変えた)ときの処理
+function onRoomUpdate() {
+  if (!room) return;
+  // 音源の準備ができたかどうかをホストに知らせる
+  const m = me();
+  if (m && m.ready !== isReady()) send({ t: 'ready', v: isReady() });
+  if (mode === 'room') {
+    if (ui.current() === 'live') { prepare(); renderRoom(); }
+    checkStart();
+  } else if (mode === 'result') {
+    renderResult();
+    // ホストが次の曲を始めたら、リザルトからそのままルームへ
+    if (ui.current() === 'result' && room.status === 'play' && room.round > playedRound) backToRoom();
+  }
+}
 
 // ---------------------------------------------------------------------------
 // ロビー
@@ -85,35 +230,10 @@ function schedule(fn, ms) { clearTimeout(timer); timer = setTimeout(fn, ms); }
 export function openLive() {
   if (!acc.isLoggedIn()) { ui.toast('みんなでライブはログインすると遊べます'); ui.openAccount(); return; }
   ui.show('live');
-  if (room) { mode = 'room'; renderRoom(); pollRoom(); return; }
+  if (room) { mode = 'room'; renderView(); renderRoom(); return; }
   mode = 'lobby';
   renderView();
-  pollLobby();
-}
-
-async function pollLobby() {
-  if (mode !== 'lobby' || ui.current() !== 'live') return;
-  // タブが見えていない間はルーム一覧を取りに行かない(Supabaseの転送量節約)。見えたら次の周期で再開
-  if (document.hidden) { schedule(pollLobby, POLL_LOBBY); return; }
-  try {
-    const list = await call('mlidar_live_list', {});
-    if (mode !== 'lobby') return;
-    renderRooms(list);
-  } catch (e) { console.error(e); $('live-rooms').innerHTML = `<li class="empty">${ui.esc(errText(e))}</li>`; }
-  schedule(pollLobby, POLL_LOBBY);
-}
-
-function renderRooms(list) {
-  $('live-rooms').innerHTML = list.length ? list.map((r) => {
-    const e = entryOf(r.song);
-    return `<li><button class="live-room" data-code="${ui.esc(r.code)}">
-      ${e ? `<img src="${ui.jacketURL(e, 96)}" alt="">` : '<i></i>'}
-      <span class="lr-main"><b>${ui.esc(e?.title || r.song)}</b><small style="color:${ui.diffColor[r.diff]}">${r.diff.toUpperCase()}${e ? ' Lv' + e.levels[r.diff] : ''}</small></span>
-      <span class="lr-host">${ui.esc(r.host || '')} のルーム</span>
-      <span class="lr-n">${r.n}/8</span>
-      <span class="lr-st ${r.status}">${r.status === 'play' ? 'ライブ中' : '募集中'}</span>
-    </button></li>`;
-  }).join('') : '<li class="empty">いま開いているルームはありません。ルームを作ってみんなを呼ぼう!</li>';
+  loadPeerJs().catch(() => {}); // 先に読み込んでおく
 }
 
 function renderView() {
@@ -126,17 +246,55 @@ async function createRoom() {
   const cur = ui.selected();
   const e = cur && !cur.local ? cur : ui.entries.find((x) => !x.local);
   busy = true;
-  try { room = await call('mlidar_live_create', { p_song: e.id, p_diff: ui.diff() }); enterRoom(); }
-  catch (err) { ui.toast(errText(err)); }
-  finally { busy = false; }
+  $('live-create').disabled = true;
+  try {
+    let peer = null, code = '';
+    for (let k = 0; k < 4 && !peer; k++) {
+      code = randomCode();
+      try { peer = await openPeer(ID_PREFIX + code); } catch (err) { if (err.message !== 'TAKEN') throw err; }
+    }
+    if (!peer) throw new Error('NET');
+    net = { peer, host: true, id: peer.id, conns: new Map() };
+    clockOff = 0;
+    peer.on('connection', hostAccept);
+    peer.on('disconnected', () => { try { peer.reconnect(); } catch { /* noop */ } }); // 仲介サーバーとだけ切れた(つながっている人とは続く)
+    room = {
+      id: code, code, host: peer.id, me: peer.id, song: e.id, diff: ui.diff(), status: 'wait', round: 0, start_at: 0,
+      members: [newMember(peer.id, myName(), ui.diff())],
+    };
+    playedRound = 0;
+    enterRoom();
+  } catch (err) { closeNet(); room = null; ui.toast(errText(err)); }
+  finally { busy = false; $('live-create').disabled = false; }
 }
 
 async function joinRoom(code) {
   code = String(code || '').trim().toUpperCase();
   if (!code || busy) return;
   busy = true;
-  try { room = await call('mlidar_live_join', { p_code: code }); playedRound = room.round; enterRoom(); }
-  catch (err) { ui.toast(errText(err)); }
+  try {
+    const peer = await openPeer();
+    net = { peer, host: false, id: peer.id, conn: null };
+    bestRtt = Infinity; clockOff = 0;
+    const conn = peer.connect(ID_PREFIX + code, { reliable: true });
+    net.conn = conn;
+    // ホストとつながって、最初の状態が届くまで待つ
+    await new Promise((res, rej) => {
+      const to = setTimeout(() => rej(new Error('NO_ROOM')), 12000);
+      peer.on('error', (e) => { clearTimeout(to); rej(new Error(e.type === 'peer-unavailable' ? 'NO_ROOM' : 'NET')); });
+      conn.on('open', () => conn.send({ t: 'hello', name: myName(), diff: ui.diff() }));
+      conn.on('data', (msg) => {
+        if (msg?.t === 'err') { clearTimeout(to); rej(new Error(msg.e)); }
+        if (msg?.t === 'state') { clearTimeout(to); room = { ...msg.room, me: peer.id }; res(); }
+      });
+    });
+    clientListen(conn);
+    // 時計合わせ: 最初に何回か、その後も時々
+    for (let i = 0; i < 5; i++) setTimeout(ping, i * 250);
+    pingTimer = setInterval(ping, 5000);
+    playedRound = room.status === 'play' ? room.round : 0; // ライブ中に入ったら次の曲から
+    enterRoom();
+  } catch (err) { closeNet(); room = null; ui.toast(errText(err)); }
   finally { busy = false; }
 }
 
@@ -144,18 +302,15 @@ function enterRoom() {
   mode = 'room';
   pick.key = '';
   renderView();
-  renderRoom();
   prepare();
-  schedule(pollRoom, 300);
+  renderRoom();
+  if (isHost()) broadcast(); else onRoomUpdate();
 }
 
-async function leaveRoom() {
-  const r = room;
+function leaveRoom() {
+  closeNet();
   room = null; mode = 'lobby'; playedRound = 0;
-  clearTimeout(startTimer);
   renderView();
-  pollLobby();
-  if (r) call('mlidar_live_leave', { p_room: r.id }).catch(() => {});
 }
 
 // ---------------------------------------------------------------------------
@@ -163,23 +318,9 @@ async function leaveRoom() {
 // ---------------------------------------------------------------------------
 function prepare() {
   const e = entryOf(room?.song);
-  if (e && !e.buffer && !e.rendering) e.load().then(() => { if (mode === 'room') renderRoom(); }).catch(() => {});
+  if (e && !e.buffer && !e.rendering) e.load().then(() => { if (room) onRoomUpdate(); }).catch(() => {});
 }
 const isReady = () => !!entryOf(room?.song)?.buffer;
-
-async function pollRoom() {
-  if (!room || mode !== 'room') return;
-  try {
-    room = await call('mlidar_live_poll', { p_room: room.id, p_ready: isReady(), p_combo: null });
-  } catch (e) {
-    if (e.message === 'NO_ROOM') { ui.toast('ルームから外れました'); room = null; if (ui.current() === 'live') { mode = 'lobby'; renderView(); pollLobby(); } return; }
-    console.error(e);
-  }
-  if (mode !== 'room') return;
-  if (ui.current() === 'live') { prepare(); renderRoom(); }
-  checkStart();
-  schedule(pollRoom, POLL_ROOM);
-}
 
 function renderRoom() {
   if (!room) return;
@@ -205,7 +346,7 @@ function renderRoom() {
     else st = m.ready ? '<span class="lm-st ok">READY</span>' : '<span class="lm-st wait">準備中…</span>';
     return `<li class="${m.id === room.me ? 'me' : ''}"><span class="lm-name">${m.id === room.host ? '<i class="lm-host">HOST</i>' : ''}${ui.esc(m.name)}</span>${diffTag(m.diff)}${st}</li>`;
   }).join('');
-  $('live-count').textContent = `${room.members.length}/8`;
+  $('live-count').textContent = `${room.members.length}/${MAX_MEMBERS}`;
   // スタート
   const btn = $('live-start');
   const anyPlaying = playing && room.members.some((m) => m.in && !m.done);
@@ -213,10 +354,9 @@ function renderRoom() {
   btn.hidden = !host;
   btn.disabled = anyPlaying || !isReady();
   btn.innerHTML = anyPlaying ? 'ライブ中…' : !isReady() ? '音源を準備中…' : notReady ? `スタート <small>(準備中 ${notReady}人)</small>` : 'ライブ スタート!';
-  const cd = 0;
-  $('live-msg').textContent = cd ? `まもなく開始… ${cd}` :
+  $('live-msg').textContent =
     anyPlaying ? (me()?.in ? '' : '次の曲から参加できます。終わるまで待っていてね') :
-    host ? (room.members.length < 2 ? 'ルームコードを友だちに教えて呼ぼう。1人でもスタートできます' : '全員そろったらスタート!') :
+    host ? (room.members.length < 2 ? 'ルームコードを友だちに教えて呼ぼう。1人でもスタートできます(このページを閉じるとルームは解散します)' : '全員そろったらスタート!') :
     'ホストがスタートするのを待っています…';
 }
 
@@ -247,7 +387,7 @@ function pickSongs(d) {
   return by ? list.sort(by) : list;
 }
 
-// ポーリングのたびに作り直すとスクロールがずれるので、条件が変わったときだけ描き直す
+// 状態が届くたびに作り直すとスクロールがずれるので、条件が変わったときだけ描き直す
 function renderPick(force = false) {
   if (!room || !isHost()) return;
   const d = me()?.diff || room.diff;
@@ -276,33 +416,33 @@ function renderPick(force = false) {
 
 const diffTag = (d) => `<i class="lm-diff" style="--dc:${ui.diffColor[d] || '#fff'}">${String(d || '').toUpperCase()}${entryOf(room?.song) ? ' ' + entryOf(room.song).levels[d] : ''}</i>`;
 
-async function setMyDiff(d) {
-  if (!room || busy || me()?.diff === d) return;
+function setMyDiff(d) {
   const m = me();
-  if (m) { m.diff = d; renderRoom(); } // 先に見た目だけ変える
-  busy = true;
-  try { room = await call('mlidar_live_diff', { p_room: room.id, p_diff: d }); renderRoom(); }
-  catch (e) { ui.toast(errText(e)); }
-  finally { busy = false; }
+  if (!room || !m || m.diff === d) return;
+  m.diff = d; // 先に見た目だけ変える
+  renderRoom();
+  send({ t: 'diff', d });
 }
 
-async function configRoom(song, diff) {
-  if (!isHost() || busy) return;
-  busy = true;
-  try { room = await call('mlidar_live_config', { p_room: room.id, p_song: song, p_diff: diff }); prepare(); renderRoom(); }
-  catch (e) { ui.toast(errText(e)); }
-  finally { busy = false; }
+// 曲を変える(ホストだけ)。みんな新しい曲の準備からやり直し
+function configRoom(song) {
+  if (!isHost() || room.status === 'play' && room.members.some((m) => m.in && !m.done)) return;
+  room.song = song;
+  for (const m of room.members) m.ready = false;
+  prepare();
+  broadcast();
 }
 
-async function startRound() {
-  if (!isHost() || busy) return;
-  busy = true;
-  try { room = await call('mlidar_live_start', { p_room: room.id }); renderRoom(); checkStart(); }
-  catch (e) { ui.toast(errText(e)); }
-  finally { busy = false; }
+function startRound() {
+  if (!isHost() || room.members.some((m) => m.in && !m.done) && room.status === 'play') return;
+  room.round++;
+  room.status = 'play';
+  room.start_at = Date.now();
+  for (const m of room.members) Object.assign(m, { in: true, done: false, combo: 0, score: null, raw: null, max_combo: null, fc: false, ap: false });
+  broadcast();
 }
 
-// 開始の合図が来たらすぐ読み込みに入り、曲の頭は全員「サーバーの開始時刻 + LEAD_MS」にそろえる
+// 開始の合図が来たらすぐ読み込みに入り、曲の頭は全員「ホストの開始時刻 + LEAD_MS」にそろえる
 // (読み込みが間に合わなかった人は、その時点の位置から途中参加になる)
 function checkStart() {
   if (!room || room.status !== 'play' || room.round <= playedRound) return;
@@ -313,15 +453,21 @@ function checkStart() {
   if (!e) return;
   const diff = m.diff || room.diff, round = room.round;
   mode = 'game';
-  stop();
   liveGame = { round, entry: e, diff, getCombo: () => 0 };
-  liveHooks.syncAt = performance.now() + (room.start_at + LEAD_MS - serverNow());
+  liveHooks.syncAt = performance.now() + (room.start_at + LEAD_MS - hostNow());
   ui.startLive(e, diff, liveHooks);
-  schedule(pollGame, POLL_GAME);
+  // 自分のコンボを送る(変わったときだけ)
+  let last = -1;
+  clearInterval(comboTimer);
+  comboTimer = setInterval(() => {
+    if (mode !== 'game' || !liveGame) { clearInterval(comboTimer); return; }
+    const v = liveGame.getCombo();
+    if (v !== last) { last = v; send({ t: 'combo', v }); }
+  }, COMBO_MS);
 }
 
 // ---------------------------------------------------------------------------
-// プレイ中: 数秒おきに自分のコンボを送り、相手のコンボを受け取る
+// プレイ中
 // ---------------------------------------------------------------------------
 const liveHooks = {
   attach(game) { liveGame.getCombo = () => game.tCombo; liveGame.game = game; },
@@ -336,57 +482,27 @@ const liveHooks = {
   quit: () => quitRound(),
 };
 
-async function pollGame() {
-  if (!room || mode !== 'game') return;
-  try { room = await call('mlidar_live_poll', { p_room: room.id, p_ready: true, p_combo: liveGame.getCombo() }); }
-  catch (e) { console.error(e); }
-  if (mode === 'game') schedule(pollGame, POLL_GAME);
-}
-
-async function finishRound(r) {
+function finishRound(r) {
   mode = 'result';
-  stop();
+  clearInterval(comboTimer);
   const round = liveGame.round;
   liveGame.game = null;
+  send({ t: 'finish', round, score: r.teamScore, raw: r.score, max_combo: r.tMaxCombo ?? r.maxCombo, fc: r.fc, ap: r.ap, combo: liveGame.getCombo?.() || 0 });
   renderResult();
-  try {
-    room = await call('mlidar_live_finish', {
-      p_room: room.id, p_round: round, p_score: r.teamScore, p_raw: r.score, p_max_combo: r.tMaxCombo ?? r.maxCombo,
-      p_fc: r.fc, p_ap: r.ap, p_combo: liveGame.getCombo?.() || 0,
-    });
-  } catch (e) { console.error(e); }
-  pollResult();
 }
 
 // 途中でやめた: その時点のスコアで終わったことにしてルームへ
-async function quitRound() {
+function quitRound() {
   const g = liveGame?.game;
-  if (g && room) {
-    const r = { teamScore: g.teamScore, score: g.score, tMaxCombo: g.tMaxCombo, fc: false, ap: false };
-    mode = 'result';
-    try {
-      room = await call('mlidar_live_finish', { p_room: room.id, p_round: liveGame.round, p_score: r.teamScore, p_raw: r.score, p_max_combo: r.tMaxCombo, p_fc: false, p_ap: false, p_combo: g.tCombo });
-    } catch (e) { console.error(e); }
-  }
+  clearInterval(comboTimer);
+  if (g && room) send({ t: 'finish', round: liveGame.round, score: g.teamScore, raw: g.score, max_combo: g.tMaxCombo, fc: false, ap: false, combo: g.tCombo });
   backToRoom();
-}
-
-async function pollResult() {
-  if (!room || mode !== 'result') return;
-  renderResult();
-  if (ui.current() !== 'result') return;
-  // ホストが次の曲を始めたら、リザルトからそのままルームへ
-  if (room.status === 'play' && room.round > playedRound) { backToRoom(); return; }
-  schedule(async () => {
-    if (mode !== 'result' || !room) return;
-    try { room = await call('mlidar_live_poll', { p_room: room.id, p_ready: true, p_combo: null }); } catch (e) { console.error(e); }
-    pollResult();
-  }, POLL_RESULT);
 }
 
 function renderResult() {
   const box = $('r-live');
-  if (!box || !room) return;
+  if (!box) return;
+  if (!room) { box.innerHTML = `<div class="lv-head"><b>LIVE RESULT</b><span>${ERR.CLOSED}</span></div>`; return; }
   const list = room.members.filter((m) => m.in).sort((a, b) => (b.done - a.done) || ((b.score ?? -1) - (a.score ?? -1)));
   const waiting = list.filter((m) => !m.done).length;
   let rank = 0, prev = null;
@@ -408,13 +524,14 @@ function renderResult() {
 
 export function backToRoom() {
   liveGame = null;
+  clearInterval(comboTimer);
   pick.key = ''; // 記録(FC など)が変わっているかもしれない
   if (!room) { openLive(); return; }
   mode = 'room';
   ui.show('live');
   renderView();
   renderRoom();
-  schedule(pollRoom, 200);
+  onRoomUpdate();
 }
 
 export const inRoom = () => !!room;

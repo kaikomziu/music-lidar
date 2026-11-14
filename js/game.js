@@ -251,6 +251,7 @@ export class Game {
     this.ended = true;
     cancelAnimationFrame(this.raf);
     try { this.src.stop(); } catch { /* not started */ }
+    this.mv?.destroy?.(); // 動画MVなら再生を止めて手放す
     getCtx().resume();
   }
 

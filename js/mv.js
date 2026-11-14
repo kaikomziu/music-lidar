@@ -1128,7 +1128,46 @@ const MVS = {
   'kawaii-bubble': kawaiiBubble,
   'crimson-rumba': crimsonRumba,
 };
-export const hasMV = (id) => !!MVS[id]; // 手作りのMVがあるか(曲リストの MV マーク用)
+// 動画のMV(配布されている映像素材を使う曲)。動画は曲の頭(0秒)にそろえて切り出してある
+//  INMU KING: YAJU-MC(やじゅまん)が個別に配布している映像素材
+const VIDEO_MVS = {
+  'inmu-king': { src: 'video/inmu-king.mp4' },
+};
+export const hasMV = (id) => !!(MVS[id] || VIDEO_MVS[id]); // MVがあるか(曲リストの MV マーク用)
+
+// 動画MV: 曲の時刻に合わせて動画を再生し、画面いっぱい(はみ出す分は切る)に描く
+//  動画が読み込めるまで・読み込めなかったときは fallback(自動MV)を描く
+function createVideoMV(v, fallback) {
+  const video = document.createElement('video');
+  video.muted = true; video.playsInline = true; video.preload = 'auto'; video.crossOrigin = 'anonymous';
+  const url = new URL('../' + v.src, import.meta.url).href;
+  let failed = false, idle = 0, lastT = -1, lastAt = 0, calls = 0;
+  video.addEventListener('error', () => { failed = true; });
+  const stop = () => { if (!video.paused) video.pause(); };
+  return {
+    draw(g, W, H, t) {
+      // 1回だけ描く用途(共有画像)では動画を読み込まない。続けて描かれたら読み込み開始
+      if (++calls === 2) video.src = url;
+      clearTimeout(idle);
+      idle = setTimeout(stop, 700); // 描かれなくなった(一時停止・終了)ら止める
+      const now = performance.now();
+      const moving = t !== lastT && now - lastAt < 1000; // 曲が進んでいる(重くてコマ落ちしていても)
+      lastT = t; lastAt = now;
+      if (failed || t > video.duration) { fallback?.draw(g, W, H, t); return; }
+      // 大きくずれたらシーク。小さなずれは再生速度を少し変えて追いつかせる(シークし直すとかえって遅れるため)
+      const d = video.currentTime - t;
+      if (Math.abs(d) > (moving ? 0.3 : 0.04) && !video.seeking) video.currentTime = t + (moving ? 0.08 : 0);
+      else if (moving) video.playbackRate = Math.min(1.1, Math.max(0.9, 1 - d));
+      if (moving && video.paused) video.play().catch(() => {});
+      else if (!moving) stop();
+      if (video.readyState < 2) { fallback?.draw(g, W, H, t); return; }
+      const vw = video.videoWidth, vh = video.videoHeight;
+      const k = Math.max(W / vw, H / vh), dw = vw * k, dh = vh * k;
+      g.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    },
+    destroy() { clearTimeout(idle); stop(); video.removeAttribute('src'); video.load(); },
+  };
+}
 
 // ---------------------------------------------------------------------------
 // 再生
@@ -1136,6 +1175,7 @@ export const hasMV = (id) => !!MVS[id]; // 手作りのMVがあるか(曲リス�
 // opts.scale / opts.maxW: 裏キャンバスの解像度(動画の書き出しでは高めにする)
 // auto: 手作りのMVがない曲用の情報 { title, genre, color, sections }(あれば自動MVを作る)
 export function createMV(id, bpm, offset = 0, { scale = 0.5, maxW = 800 } = {}, auto = null) {
+  if (VIDEO_MVS[id]) return createVideoMV(VIDEO_MVS[id], auto ? createMV(null, bpm, offset, { scale, maxW }, auto) : null);
   const def = MVS[id] || (auto ? autoDef(auto) : null);
   if (!def) return null;
   const cv = document.createElement('canvas');

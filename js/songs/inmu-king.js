@@ -1,6 +1,7 @@
 // 音源ファイルを使う曲。
 // 音楽: YAJU-MC(やじゅまん)「INMU KING」 ニコニ・コモンズ nc499430 https://commons.nicovideo.jp/works/nc499430
 // 利用条件: 非収益での転載・複製・無料再配布・ゲームへの組み込みは事前連絡なしで可(配布ページの「その他独自に定める条件」より)。
+// MV: YAJU-MC が個別に配布している映像素材を、曲の頭にそろえて切り出したもの(video/inmu-king.mp4。js/mv.js の VIDEO_MVS)
 // 譜面は歌声(原曲 − オフボーカル)の音節に合わせ、BPM 133 の16分グリッドにそろえたもの(inmu-king.data.js)。
 import data from './inmu-king.data.js';
 

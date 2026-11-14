@@ -884,6 +884,241 @@ const kawaiiBubble = {
   ],
 };
 
+// ---------------------------------------------------------------------------
+// Crimson Rumba(フラメンコ): ギターの飾り穴・扇と水玉・アーチの回廊・バラ・炎・アラベスク模様
+// ---------------------------------------------------------------------------
+const CR = { bg: ['#14020a', '#3d0713'], red: '#ff3d4f', deep: '#a3001b', gold: '#ffc857', cream: '#ffe8c2', ink: '#0b0105' };
+const SPARKS = table(70, 211, (r) => ({ x: r(), y: r(), sp: 0.12 + r() * 0.3, wob: r() * TAU, s: 0.6 + r() * 1.6 }));
+const ROSE_FALL = table(26, 223, (r) => ({ x: r(), y: r(), sp: 0.05 + r() * 0.07, rot: r() * TAU, rs: (r() - 0.5) * 2, s: 0.6 + r() * 0.8 }));
+
+// 水玉(フラメンコの衣装の柄)。斜めにゆっくり流れる(2段で1周期なのでつなぎ目が出ない)
+function lunares(c, col, size, speed, alpha = 1) {
+  const g = c.g, step = size * 4.2, rowH = step * 0.866, k = frac(c.t * speed);
+  const ox = k * step, oy = k * rowH * 2;
+  g.fillStyle = col; g.globalAlpha = alpha;
+  const r = size * (1 + 0.22 * c.pulse);
+  for (let row = -3; row * rowH < c.h + step; row++) {
+    const y = row * rowH + oy;
+    for (let x = -step * 2; x < c.w + step; x += step) {
+      g.beginPath(); g.arc(x + ox + (((row % 2) + 2) % 2) * step / 2, y, r, 0, TAU); g.fill();
+    }
+  }
+  g.globalAlpha = 1;
+}
+// 扇(アバニコ)。open=0で閉じて 1で半円に開く
+function fan(c, x, y, R, open, rot, colA, colB, alpha = 1) {
+  const g = c.g, n = 14, span = Math.PI * (0.08 + 0.92 * clamp01(open)), a0 = -Math.PI / 2 - span / 2;
+  g.save(); g.translate(x, y); g.rotate(rot); g.globalAlpha = clamp01(alpha);
+  for (let i = 0; i < n; i++) {
+    const s = a0 + span * i / n, e = s + span / n;
+    g.fillStyle = i % 2 ? colA : colB;
+    g.beginPath(); g.arc(0, 0, R, s, e); g.arc(0, 0, R * 0.2, e, s, true); g.closePath(); g.fill();
+  }
+  g.fillStyle = CR.cream; // レースのふち
+  for (let i = 0; i <= n * 2; i++) { const a = a0 + span * i / (n * 2); g.beginPath(); g.arc(Math.cos(a) * R, Math.sin(a) * R, R * 0.035, 0, TAU); g.fill(); }
+  g.strokeStyle = CR.ink; g.lineWidth = Math.max(1, R * 0.014); // 骨
+  for (let i = 0; i <= n; i++) { const a = a0 + span * i / n; g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a) * R * 0.97, Math.sin(a) * R * 0.97); g.stroke(); }
+  g.fillStyle = CR.gold; g.beginPath(); g.arc(0, 0, R * 0.07, 0, TAU); g.fill();
+  g.restore();
+}
+// ギターの飾り穴(ロゼッタ): 小さなタイルを同心円に並べる
+function rosette(c, x, y, R, rot, glow = 0) {
+  const g = c.g;
+  g.save(); g.translate(x, y);
+  g.fillStyle = CR.ink; g.beginPath(); g.arc(0, 0, R * 0.62, 0, TAU); g.fill();
+  const rings = [[0.66, 40, CR.gold, CR.deep], [0.74, 48, CR.cream, CR.red], [0.82, 56, CR.deep, CR.gold], [0.9, 64, CR.red, CR.cream]];
+  rings.forEach(([rr, n, a, b], j) => {
+    for (let i = 0; i < n; i++) {
+      const ang = rot * (j % 2 ? -1 : 1) + i * TAU / n;
+      g.fillStyle = (i + j) % 2 ? a : b;
+      g.globalAlpha = 0.75 + 0.25 * glow;
+      g.save(); g.rotate(ang); g.fillRect(R * rr, -R * 0.03, R * 0.07, R * 0.06); g.restore();
+    }
+  });
+  g.globalAlpha = 1;
+  g.strokeStyle = CR.gold; g.lineWidth = Math.max(1, R * 0.015);
+  for (const rr of [0.64, 0.98]) { g.beginPath(); g.arc(0, 0, R * rr, 0, TAU); g.stroke(); }
+  g.restore();
+}
+// ろうそく
+function candle(c, x, base, s, ph) {
+  const g = c.g, fl = 1 + 0.18 * Math.sin(c.t * 11 + ph) + 0.1 * Math.sin(c.t * 23 + ph * 2);
+  g.fillStyle = CR.cream; g.fillRect(x - s * 0.12, base - s, s * 0.24, s);
+  const fy = base - s - s * 0.22 * fl;
+  const gr = g.createRadialGradient(x, fy, 0, x, fy, s * 0.9);
+  gr.addColorStop(0, 'rgba(255,200,87,0.45)'); gr.addColorStop(1, 'rgba(255,61,79,0)');
+  g.fillStyle = gr; g.beginPath(); g.arc(x, fy, s * 0.9, 0, TAU); g.fill();
+  g.fillStyle = CR.gold;
+  g.beginPath(); g.moveTo(x, fy - s * 0.25 * fl); g.quadraticCurveTo(x + s * 0.11, fy + s * 0.05, x, fy + s * 0.14); g.quadraticCurveTo(x - s * 0.11, fy + s * 0.05, x, fy - s * 0.25 * fl); g.fill();
+}
+// ムーア風の馬蹄形アーチが奥から近づいてくる回廊
+function arcade(c, speed, col) {
+  const g = c.g, n = 9, off = frac(c.t * speed), hy = c.h * 0.5;
+  g.save(); g.lineCap = 'round';
+  for (let i = n - 1; i >= 0; i--) {
+    const d = (i + 1 - off) / n, k = 0.2 / d;
+    const a = clamp01((1 - d) * 1.6) * clamp01((d - 0.03) * 7);
+    if (a <= 0) continue;
+    const w = c.w * 0.42 * k, base = hy + c.h * 0.42 * k, top = base - c.h * 0.8 * k;
+    const r = (w / 2) * 1.16, cy = top + r, aL = Math.acos(-w / (2 * r)), aR = Math.acos(w / (2 * r));
+    g.globalAlpha = a; g.strokeStyle = col; g.lineWidth = 0.6 + 3.2 * k;
+    g.beginPath(); g.moveTo(c.w / 2 - w / 2, base); g.lineTo(c.w / 2 - w / 2, cy + Math.sin(aL) * r);
+    g.arc(c.w / 2, cy, r, aL, aR); g.lineTo(c.w / 2 + w / 2, base); g.stroke();
+    // ちょうちん(拍で明るくなる)
+    const lx = c.w / 2 + Math.sin(c.t * 1.6 + i) * w * 0.05, ly = top + r * 0.55;
+    g.fillStyle = CR.gold; g.shadowColor = CR.gold; g.shadowBlur = 6 + 10 * c.pulse;
+    g.beginPath(); g.arc(lx, ly, Math.max(1, c.h * 0.012 * k * (1 + 0.3 * c.pulse)), 0, TAU); g.fill();
+    g.shadowBlur = 0;
+  }
+  g.restore();
+}
+// バラ: 花びらをらせん状に重ねる。bloom=0でつぼみ 1で満開
+function rose(c, x, y, R, bloom, rot, alpha = 1) {
+  const g = c.g, N = 36, b = clamp01(bloom);
+  g.save(); g.translate(x, y); g.rotate(rot); g.globalAlpha = clamp01(alpha);
+  for (let k = N - 1; k >= 0; k--) { // 外側から描いて内側を上に重ねる
+    const u = k / N, ang = k * 2.39996;
+    const r = R * (0.08 + 0.62 * Math.sqrt(u)) * (0.3 + 0.7 * b);
+    const ps = R * (0.2 + 0.28 * u) * (0.45 + 0.55 * b);
+    g.fillStyle = `hsl(352,85%,${16 + u * 34}%)`;
+    g.strokeStyle = `hsl(350,90%,${8 + u * 14}%)`; g.lineWidth = Math.max(0.8, R * 0.012);
+    g.beginPath(); g.ellipse(Math.cos(ang) * r, Math.sin(ang) * r, ps, ps * 0.66, ang, 0, TAU); g.fill(); g.stroke();
+  }
+  g.restore();
+}
+function fallingRose(c, speed = 1, alpha = 1) {
+  const g = c.g;
+  for (const p of ROSE_FALL) {
+    const y = frac(p.y + c.t * p.sp * speed), x = p.x + Math.sin(c.t * 0.8 + p.rot) * 0.04;
+    const s = c.h * 0.018 * p.s;
+    g.save(); g.translate(x * c.w, y * c.h); g.rotate(p.rot + c.t * p.rs); g.globalAlpha = alpha * 0.85;
+    g.fillStyle = CR.red; g.beginPath(); g.ellipse(0, 0, s, s * 0.6, 0, 0, TAU); g.fill();
+    g.fillStyle = CR.deep; g.beginPath(); g.ellipse(-s * 0.3, 0, s * 0.45, s * 0.3, 0, 0, TAU); g.fill();
+    g.restore();
+  }
+}
+// 炎: 3色を重ね、波の足し合わせでゆらす
+function flames(c, base, hgt, alpha = 1) {
+  const g = c.g;
+  g.save(); g.globalCompositeOperation = 'lighter';
+  for (const [col, hk, sp] of [[CR.deep, 1, 0.9], [CR.red, 0.72, 1.3], [CR.gold, 0.42, 1.8]]) {
+    const gr = g.createLinearGradient(0, base - hgt * hk * 1.3, 0, base);
+    gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, col);
+    g.fillStyle = gr; g.globalAlpha = alpha * 0.85;
+    g.beginPath(); g.moveTo(0, c.h);
+    const N = 54;
+    for (let i = 0; i <= N; i++) {
+      const u = (i / N) * 9;
+      const v = 0.55 + 0.22 * Math.sin(u * 1.7 + c.t * sp * 3) + 0.15 * Math.sin(u * 3.9 - c.t * sp * 5) + 0.1 * Math.sin(u * 7.3 + c.t * sp * 7);
+      g.lineTo(c.w * i / N, base - hgt * hk * v * (1 + 0.35 * c.pulse) * (i % 2 ? 0.7 : 1));
+    }
+    g.lineTo(c.w, c.h); g.closePath(); g.fill();
+  }
+  g.restore();
+}
+function sparks(c, col, speed = 1) {
+  const g = c.g;
+  g.fillStyle = col;
+  for (const p of SPARKS) {
+    const y = 1 - frac(p.y + c.t * p.sp * speed), x = p.x + Math.sin(c.t * 2 + p.wob) * 0.02;
+    g.globalAlpha = clamp01(y * 1.6) * 0.9;
+    const s = p.s * c.h / 320;
+    g.fillRect(x * c.w - s / 2, y * c.h - s / 2, s, s);
+  }
+  g.globalAlpha = 1;
+}
+// アラベスク: 8つの角の星を同心円に並べ、輪ごとに逆向きに回す
+function star8(g, x, y, r, rot) {
+  g.beginPath();
+  for (let i = 0; i < 16; i++) { const a = rot + i * Math.PI / 8, rr = i % 2 ? r * 0.55 : r; g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+  g.closePath(); g.fill(); g.stroke();
+}
+function arabesque(c, rot, zoom, alpha = 1) {
+  const g = c.g, cx = c.w / 2, cy = c.h / 2, U = c.h * 0.12 * zoom;
+  g.save(); g.globalAlpha = clamp01(alpha); g.strokeStyle = CR.gold; g.lineWidth = Math.max(1, U * 0.05);
+  for (let j = 6; j >= 0; j--) {
+    const n = j ? j * 8 : 1, R = j * U, dir = j % 2 ? 1 : -1;
+    for (let i = 0; i < n; i++) {
+      const a = dir * rot + i * TAU / n;
+      g.fillStyle = [CR.deep, '#5a0a18', CR.ink, CR.red][(i + j) % 4];
+      star8(g, cx + Math.cos(a) * R, cy + Math.sin(a) * R, U * (j ? 0.42 : 0.7) * (1 + 0.15 * c.pulse), a);
+    }
+  }
+  g.restore();
+}
+function ole(c, x, y, size, k) { // 「¡OLÉ!」が拍でポンと出る(k=0→1で表示→消える)
+  if (k <= 0 || k >= 1) return;
+  const s = 1 + 0.4 * (1 - ease(k * 4));
+  text(c, '¡OLÉ!', x, y, size * s, CR.gold, 1 - ease((k - 0.6) / 0.4), { font: 'Georgia', weight: 'italic 700', glow: 14 });
+}
+
+const crimsonRumba = {
+  scenes: [
+    { from: 0, to: 32, draw(c) { // ギターの飾り穴が回り、ろうそくがゆれる。曲名
+      vgrad(c, CR.bg);
+      const spot = c.g.createRadialGradient(c.w / 2, c.h * 0.45, 0, c.w / 2, c.h * 0.45, c.h * 0.7);
+      spot.addColorStop(0, 'rgba(255,61,79,0.25)'); spot.addColorStop(1, 'rgba(0,0,0,0)');
+      c.g.fillStyle = spot; c.g.fillRect(0, 0, c.w, c.h);
+      rosette(c, c.w / 2, c.h * 0.45, c.h * (0.32 + 0.02 * c.pulse), c.t * 0.15, c.pulse);
+      for (let i = 0; i < 7; i++) candle(c, c.w * (0.08 + i * 0.14), c.h * 0.98, c.h * (0.1 + (i % 3) * 0.03), i * 1.7);
+      const a = ease((c.lb - 4) / 3) * (1 - ease((c.lb - 28) / 3));
+      text(c, 'Crimson Rumba', c.w / 2, c.h * 0.45, c.h * 0.1, CR.cream, a, { font: 'Georgia', weight: 'italic 700', glow: 16 });
+      text(c, 'FLAMENCO', c.w / 2, c.h * 0.56, c.h * 0.035, CR.gold, a, { weight: 700, spacing: 8 });
+    } },
+    { from: 32, to: 64, draw(c) { // 水玉の上で3つの扇が開いたり閉じたり
+      vgrad(c, ['#7a0414', '#c2112a']);
+      lunares(c, 'rgba(255,232,194,0.85)', c.h * 0.03, 0.05);
+      const sw = Math.sin(c.beat * Math.PI / 2);
+      fan(c, c.w / 2, c.h * 0.78, c.h * 0.48, 0.65 + 0.35 * sw, Math.sin(c.t * 0.9) * 0.08, CR.ink, CR.deep);
+      fan(c, c.w * 0.18, c.h * 0.85, c.h * 0.3, 0.65 - 0.35 * sw, -0.35, CR.gold, CR.ink);
+      fan(c, c.w * 0.82, c.h * 0.85, c.h * 0.3, 0.65 - 0.35 * sw, 0.35, CR.gold, CR.ink);
+    } },
+    { from: 64, to: 96, draw(c) { // 夜のアーチの回廊を進む
+      vgrad(c, ['#05010a', '#2a0612', '#14020a']);
+      moon(c, c.w * 0.8, c.h * 0.18, c.h * 0.07, '#ffe8c2');
+      const fl = c.g.createLinearGradient(0, c.h * 0.5, 0, c.h);
+      fl.addColorStop(0, 'rgba(163,0,27,0)'); fl.addColorStop(1, 'rgba(163,0,27,0.45)');
+      c.g.fillStyle = fl; c.g.fillRect(0, c.h * 0.5, c.w, c.h * 0.5);
+      arcade(c, 0.22, CR.gold);
+      fallingRose(c, 0.6, 0.5);
+    } },
+    { from: 96, to: 128, draw(c) { // ギターの独奏: 暗闇でバラが咲いていく
+      vgrad(c, ['#0a0005', '#1e030b']);
+      fallingRose(c, 0.8, 0.7);
+      rose(c, c.w / 2, c.h * 0.5, c.h * (0.3 + 0.03 * c.pulse), ease(c.p * 1.15), c.t * 0.1);
+      if (c.lb >= 24) { c.g.fillStyle = `rgba(255,61,79,${0.3 * c.pulse})`; c.g.fillRect(0, 0, c.w, c.h); }
+    } },
+    { from: 128, to: 160, draw(c) { // サビ: 炎の前で大きな扇が回る。¡OLÉ!
+      vgrad(c, ['#0b0105', '#4a0814']);
+      flames(c, c.h, c.h * 0.55);
+      sparks(c, CR.gold, 1.4);
+      fan(c, c.w / 2, c.h * 0.5, c.h * (0.36 + 0.03 * c.pulse), 1, c.beat * Math.PI / 8, CR.ink, CR.deep);
+      fan(c, c.w / 2, c.h * 0.5, c.h * 0.36, 1, c.beat * Math.PI / 8 + Math.PI, CR.ink, CR.red, 0.95);
+      ole(c, c.w / 2, c.h * 0.5, c.h * 0.13, (c.lb % 8 - 6) / 2);
+    } },
+    { from: 160, to: 192, draw(c) { // サビ後半: アラベスク模様の万華鏡と、まわりを回る扇
+      vgrad(c, ['#14020a', '#2a0410']);
+      arabesque(c, c.t * 0.25, 1 + 0.06 * c.pulse, 0.75);
+      const vg = c.g.createRadialGradient(c.w / 2, c.h / 2, 0, c.w / 2, c.h / 2, c.h * 0.3); // 真ん中を暗くして文字を読みやすく
+      vg.addColorStop(0, 'rgba(11,1,5,0.85)'); vg.addColorStop(1, 'rgba(11,1,5,0)');
+      c.g.fillStyle = vg; c.g.fillRect(0, 0, c.w, c.h);
+      for (let i = 0; i < 8; i++) {
+        const a = i * TAU / 8 + c.t * 0.5;
+        fan(c, c.w / 2 + Math.cos(a) * c.h * 0.36, c.h / 2 + Math.sin(a) * c.h * 0.36, c.h * 0.12, 1, a + Math.PI / 2, CR.red, CR.ink);
+      }
+      flames(c, c.h, c.h * 0.22, 0.8);
+      ole(c, c.w / 2, c.h * 0.5, c.h * 0.11, (c.lb % 16 - 14) / 2);
+    } },
+    { from: 192, to: 1e9, draw(c) { // 締め: 満開のバラと曲名
+      vgrad(c, CR.bg);
+      fallingRose(c, 0.5, 0.8);
+      rose(c, c.w / 2, c.h * 0.44, c.h * 0.26, 1, c.t * 0.05, 1 - ease((c.lb - 6) / 3) * 0.6);
+      ole(c, c.w / 2, c.h * 0.44, c.h * 0.16, c.lb / 3);
+      text(c, 'Crimson Rumba', c.w / 2, c.h * 0.84, c.h * 0.07, CR.cream, ease((c.lb - 2) / 2), { font: 'Georgia', weight: 'italic 700', glow: 12 });
+    } },
+  ],
+};
+
 const MVS = {
   'lidar-rush': lidarRush,
   'neon-highway': neonHighway,
@@ -891,6 +1126,7 @@ const MVS = {
   'star-lullaby': starLullaby,
   'final-protocol': finalProtocol,
   'kawaii-bubble': kawaiiBubble,
+  'crimson-rumba': crimsonRumba,
 };
 export const hasMV = (id) => !!MVS[id]; // 手作りのMVがあるか(曲リストの MV マーク用)
 
@@ -1184,7 +1420,7 @@ const THEME_RULES = [
   ['cute', /KAWAII|IDOL|KIDS|TOY|HAPPY|J-CORE|BOUNCE|MUSIC BOX|K-POP|^POP$|J-POP|SPRING POP/],
   ['field', /BEGINNER|ACOUSTIC|SHIBUYA|FOLK|COUNTRY|BLUEGRASS|CELTIC|CAMPFIRE|MARCH|POLKA/],
   ['retro', /SYNTH|OUTRUN|CITY POP|FUTURE FUNK|VAPOR|EUROBEAT|DISCO|^FUNK/],
-  ['tropical', /BOSSA|REGGAE|SAMBA|TROPICAL|MOOMBAH|^DUB$|AFRO|SALSA|MARIACHI|DEMBOW|ARABIAN|BOLLYWOOD|TANGO/],
+  ['tropical', /BOSSA|REGGAE|SAMBA|TROPICAL|MOOMBAH|^DUB$|AFRO|SALSA|FLAMENCO|MARIACHI|DEMBOW|ARABIAN|BOLLYWOOD|TANGO/],
   ['night', /LO-FI|JAZZ|LOUNGE|BALLAD|PIANO|R&B|SOUL|BLUES|CHILL|WALTZ|GOSPEL|WINTER|HIP HOP|BIG BAND|SWING/],
   ['rock', /ROCK|METAL|PUNK/],
   ['space', /TRANCE|PSY|PROGRESSIVE|AMBIENT/],

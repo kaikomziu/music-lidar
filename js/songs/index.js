@@ -130,6 +130,7 @@ import swingKid from './swing-kid.js';
 import phonkGarage from './phonk-garage.js';
 import bluegrassRush from './bluegrass-rush.js';
 import darkShinobi from './dark-shinobi.js';
+import crimsonRumba from './crimson-rumba.js';
 import lightspeedFlash from './lightspeed-flash.js';
 
 export default [
@@ -143,7 +144,7 @@ export default [
   // むずかしめ
   sakuraLattice, lastHorizon, celticRun, bigRoomBlast, glitchGarden, salsaFuego, blueNoteLane, glitterIdol, liquidSky, stellarGate, skyPrism, synthRacer, riddimRiot,
   kawaiiBubble, lidarRush, shiningStar, inmuKing, summerTriangle, wubFracture, offbeatSkater, nightDrift, psyForest, neonSamurai, braveHorizon, shamisenStorm, crystalFortress, hyperSakura, jungleLights,
-  phonkGarage, overdriveRiot, hardReflector, darkShinobi, bluegrassRush,
+  phonkGarage, overdriveRiot, hardReflector, darkShinobi, bluegrassRush, crimsonRumba,
   // 鬼畜・ギミック
   sugarRush, hyperpopGlitch, chipDungeon, circuitBreaker, mirageShift, freezeFrame, fractalStorm, kickMachinegun, velocityZero,
   terminalVelocity, metalcoreFury, timeTwister, clockworkChaos, hyperScanBreaker, gabberStorm, finalProtocol, abyssGate, bulletHell404,

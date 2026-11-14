@@ -1604,6 +1604,8 @@ const VIDEO_MVS = {
   'inmu-king': { src: 'video/inmu-king.mp4' },
 };
 export const hasMV = (id) => !!(MVS[id] || VIDEO_MVS[id]); // MVがあるか(曲リストの MV マーク用)
+// 曲名やジャンルの横に付ける「MV」マーク(特製MV・動画MVのある曲だけ)。どの画面でもこれを使う
+export const mvTag = (id) => (hasMV(id) ? ' <span class="mv-tag" title="MVつき">MV</span>' : '');
 
 // 動画MV: 曲の時刻に合わせて動画を再生し、画面いっぱい(はみ出す分は切る)に描く
 //  動画が読み込めるまで・読み込めなかったときは fallback(自動MV)を描く

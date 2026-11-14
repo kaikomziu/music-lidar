@@ -3,6 +3,7 @@
 import { load, save } from './storage.js';
 import * as acc from './account.js';
 import { rpc } from './ranking.js';
+import { mvTag } from './mv.js';
 
 const $ = (id) => document.getElementById(id);
 export const DAN_NAMES = ['', '初段', '二段', '三段', '四段', '五段', '六段', '七段', '八段', '九段', '十段', '皆伝'];
@@ -53,7 +54,7 @@ export function openDan() {
     const songs = ids.map((id) => entryOf(id)).filter(Boolean);
     return `<li class="dan-card ${cleared ? 'cleared' : ''} ${rank === 11 ? 'kaiden' : ''}" style="--dn:${rank}">
       <div class="dan-name"><b>${danName(rank)}</b>${cleared ? '<span class="dan-pass">合格</span>' : ''}</div>
-      <ol class="dan-songs">${songs.map((e, k) => `<li><img src="${ui.jacketURL(e, 64)}" alt=""><span><b>${k + 1}. ${ui.esc(e.title)}</b><small>HARD Lv${e.levels.hard} ・ BPM ${Math.round(e.bpm)}</small></span></li>`).join('')}</ol>
+      <ol class="dan-songs">${songs.map((e, k) => `<li><img src="${ui.jacketURL(e, 64)}" alt=""><span><b>${k + 1}. ${ui.esc(e.title)}${mvTag(e.id)}</b><small>HARD Lv${e.levels.hard} ・ BPM ${Math.round(e.bpm)}</small></span></li>`).join('')}</ol>
       <div class="dan-rule">MISS −${rule.miss}% ・ GOOD −${rule.good}% ・ PERFECT +${rule.perfect}%</div>
       <button class="btn-glow dan-go" data-rank="${rank}">挑戦する</button></li>`;
   }).join('');

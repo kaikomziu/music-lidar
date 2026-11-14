@@ -6,7 +6,7 @@ import { showLoading, hideLoading } from './loading.js';
 import { analyzeFile, hashFile } from './analyzer.js';
 import { buildScroll, dropNotesInStops, gimmickLabel } from './gimmick.js';
 import { jacketURL, jacketImg, clearJackets } from './jacket.js';
-import { hasMV, createMV, analyzeSections } from './mv.js';
+import { mvTag, createMV, analyzeSections } from './mv.js';
 import { CHANGELOG, VERSION } from './changelog.js';
 import { Game, PointCloud, KEYS, DIFF_COLOR, visibleTime, IS_TOUCH, FX_LEVELS } from './game.js';
 import { load, save, getSettings, setSettings, DEFAULT_SETTINGS, clientId, getBest, recordBest } from './storage.js';
@@ -460,7 +460,7 @@ function renderList() {
       const mark = best?.ap ? 'AP' : best?.fc ? 'FC' : '';
       return `<span class="lv ${d}">${e.levels[d]}${mark ? `<span class="mark">${mark}</span>` : ''}</span>`;
     }).join('');
-    b.innerHTML = `${jacketImg(e, 128, 'sc-jacket')}<div class="sc-text"><div class="sc-title">${e.event ? '<span class="ev-tag">期間限定</span>' : ''}${esc(e.title)}</div><div class="sc-sub">${esc(e.genre)} ・ BPM ${Math.round(e.bpm)}${e.local ? ' ・ LOCAL' : ''}${hasMV(e.id) ? ' <span class="mv-tag" title="MVつき">MV</span>' : ''}</div></div><div class="sc-lv">${lv}</div>`;
+    b.innerHTML = `${jacketImg(e, 128, 'sc-jacket')}<div class="sc-text"><div class="sc-title">${e.event ? '<span class="ev-tag">期間限定</span>' : ''}${esc(e.title)}</div><div class="sc-sub">${esc(e.genre)} ・ BPM ${Math.round(e.bpm)}${e.local ? ' ・ LOCAL' : ''}${mvTag(e.id)}</div></div><div class="sc-lv">${lv}</div>`;
     b.querySelector('.sc-text').prepend(favMark(e));
     b.addEventListener('click', () => { if (sel === i) startGame(); else selectSong(i); });
     list.appendChild(b);
@@ -512,7 +512,7 @@ $('song-filters').addEventListener('click', (ev) => {
 function renderDetail() {
   const e = entries[sel];
   document.documentElement.style.setProperty('--accent', e.color);
-  $('d-genre').textContent = e.genre;
+  $('d-genre').innerHTML = esc(e.genre) + mvTag(e.id);
   $('d-jacket').src = jacketURL(e, 256);
   $('d-index').textContent = `${String(sel + 1).padStart(2, '0')} / ${String(entries.length).padStart(2, '0')}`;
   $('d-title').textContent = e.title;

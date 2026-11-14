@@ -3,6 +3,7 @@
 // 参加した人はホストとだけつながる。最初につながるための仲介(シグナリング)だけ PeerJS の公開サーバーを使う。
 // (サーバーにデータを置かないので、ルームはホストがいる間だけ。ホストが抜けると解散)
 import { jacketImg } from './jacket.js';
+import { mvTag } from './mv.js';
 import { load } from './storage.js';
 import * as acc from './account.js';
 
@@ -379,7 +380,7 @@ function renderRoom() {
   $('live-room-code').textContent = room.code;
   $('live-jacket').src = e ? ui.jacketURL(e, 256) : '';
   $('live-title').textContent = e?.title || room.song;
-  $('live-genre').textContent = e ? `${e.genre} ・ BPM ${Math.round(e.bpm)}` : '';
+  $('live-genre').innerHTML = e ? `${ui.esc(e.genre)} ・ BPM ${Math.round(e.bpm)}${mvTag(e.id)}` : '';
   // 曲はホストだけが変えられる(左の曲リスト)。難易度は人ごとに選ぶ
   $('live-roombox').classList.toggle('host', host);
   $('live-pickmsg').textContent = host ? (room.status === 'play' ? 'ライブ中は曲を変えられません' : '曲リストから選べます') : '曲はホストが選びます';
@@ -459,7 +460,7 @@ function renderPick(force = false) {
     const fav = ui.isFav(e);
     return `<button class="song-card${e.id === room.song ? ' sel' : ''}" data-id="${ui.esc(e.id)}" style="--c:${e.color}">
       ${jacketImg(e, 128, 'sc-jacket')}<div class="sc-text"><span class="sc-fav${fav ? ' on' : ''}" title="${fav ? 'お気に入りから外す' : 'お気に入りにする'}">${fav ? '★' : '☆'}</span>
-      <div class="sc-title">${ui.esc(e.title)}</div><div class="sc-sub">${ui.esc(e.genre)} ・ BPM ${Math.round(e.bpm)}</div></div><div class="sc-lv">${lv}</div></button>`;
+      <div class="sc-title">${ui.esc(e.title)}</div><div class="sc-sub">${ui.esc(e.genre)} ・ BPM ${Math.round(e.bpm)}${mvTag(e.id)}</div></div><div class="sc-lv">${lv}</div></button>`;
   }).join('') : '<p class="list-empty">条件に合う曲がありません</p>';
   if (songChanged) $('live-list').querySelector('.song-card.sel')?.scrollIntoView({ block: 'nearest' });
 }

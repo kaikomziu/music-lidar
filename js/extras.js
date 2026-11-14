@@ -7,7 +7,7 @@
 import { mulberry32, hashStr } from './composer.js';
 import { getCtx, nowAudio } from './audio.js';
 import { fetchRanking, submitScore } from './ranking.js';
-import { createMV } from './mv.js';
+import { createMV, mvTag } from './mv.js';
 import { load, save } from './storage.js';
 
 const $ = (id) => document.getElementById(id);
@@ -49,7 +49,7 @@ export function renderDaily() {
   const d = dailyOf();
   const box = $('daily-info');
   if (!box || !d.entry) return;
-  box.innerHTML = `<img src="${ui.jacketURL(d.entry, 96)}" alt=""><span><b>${ui.esc(d.entry.title)}</b>
+  box.innerHTML = `<img src="${ui.jacketURL(d.entry, 96)}" alt=""><span><b>${ui.esc(d.entry.title)}${mvTag(d.entry.id)}</b>
     <small>${d.diff.toUpperCase()} Lv${d.entry.levels[d.diff]} ・ ${d.optLabel}</small><small class="daily-top" id="daily-top">ランキングを読み込み中…</small></span>`;
   fetchRanking(d.key, d.diff, ui.rankId(), 3).then((rows) => {
     const el = $('daily-top');
@@ -280,7 +280,7 @@ function renderCourse() {
     const e = list.find((x) => x.id === it.id);
     return `<li data-i="${i}" style="--c:${e?.color || '#888'}"><span class="cs-no">${i + 1}</span>
       <button class="cs-song" data-act="pick" title="曲を選び直す"><img src="${e ? ui.jacketURL(e, 64) : ''}" alt="">
-        <span class="cs-text"><b>${e ? esc(e.title) : '(見つからない曲)'}</b><small>${e ? esc(e.genre) + ' ・ BPM ' + Math.round(e.bpm) : ''}</small></span>
+        <span class="cs-text"><b>${e ? esc(e.title) : '(見つからない曲)'}</b><small>${e ? esc(e.genre) + ' ・ BPM ' + Math.round(e.bpm) + mvTag(e.id) : ''}</small></span>
         <span class="cs-lv ${it.diff}">${it.diff.toUpperCase()} ${e ? e.levels[it.diff] : ''}</span></button>
       <span class="cs-move"><button data-act="up" ${i === 0 ? 'disabled' : ''} aria-label="上へ">▲</button><button data-act="down" ${i === course.items.length - 1 ? 'disabled' : ''} aria-label="下へ">▼</button></span>
       <button class="cs-del" data-act="del" ${course.items.length <= 2 ? 'disabled' : ''} aria-label="外す">×</button></li>`;

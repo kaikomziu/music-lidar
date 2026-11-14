@@ -1587,6 +1587,295 @@ const snowlightCarol = {
   ],
 };
 
+// ---------------------------------------------------------------------------
+// 特製MV(第2弾): 自動MVだと他の曲と見た目が似てしまう5曲を、専用の絵に作り直したもの
+//  Clockwork Chaos(歯車と時計) / Chip Dungeon(ドット絵のダンジョン) / Midnight Jazz Cafe(夜のジャズ喫茶)
+//  Rainy Window(雨の窓) / Neon Samurai(ネオンの月と斬撃)
+//  どれも、ほかのMVと使っている部品・色・動きが被らないようにしてある
+// ---------------------------------------------------------------------------
+// ---- Clockwork Chaos: 真鍮の歯車が噛み合って回り、秒針が拍を刻む ----
+const CC = ['#c8913a', '#8a5a1f', '#e8c26a', '#5a3a14'];
+const CC_BG = ['#120c05', '#2e1f0c'];
+function gear(c, x, y, r, teeth, rot, col, hole, alpha = 1) {
+  const g = c.g;
+  g.save(); g.globalAlpha = clamp01(alpha); g.fillStyle = col; g.beginPath();
+  for (let i = 0; i < teeth * 4; i++) {
+    const a = rot + (i / (teeth * 4)) * TAU, rr = i % 4 < 2 ? r : r * 0.82;
+    g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+  }
+  g.closePath(); g.fill();
+  g.fillStyle = hole; g.beginPath(); g.arc(x, y, r * 0.26, 0, TAU); g.fill();
+  g.strokeStyle = hole; g.lineWidth = Math.max(1, r * 0.06); g.beginPath(); g.arc(x, y, r * 0.58, 0, TAU); g.stroke();
+  g.restore();
+}
+function clockHand(c, x, y, len, ang, w, col) {
+  const g = c.g;
+  g.strokeStyle = col; g.lineWidth = w; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(ang) * len, y + Math.sin(ang) * len); g.stroke();
+}
+const clockworkChaos = {
+  scenes: [
+    { from: 0, to: 16, draw(c) { // 歯車がゆっくり回りはじめる
+      vgrad(c, CC_BG);
+      const a = ease(c.lb / 6);
+      for (let i = 0; i < 6; i++) gear(c, c.w * (0.1 + i * 0.16), c.h * (i % 2 ? 0.72 : 0.28), c.h * (0.14 + 0.03 * (i % 3)), 8 + i, c.t * 0.5 * (i % 2 ? -1 : 1), CC[i % 4], '#120c05', a);
+      text(c, 'CLOCKWORK CHAOS', c.w / 2, c.h * 0.5, c.h * 0.085, '#ffe3a0', a * (1 - ease((c.lb - 13.5) / 2)), { glow: 12 });
+    } },
+    { from: 16, to: 64, draw(c) { // 大きな歯車と、1拍ごとにカチッと進む秒針
+      vgrad(c, CC_BG);
+      gear(c, c.w / 2, c.h / 2, c.h * 0.44, 18, c.beat * 0.2, CC[0], '#120c05');
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * TAU + 0.3;
+        gear(c, c.w / 2 + Math.cos(a) * c.h * 0.78, c.h / 2 + Math.sin(a) * c.h * 0.6, c.h * 0.17, 9, -c.beat * 0.45 + i, CC[(i + 1) % 4], '#120c05');
+      }
+      const k = Math.floor(c.beat) + ease(frac(c.beat) * 4);
+      clockHand(c, c.w / 2, c.h / 2, c.h * 0.36, (k / 16) * TAU - Math.PI / 2, c.h * 0.012, '#fff3c4');
+      c.g.fillStyle = '#fff3c4'; c.g.beginPath(); c.g.arc(c.w / 2, c.h / 2, c.h * 0.025, 0, TAU); c.g.fill();
+    } },
+    { from: 64, to: 128, draw(c) { // ドロップ: 歯車が暴走して画面が揺れる
+      vgrad(c, Math.floor(c.lb / 8) % 2 ? ['#2e1f0c', '#5a3a14'] : CC_BG);
+      const g = c.g; g.save();
+      g.translate((Math.random() - 0.5) * c.h * 0.02 * c.pulse, (Math.random() - 0.5) * c.h * 0.02 * c.pulse);
+      for (let i = 0; i < 12; i++) gear(c, c.w * (0.05 + (i % 6) * 0.18), c.h * (i < 6 ? 0.25 : 0.75), c.h * (0.16 + 0.03 * (i % 3)), 8 + (i % 5), c.t * (1.4 + (i % 3) * 0.5) * (i % 2 ? -1 : 1), CC[i % 4], '#120c05');
+      for (let i = 0; i < 18; i++) { // 拍ごとに飛び散る火花
+        const a = (i / 18) * TAU, R = c.h * (0.1 + 0.5 * (1 - c.pulse));
+        g.fillStyle = `rgba(255,220,130,${c.pulse})`; g.fillRect(c.w / 2 + Math.cos(a) * R * 1.4, c.h / 2 + Math.sin(a) * R, 4, 4);
+      }
+      g.restore();
+    } },
+    { from: 128, to: 144, draw(c) { // ブレイク: 大きな時計の文字盤
+      vgrad(c, ['#0a0703', '#1c1308']);
+      const R = c.h * 0.4, g = c.g;
+      g.strokeStyle = CC[2]; g.lineWidth = c.h * 0.012; g.beginPath(); g.arc(c.w / 2, c.h / 2, R, 0, TAU); g.stroke();
+      for (let i = 0; i < 12; i++) { const a = (i / 12) * TAU - Math.PI / 2; text(c, ['XII', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'][i], c.w / 2 + Math.cos(a) * R * 0.82, c.h / 2 + Math.sin(a) * R * 0.82, c.h * 0.045, CC[2], 0.9, { font: 'serif', weight: 700 }); }
+      clockHand(c, c.w / 2, c.h / 2, R * 0.5, c.t * 0.1 - 1.2, c.h * 0.02, CC[0]);
+      clockHand(c, c.w / 2, c.h / 2, R * 0.75, c.t * 1.2, c.h * 0.012, '#fff3c4');
+    } },
+    { from: 144, to: 1e9, draw(c) { // ラスト: 歯車が転がって落ちていく
+      vgrad(c, CC_BG);
+      for (let i = 0; i < 9; i++) {
+        const sp = 0.06 + (i % 4) * 0.03, y = frac(c.t * sp + i / 9) * (c.h * 1.4) - c.h * 0.2, r = c.h * (0.1 + 0.04 * (i % 3));
+        gear(c, c.w * (0.08 + i * 0.105), y, r, 8 + (i % 4), c.t * (0.6 + (i % 3) * 0.3) * (i % 2 ? -1 : 1), CC[i % 4], '#120c05');
+      }
+      text(c, 'TICK  TOCK', c.w / 2, c.h * 0.5, c.h * 0.07, '#ffe3a0', 0.5 + 0.4 * c.pulse, { glow: 8 });
+    } },
+  ],
+};
+
+// ---- Chip Dungeon: ドット絵のダンジョンを勇者が進む ----
+const CD = { floorA: '#2a1f44', floorB: '#33265a', wall: '#52408a', hero: '#6df0a0', cape: '#ff5a7a', slime: '#5ad0ff', gold: '#ffd24a', bg: '#150f2a' };
+function sprite(c, x, y, px, rows, pal) {
+  const g = c.g;
+  rows.forEach((row, j) => { for (let i = 0; i < row.length; i++) { const col = pal[row[i]]; if (col) { g.fillStyle = col; g.fillRect(Math.round(x + i * px), Math.round(y + j * px), Math.ceil(px), Math.ceil(px)); } } });
+}
+const HERO = ['..hhh...', '.hhhhh..', '.hkhkh..', '.hhhhh..', 'rhhhhhh.', 'r.hhhh..', '..h..h..', '.hh..hh.'];
+const SLIME = ['........', '..bbbb..', '.bbbbbb.', 'bbwbbwbb', 'bbbbbbbb', '.bbbbbb.', '........', '........'];
+const CHEST = ['.gggggg.', 'gddddddg', 'gddddddg', 'gggyyggg', 'gddyyddg', 'gddddddg', 'gddddddg', 'gggggggg'];
+function dungeonFloor(c, px, scroll) {
+  const g = c.g, rows = Math.ceil(c.h / px), cols = Math.ceil(c.w / px) + 2, off = Math.floor(scroll);
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+    g.fillStyle = (i + off + j) % 2 ? CD.floorA : CD.floorB;
+    g.fillRect((i - 1) * px - ((scroll - off) * px), j * px, px + 1, px + 1);
+  }
+}
+function torch(c, x, y, px) {
+  const g = c.g, f = 0.7 + 0.3 * Math.sin(c.t * 14 + x);
+  g.fillStyle = '#6b4a2a'; g.fillRect(x, y, px, px * 4);
+  g.fillStyle = `rgba(255,${Math.floor(120 + 100 * f)},60,${0.55 + 0.4 * f})`; g.fillRect(x - px * 0.5, y - px * f * 2.4, px * 2, px * 2.4 * f);
+  g.fillStyle = `rgba(255,200,80,${0.12 * f})`; g.beginPath(); g.arc(x + px / 2, y, px * 7, 0, TAU); g.fill();
+}
+const chipDungeon = {
+  scenes: [
+    { from: 0, to: 16, draw(c) { // ドット絵のタイトル
+      c.g.fillStyle = CD.bg; c.g.fillRect(0, 0, c.w, c.h);
+      for (let i = 0; i < 40; i++) { c.g.fillStyle = `rgba(255,255,255,${0.3 + 0.5 * Math.abs(Math.sin(c.t * 2 + i))})`; c.g.fillRect((i * 97) % c.w, (i * 53) % (c.h * 0.8), 3, 3); }
+      const a = ease(c.lb / 5);
+      text(c, 'CHIP DUNGEON', c.w / 2, c.h * 0.42, c.h * 0.1, CD.gold, a, { font: 'monospace', weight: 900, glow: 0 });
+      text(c, 'PRESS START', c.w / 2, c.h * 0.62, c.h * 0.04, '#fff', a * (Math.floor(c.beat * 2) % 2 ? 1 : 0.2), { font: 'monospace', weight: 700 });
+    } },
+    { from: 16, to: 64, draw(c) { // 勇者が右へ進む。拍でぴょんと跳ねる
+      const px = Math.round(c.h / 34);
+      dungeonFloor(c, px, c.beat * 0.5);
+      c.g.fillStyle = CD.wall; c.g.fillRect(0, 0, c.w, px * 5);
+      for (let i = 0; i < 4; i++) torch(c, c.w * (0.1 + i * 0.27), px * 6, px);
+      sprite(c, c.w * 0.3, c.h * 0.55 - c.pulse * px * 2, px * 1.6, HERO, { h: CD.hero, k: '#1a1030', r: CD.cape });
+      const sx = c.w * 1.1 - frac(c.beat / 16) * c.w * 1.4;
+      sprite(c, sx, c.h * 0.58 - Math.abs(Math.sin(c.beat * Math.PI)) * px * 3, px * 1.6, SLIME, { b: CD.slime, w: '#fff' });
+    } },
+    { from: 64, to: 128, draw(c) { // ドロップ: 速く走り、宝箱が開く
+      const px = Math.round(c.h / 30);
+      dungeonFloor(c, px, c.beat * 1.1);
+      c.g.fillStyle = CD.wall; c.g.fillRect(0, 0, c.w, px * 4); c.g.fillRect(0, c.h - px * 3, c.w, px * 3);
+      for (let i = 0; i < 4; i++) torch(c, c.w * (0.1 + i * 0.27), px * 5, px);
+      const open = frac(c.lb / 16) > 0.5;
+      sprite(c, c.w * 0.62, c.h * 0.5, px * 2, CHEST, { g: '#caa050', d: '#7a4a20', y: open ? '#fff6a0' : '#ffd24a' });
+      if (open) for (let i = 0; i < 14; i++) { const a = (i / 14) * TAU + c.t, R = px * (3 + 5 * c.pulse); c.g.fillStyle = CD.gold; c.g.fillRect(c.w * 0.62 + px * 8 + Math.cos(a) * R * 2, c.h * 0.5 + Math.sin(a) * R, px, px); }
+      sprite(c, c.w * 0.3, c.h * 0.52 - c.pulse * px * 3, px * 2, HERO, { h: CD.hero, k: '#1a1030', r: CD.cape });
+    } },
+    { from: 128, to: 144, draw(c) { // ブレイク: ボスの大きなドット絵
+      c.g.fillStyle = '#0c0818'; c.g.fillRect(0, 0, c.w, c.h);
+      const px = Math.round(c.h / 24), ox = c.w / 2 - px * 5, oy = c.h * 0.22;
+      const SK = ['..wwwwww..', '.wwwwwwww.', 'wwkkwwkkww', 'wwkkwwkkww', 'wwwwrrwwww', '.wwwwwwww.', '..wwwwww..', '..w.ww.w..'];
+      sprite(c, ox, oy + Math.sin(c.t * 2) * px * 0.5, px, SK, { w: '#e8e0ff', k: '#1a1030', r: '#ff3a5a' });
+      text(c, 'BOSS  APPEARS', c.w / 2, c.h * 0.82, c.h * 0.05, CD.cape, 0.5 + 0.5 * c.pulse, { font: 'monospace', weight: 900 });
+    } },
+    { from: 144, to: 1e9, draw(c) { // ラスト: ドットのコインが降る
+      c.g.fillStyle = CD.bg; c.g.fillRect(0, 0, c.w, c.h);
+      const px = Math.round(c.h / 40);
+      for (let i = 0; i < 30; i++) { const y = frac(c.t * (0.12 + (i % 5) * 0.03) + i / 30) * (c.h + 40) - 20; c.g.fillStyle = i % 3 ? CD.gold : '#fff6a0'; c.g.fillRect(Math.round(((i * 71) % 100) / 100 * c.w / px) * px, Math.round(y / px) * px, px * 1.6, px * 1.6); }
+      text(c, 'STAGE CLEAR', c.w / 2, c.h * 0.5, c.h * 0.09, CD.hero, 1, { font: 'monospace', weight: 900 });
+    } },
+  ],
+};
+
+// ---- Midnight Jazz Cafe: 夜のジャズ喫茶。ネオンの看板と、ただよう音符 ----
+const jazzNote = (c, x, y, s, col, a) => text(c, '♪', x, y, s, col, a, { font: 'serif', weight: 700 });
+function jazzRoom(c) {
+  vgrad(c, ['#1a0d14', '#3a1c22']);
+  const g = c.g; // 窓の外の夜の街
+  g.fillStyle = '#0c1226'; g.fillRect(c.w * 0.58, c.h * 0.12, c.w * 0.34, c.h * 0.5);
+  for (let i = 0; i < 14; i++) { g.fillStyle = `rgba(255,${180 + (i % 3) * 20},120,${0.4 + 0.3 * Math.sin(c.t + i)})`; g.fillRect(c.w * 0.6 + (i % 7) * c.w * 0.045, c.h * (0.3 + Math.floor(i / 7) * 0.12), c.w * 0.02, c.h * 0.06); }
+  g.strokeStyle = '#6a3a2a'; g.lineWidth = c.h * 0.012; g.strokeRect(c.w * 0.58, c.h * 0.12, c.w * 0.34, c.h * 0.5);
+  g.fillStyle = '#2a1410'; g.fillRect(0, c.h * 0.78, c.w, c.h * 0.22); // カウンター
+}
+function neonSign(c, str, x, y, size, col, flick) {
+  const a = flick ? 0.55 + 0.45 * Math.abs(Math.sin(c.t * 30)) : 1;
+  text(c, str, x, y, size, col, a, { font: 'Pacifico, cursive', weight: 400, glow: size * 0.5 });
+}
+const jazzCafe = {
+  scenes: [
+    { from: 0, to: 16, draw(c) { // 看板に灯りがともる
+      jazzRoom(c);
+      neonSign(c, 'Midnight Jazz Cafe', c.w * 0.32, c.h * 0.3, c.h * 0.07, '#ff7ab8', c.lb < 4 && c.lb > 1);
+      for (let i = 0; i < 4; i++) jazzNote(c, c.w * (0.1 + i * 0.12), c.h * (0.7 - frac(c.t * 0.1 + i / 4) * 0.4), c.h * 0.06, '#ffd9a0', 0.7);
+    } },
+    { from: 16, to: 64, draw(c) { // 音符がゆったりのぼる。コーヒーの湯気
+      jazzRoom(c);
+      neonSign(c, 'Jazz', c.w * 0.25, c.h * 0.28, c.h * 0.14, '#7ad6ff', false);
+      bokeh(c, ['#ffb070', '#ff7a90', '#ffd9a0'], 0.25);
+      for (let i = 0; i < 9; i++) { const k = frac(c.t * 0.08 + i / 9); jazzNote(c, c.w * (0.1 + (i * 0.09)) + Math.sin(c.t + i) * c.w * 0.02, c.h * (0.78 - k * 0.7), c.h * (0.05 + 0.03 * (i % 3)), ['#ffd9a0', '#ff9ac0', '#9ad8ff'][i % 3], Math.sin(k * Math.PI)); }
+      const g = c.g; g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 3;
+      for (let i = 0; i < 3; i++) { g.beginPath(); for (let y = 0; y < 40; y++) g.lineTo(c.w * (0.45 + i * 0.015) + Math.sin(y * 0.3 + c.t * 2 + i) * 5, c.h * 0.78 - y * 2); g.stroke(); }
+    } },
+    { from: 64, to: 128, draw(c) { // サビ: スイングで音符が弾む
+      jazzRoom(c);
+      neonSign(c, 'Swing!', c.w * 0.3, c.h * 0.3, c.h * 0.13, '#ff7ab8', Math.floor(c.beat) % 8 === 0);
+      bokeh(c, ['#ffb070', '#ff7a90', '#ffd9a0', '#9ad8ff'], 0.35);
+      for (let i = 0; i < 12; i++) jazzNote(c, c.w * (0.06 + i * 0.075), c.h * 0.7 - Math.abs(Math.sin((c.beat + i * 0.5) * Math.PI * (2 / 3))) * c.h * 0.22, c.h * 0.07, ['#ffd9a0', '#ff9ac0', '#9ad8ff'][i % 3], 0.9);
+    } },
+    { from: 128, to: 144, draw(c) { // ブレイク: 看板だけが静かに光る
+      vgrad(c, ['#0a0508', '#1a0d12']);
+      neonSign(c, 'Midnight', c.w / 2, c.h * 0.4, c.h * 0.12, '#7ad6ff', false);
+      neonSign(c, 'Jazz Cafe', c.w / 2, c.h * 0.58, c.h * 0.12, '#ff7ab8', c.lb > 10 && c.lb < 11.5);
+    } },
+    { from: 144, to: 1e9, draw(c) { // ラスト: 店の明かりが消えていく
+      jazzRoom(c);
+      bokeh(c, ['#ffb070', '#ff7a90'], 0.3);
+      neonSign(c, 'Good Night', c.w * 0.3, c.h * 0.3, c.h * 0.09, '#ff7ab8', false);
+      c.g.fillStyle = `rgba(0,0,0,${0.5 * c.p})`; c.g.fillRect(0, 0, c.w, c.h);
+    } },
+  ],
+};
+
+// ---- Rainy Window: 雨の窓。にじむ街の灯りと、ガラスをつたう雨つぶ ----
+const RW_DROPS = table(30, 7, (r) => ({ x: r(), y: r(), sp: 0.03 + r() * 0.05, s: 0.006 + r() * 0.008 }));
+const RW_LIGHTS = table(18, 5, (r) => ({ x: r(), y: 0.3 + r() * 0.5, s: 0.04 + r() * 0.07, h: r() }));
+function rainyCity(c, warm) {
+  vgrad(c, warm ? ['#2a2a40', '#40384a'] : ['#1a2236', '#2a3550']);
+  const g = c.g;
+  RW_LIGHTS.forEach((l, i) => { g.fillStyle = `hsla(${l.h < 0.5 ? 30 : 200},80%,70%,${0.35 + 0.15 * Math.sin(c.t + i)})`; g.beginPath(); g.arc(l.x * c.w, l.y * c.h, l.s * c.h, 0, TAU); g.fill(); });
+}
+function windowDrops(c, speed) {
+  const g = c.g;
+  RW_DROPS.forEach((d, i) => {
+    const y = frac(d.y + c.t * d.sp * speed) * c.h, x = d.x * c.w + Math.sin(y * 0.02 + i) * 4;
+    g.strokeStyle = 'rgba(220,235,255,0.25)'; g.lineWidth = d.s * c.h * 0.6; g.beginPath(); g.moveTo(x, y - c.h * 0.08); g.lineTo(x, y); g.stroke();
+    g.fillStyle = 'rgba(230,242,255,0.55)'; g.beginPath(); g.arc(x, y, d.s * c.h, 0, TAU); g.fill();
+  });
+}
+const rainyWindow = {
+  scenes: [
+    { from: 0, to: 16, draw(c) { // くもったガラスに題名
+      rainyCity(c, false); windowDrops(c, 0.6);
+      c.g.fillStyle = `rgba(200,215,235,${0.35 * (1 - ease(c.lb / 12))})`; c.g.fillRect(0, 0, c.w, c.h);
+      text(c, 'Rainy Window', c.w / 2, c.h * 0.5, c.h * 0.09, '#eef4ff', ease(c.lb / 5) * (1 - ease((c.lb - 13.5) / 2)), { font: 'Noto Sans JP', weight: 300, spacing: 6, glow: 6 });
+    } },
+    { from: 16, to: 96, draw(c) { // 雨つぶがゆっくりつたう
+      rainyCity(c, false); windowDrops(c, 1);
+      const g = c.g; g.strokeStyle = 'rgba(200,220,255,0.25)'; g.lineWidth = 1;
+      for (let i = 0; i < 40; i++) { const x = ((i * 131) % 100) / 100 * c.w, y = frac(c.t * 1.4 + i * 0.37) * c.h; g.beginPath(); g.moveTo(x, y); g.lineTo(x - 4, y + c.h * 0.05); g.stroke(); }
+      g.fillStyle = `rgba(255,255,255,${0.04 * c.pulse})`; g.fillRect(0, 0, c.w, c.h);
+    } },
+    { from: 96, to: 144, draw(c) { // 部屋の明かりがつく。ガラスに指でハート
+      rainyCity(c, true); windowDrops(c, 1.3);
+      const g = c.g; g.fillStyle = 'rgba(210,225,245,0.28)'; g.fillRect(0, 0, c.w, c.h);
+      const k = ease(c.p * 3);
+      g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = c.h * 0.012; g.lineCap = 'round'; g.beginPath();
+      for (let i = 0; i <= 60 * k; i++) { const a = (i / 60) * TAU; g.lineTo(c.w / 2 + 16 * Math.pow(Math.sin(a), 3) * c.h * 0.008, c.h * 0.45 - (13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a)) * c.h * 0.008); }
+      g.stroke();
+    } },
+    { from: 144, to: 1e9, draw(c) { // ラスト: 雨があがって光がさす
+      rainyCity(c, true); windowDrops(c, 0.4);
+      const g = c.g, gr = g.createLinearGradient(0, 0, c.w, c.h); gr.addColorStop(0, `rgba(255,240,200,${0.3 * c.p})`); gr.addColorStop(1, 'rgba(255,240,200,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, c.w, c.h);
+    } },
+  ],
+};
+
+// ---- Neon Samurai: ネオンの大きな月と、拍ごとの斬撃 ----
+function neonMoon(c, y, col) {
+  const g = c.g, R = c.h * 0.32;
+  g.save(); g.shadowColor = col; g.shadowBlur = c.h * 0.08; g.fillStyle = col; g.beginPath(); g.arc(c.w / 2, y, R, 0, TAU); g.fill(); g.restore();
+  g.fillStyle = 'rgba(0,0,0,0.18)'; for (let i = 0; i < 6; i++) g.fillRect(c.w / 2 - R, y - R * 0.1 + i * R * 0.18, R * 2, R * 0.03 * (i + 1));
+}
+function samuraiFigure(c, x, base, s, lunge) {
+  const g = c.g; g.fillStyle = '#05050a';
+  g.beginPath(); g.moveTo(x - s * 0.5, base); g.lineTo(x - s * 0.3, base - s * 1.5); g.lineTo(x + s * 0.3, base - s * 1.5); g.lineTo(x + s * 0.5, base); g.closePath(); g.fill();
+  g.beginPath(); g.arc(x, base - s * 1.8, s * 0.3, 0, TAU); g.fill();
+  g.beginPath(); g.moveTo(x - s * 0.55, base - s * 2.0); g.lineTo(x, base - s * 2.45); g.lineTo(x + s * 0.55, base - s * 2.0); g.closePath(); g.fill();
+  g.strokeStyle = '#e6faff'; g.lineWidth = Math.max(2, s * 0.05); g.beginPath(); g.moveTo(x + s * 0.2, base - s * 1.2); g.lineTo(x + s * (0.9 + lunge), base - s * (1.9 + lunge * 0.4)); g.stroke();
+}
+function slash(c, k, col, ang) {
+  if (k <= 0 || k >= 1) return;
+  const g = c.g, L = c.w * 1.2, cx = c.w / 2, cy = c.h / 2;
+  g.save(); g.translate(cx, cy); g.rotate(ang); g.globalAlpha = 1 - k; g.strokeStyle = col; g.shadowColor = col; g.shadowBlur = 20;
+  g.lineWidth = c.h * 0.025 * (1 - k); g.beginPath(); g.moveTo(-L / 2 + L * k * 0.2, 0); g.lineTo(-L / 2 + L * Math.min(1, k * 3) , 0); g.stroke(); g.restore();
+}
+const NS = ['#ff2a6a', '#18e6ff', '#ffe14a'];
+const neonSamurai = {
+  scenes: [
+    { from: 0, to: 16, draw(c) { // 月がのぼる
+      vgrad(c, ['#06050f', '#1a0a22']);
+      neonMoon(c, c.h * (1.1 - 0.7 * ease(c.lb / 12)), NS[0]);
+      text(c, 'NEON SAMURAI', c.w / 2, c.h * 0.72, c.h * 0.08, '#fff', ease((c.lb - 4) / 4) * (1 - ease((c.lb - 13.5) / 2)), { glow: 14 });
+    } },
+    { from: 16, to: 64, draw(c) { // 月の前に侍。拍ごとに斬撃の線
+      vgrad(c, ['#06050f', '#1a0a22']); neonMoon(c, c.h * 0.42, NS[0]);
+      c.g.fillStyle = '#05050a'; c.g.fillRect(0, c.h * 0.82, c.w, c.h);
+      samuraiFigure(c, c.w * 0.5, c.h * 0.82, c.h * 0.14, c.pulse * 0.4);
+      slash(c, frac(c.beat), NS[1], (Math.floor(c.beat) % 4) * 0.5 - 0.6);
+    } },
+    { from: 64, to: 128, draw(c) { // ドロップ: 色が切り替わり、斬撃が連続する
+      const col = NS[Math.floor(c.lb / 8) % 3];
+      vgrad(c, ['#05050c', '#14081c']); neonMoon(c, c.h * 0.45, col);
+      c.g.fillStyle = '#05050a'; c.g.fillRect(0, c.h * 0.84, c.w, c.h);
+      samuraiFigure(c, c.w * (0.3 + 0.4 * frac(c.beat / 8)), c.h * 0.84, c.h * 0.15, c.pulse * 0.6);
+      slash(c, frac(c.beat * 2), NS[(Math.floor(c.beat * 2)) % 3], (Math.floor(c.beat * 2) % 6) * 0.45 - 1.2);
+      text(c, '斬', c.w / 2, c.h * 0.45, c.h * 0.3, '#fff', 0.12 + 0.3 * c.pulse, { font: 'Noto Sans JP', weight: 900 });
+    } },
+    { from: 128, to: 144, draw(c) { // ブレイク: 静かな月と鳥居
+      vgrad(c, ['#05040c', '#0d0818']); neonMoon(c, c.h * 0.4, '#8a1a4a');
+      torii(c, c.w / 2, c.h * 0.9, c.h * 0.4, '#05050a', 1);
+      slash(c, ease((c.lb - 12) / 4), '#fff', -0.3);
+    } },
+    { from: 144, to: 1e9, draw(c) { // ラスト: 三色の月が重なる
+      vgrad(c, ['#06050f', '#1a0a22']);
+      NS.forEach((col, i) => { c.g.save(); c.g.globalAlpha = 0.6; neonMoon({ ...c, w: c.w + (i - 1) * c.w * 0.06 * (1 - c.p) }, c.h * 0.45, col); c.g.restore(); });
+      samuraiFigure(c, c.w * 0.5, c.h * 0.9, c.h * 0.14, 0);
+    } },
+  ],
+};
+
 const MVS = {
   'lidar-rush': lidarRush,
   'neon-highway': neonHighway,
@@ -1597,6 +1886,11 @@ const MVS = {
   'crimson-rumba': crimsonRumba,
   'jingle-circuit': jingleCircuit,
   'snowlight-carol': snowlightCarol,
+  'clockwork-chaos': clockworkChaos,
+  'chip-dungeon': chipDungeon,
+  'jazz-cafe': jazzCafe,
+  'rainy-window': rainyWindow,
+  'neon-samurai': neonSamurai,
 };
 // 動画のMV(配布されている映像素材を使う曲)。動画は曲の頭(0秒)にそろえて切り出してある
 //  INMU KING: YAJU-MC(やじゅまん)が個別に配布している映像素材

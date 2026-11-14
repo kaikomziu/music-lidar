@@ -2,6 +2,12 @@
 // 大きな機能追加 = 2つ目の数字を上げる / 不具合修正や小さな改善 = 3つ目の数字を上げる
 export const CHANGELOG = [
   {
+    version: '1.49.0', date: '2026-11-15',
+    notes: [
+      '特製MVを5曲追加(ほかのMVと見た目が被らない専用の絵): Clockwork Chaos(歯車と時計)/ Chip Dungeon(ドット絵のダンジョン)/ Midnight Jazz Cafe(夜のジャズ喫茶)/ Rainy Window(雨の窓)/ Neon Samurai(ネオンの月と斬撃)。これまで自動MVだった曲です',
+    ],
+  },
+  {
     version: '1.48.2', date: '2026-11-15',
     notes: [
       'MVつきの曲なのに「MV」マークが出ていなかった2か所を直した: プレイヤーの再生中の表示と、読み込み中の画面',

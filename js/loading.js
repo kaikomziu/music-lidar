@@ -1,5 +1,6 @@
 // 読み込み中画面(ジャケット・進み具合・Tips)
 import { jacketURL } from './jacket.js';
+import { mvTag } from './mv.js';
 
 export const TIPS = [
   'ハイスピードは設定で変えられます。ノーツが速すぎる・遅すぎると感じたら調整してみよう。',
@@ -46,6 +47,7 @@ export function showLoading(info) {
   $('ld-jacket').hidden = !e;
   if (e) $('ld-jacket').src = jacketURL(e, 256);
   $('ld-genre').textContent = e?.genre || '';
+  if (e) $('ld-genre').insertAdjacentHTML('beforeend', mvTag(e.id)); // MVつきの曲には「MV」マーク
   $('ld-title').textContent = info.title || e?.title || '';
   $('ld-diff').textContent = info.sub || '';
   $('loading-text').textContent = info.status || 'NOW LOADING';

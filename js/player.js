@@ -98,7 +98,7 @@ function showTrack(i) {
   document.documentElement.style.setProperty('--accent', t.color);
   $('pl-jacket').src = ui.jacketURL(t, 512);
   $('pl-title').textContent = t.title;
-  $('pl-genre').textContent = `${t.genre} ・ BPM ${Math.round(t.bpm)}`;
+  $('pl-genre').innerHTML = `${ui.esc(t.genre)} ・ BPM ${Math.round(t.bpm)}${mvTag(t.id)}`;
   $('pl-dur').textContent = fmt(t.buffer?.duration ?? t.duration);
   renderPlay();
 }

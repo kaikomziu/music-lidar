@@ -648,6 +648,14 @@ let starting = false;
 // extra: { daily }(デイリーチャレンジ)
 async function startGame(entry = entries[sel], d = diff, custom = null, live = null, extra = null) {
   if (state === 'game' || starting) return;
+  // コースの曲選び中は、遊ぶ代わりにその曲・難易度をコースに入れる
+  if (pick && state === 'select' && !custom && !live && !extra) {
+    if (entry.local) { toast('読み込んだ曲はコースに入れられません'); return; }
+    const p = pick;
+    endPick();
+    p.done(entry, d);
+    return;
+  }
   starting = true;
   try { await startGameInner(entry, d, custom, live, extra); } finally { starting = false; }
 }
@@ -969,10 +977,38 @@ const backToSelect = goSelect;
 // ホーム(モード選択)
 // ---------------------------------------------------------------------------
 function goHome(liveMenu = false) {
+  // 曲選びの途中でホームに戻ったら、選ばずにコース画面へ戻る
+  const cancelPick = pick?.cancel;
+  if (pick) endPick();
   stopPreview();
   show('home');
   homeLive(liveMenu);
   renderHome();
+  cancelPick?.();
+}
+
+// コースモードの曲選び: いつもの選曲画面で曲と難易度を選んでもらう
+// o = { label, id, diff, done(entry, diff), cancel() }
+var pick = null; // goHome から先に呼ばれることがあるので var
+function pickSong(o) {
+  pick = o;
+  const i = entries.findIndex((e) => e.id === o.id);
+  if (i >= 0) sel = i;
+  if (DIFFS.includes(o.diff)) diff = o.diff;
+  goSelect();
+  document.body.classList.add('picking');
+  $('sel-title').textContent = 'コースの曲を選ぶ';
+  $('pick-bar').hidden = false;
+  $('pick-bar').innerHTML = `<b>${esc(o.label)}</b><span>曲と難易度を選んで「決定」</span><button class="chip" id="pick-cancel">やめる</button>`;
+  $('pick-cancel').addEventListener('click', () => goHome(true));
+  $('btn-play').firstElementChild.textContent = '決定';
+}
+function endPick() {
+  pick = null;
+  document.body.classList.remove('picking');
+  $('sel-title').textContent = 'ひとりでライブ';
+  $('pick-bar').hidden = true;
+  $('btn-play').firstElementChild.textContent = 'PLAY';
 }
 function homeLive(on) {
   $('home-main').hidden = on;
@@ -1025,6 +1061,7 @@ initExtras({
   settings: () => settings, saveSettings: (s) => { settings = s; setSettings(s); syncSettingsUI(); },
   rankId: () => myRankId(), playerName: () => acc.getState()?.name || load('name', ''),
   state: () => state, game: () => game, goHome: (liveMenu) => goHome(liveMenu),
+  pickSong: (o) => pickSong(o),
 });
 
 // オフライン対応: 一度読み込んだファイルを端末に保存しておく(公開サイトのみ。ローカル開発では古いファイルが残らないよう使わない)

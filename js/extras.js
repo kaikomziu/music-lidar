@@ -13,7 +13,7 @@ import { load, save } from './storage.js';
 const $ = (id) => document.getElementById(id);
 let ui = null;
 // ui = { entries, play(entry, diff, custom, extra), show, toast, esc, jacketURL, overlay, settings(), saveSettings(s),
-//        rankId(), playerName(), rankRows(rows), fmtScore(n), state(), game(), goHome(liveMenu) }
+//        rankId(), playerName(), rankRows(rows), fmtScore(n), state(), game(), goHome(liveMenu), pickSong(o) }
 
 export function initExtras(api) {
   ui = api;
@@ -21,7 +21,7 @@ export function initExtras(api) {
   initCalib();
   startGamepad();
   $('btn-daily').addEventListener('click', playDaily);
-  $('btn-share').addEventListener('click', shareResult);
+  $('btn-rshare').addEventListener('click', shareResult);
 }
 
 // ---------------------------------------------------------------------------
@@ -199,7 +199,7 @@ async function buildShareImage({ entry, label, r }) {
 
 async function shareResult() {
   if (!shareCtx) return;
-  const btn = $('btn-share');
+  const btn = $('btn-rshare');
   btn.disabled = true;
   try {
     const blob = await buildShareImage(shareCtx);
@@ -276,17 +276,18 @@ function courseUrl() {
 
 function renderCourse() {
   const esc = ui.esc, list = playable();
-  const opts = list.map((e) => `<option value="${e.id}">${esc(e.title)}</option>`).join('');
   const rows = course.items.map((it, i) => {
     const e = list.find((x) => x.id === it.id);
-    return `<li data-i="${i}"><img src="${e ? ui.jacketURL(e, 64) : ''}" alt=""><span class="cs-no">${i + 1}</span>
-      <select data-k="id">${opts.replace(`value="${it.id}"`, `value="${it.id}" selected`)}</select>
-      <select data-k="diff">${DIFFS.map((d) => `<option value="${d}" ${d === it.diff ? 'selected' : ''}>${d.toUpperCase()} ${e ? e.levels[d] : ''}</option>`).join('')}</select>
+    return `<li data-i="${i}" style="--c:${e?.color || '#888'}"><span class="cs-no">${i + 1}</span>
+      <button class="cs-song" data-act="pick" title="曲を選び直す"><img src="${e ? ui.jacketURL(e, 64) : ''}" alt="">
+        <span class="cs-text"><b>${e ? esc(e.title) : '(見つからない曲)'}</b><small>${e ? esc(e.genre) + ' ・ BPM ' + Math.round(e.bpm) : ''}</small></span>
+        <span class="cs-lv ${it.diff}">${it.diff.toUpperCase()} ${e ? e.levels[it.diff] : ''}</span></button>
+      <span class="cs-move"><button data-act="up" ${i === 0 ? 'disabled' : ''} aria-label="上へ">▲</button><button data-act="down" ${i === course.items.length - 1 ? 'disabled' : ''} aria-label="下へ">▼</button></span>
       <button class="cs-del" data-act="del" ${course.items.length <= 2 ? 'disabled' : ''} aria-label="外す">×</button></li>`;
   }).join('');
   const res = course.results;
   $('course-box').innerHTML = `<div class="panel-label"><span>COURSE</span><span>コースモード</span></div>
-    <p class="muted small">好きな曲を2〜6曲選んで、続けてプレイします。体力は曲をまたいで続き、0になったらそこで終わり。リンクを送れば友だちも同じコースで遊べます。</p>
+    <p class="muted small">好きな曲を2〜6曲選んで、続けてプレイします。体力は曲をまたいで続き、0になったらそこで終わり。リンクを送れば友だちも同じコースで遊べます。曲を押すと選曲画面で選び直せます。</p>
     <ol class="course-list">${rows}</ol>
     <div class="course-row">
       <button class="btn-line small" data-act="add" ${course.items.length >= 6 ? 'disabled' : ''}>＋ 曲を追加</button>
@@ -299,26 +300,48 @@ function renderCourse() {
     <div class="modal-actions"><button class="btn-line" data-act="close">閉じる</button><button class="btn-line" data-act="share">リンクをコピー</button><button class="btn-glow" data-act="play">プレイ</button></div>`;
 }
 
+const saveDraft = () => save('courseDraft', { items: course.items, life: course.life });
+
 function onCourseChange(ev) {
-  const k = ev.target.dataset.k;
-  if (!k) return;
-  if (k === 'life') course.life = ev.target.value;
-  else {
-    const i = +ev.target.closest('li').dataset.i;
-    course.items[i][k] = ev.target.value;
-  }
-  save('courseDraft', { items: course.items, life: course.life });
+  if (ev.target.dataset.k !== 'life') return;
+  course.life = ev.target.value;
+  saveDraft();
   renderCourse();
+}
+
+// いつもの選曲画面を開いて曲を選んでもらう(i を渡すとその曲を入れ替え、null なら最後に追加)
+function pickInto(i) {
+  const cur = course.items[i] || course.items.at(-1) || { diff: 'normal' };
+  ui.overlay('course', false);
+  ui.pickSong({
+    label: i == null ? `${course.items.length + 1}曲目を追加` : `${i + 1}曲目を選び直す`,
+    id: course.items[i]?.id, diff: cur.diff,
+    done: (e, diff) => {
+      const it = { id: e.id, diff };
+      if (i == null) course.items.push(it); else course.items[i] = it;
+      saveDraft();
+      ui.goHome(true);
+      course.results = null;
+      renderCourse();
+      ui.overlay('course', true);
+    },
+    cancel: () => { renderCourse(); ui.overlay('course', true); },
+  });
 }
 
 async function onCourseClick(ev) {
   if (ev.target === $('course')) { ui.overlay('course', false); return; }
   const b = ev.target.closest('[data-act]');
   if (!b) return;
-  const act = b.dataset.act;
+  const act = b.dataset.act, i = +b.closest('li')?.dataset.i;
   if (act === 'close') { ui.overlay('course', false); return; }
-  if (act === 'add') course.items.push({ id: playable()[Math.floor(Math.random() * playable().length)].id, diff: 'normal' });
-  if (act === 'del') course.items.splice(+b.closest('li').dataset.i, 1);
+  if (act === 'add') { pickInto(null); return; }
+  if (act === 'pick') { pickInto(i); return; }
+  if (act === 'del') course.items.splice(i, 1);
+  if (act === 'up' || act === 'down') {
+    const j = act === 'up' ? i - 1 : i + 1;
+    [course.items[i], course.items[j]] = [course.items[j], course.items[i]];
+  }
   if (act === 'random') randomCourse();
   if (act === 'share') {
     const url = courseUrl();
@@ -326,7 +349,7 @@ async function onCourseClick(ev) {
     return;
   }
   if (act === 'play') { ui.overlay('course', false); runCourse(); return; }
-  save('courseDraft', { items: course.items, life: course.life });
+  saveDraft();
   renderCourse();
 }
 

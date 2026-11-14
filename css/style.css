@@ -1149,11 +1149,22 @@ body.live #btn-p-retry { display: none; }
 .course-box { width: min(640px, 100%); max-height: 88vh; overflow: auto; }
 .course-list { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .course-list li { display: flex; align-items: center; gap: 8px; }
-.course-list img { width: 36px; height: 36px; border-radius: 4px; }
 .course-list .cs-no { font-family: var(--font-d); font-weight: 800; color: #b18cff; width: 1.4em; text-align: center; }
-.course-list select { flex: 1; min-width: 0; }
-.course-list select[data-k="diff"] { flex: 0 0 auto; }
-.cs-del { width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--panel-line); background: transparent; color: var(--text); }
+.course-list .cs-song { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 6px 10px 6px 6px; text-align: left; color: inherit; font: inherit; cursor: pointer;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--panel-line); border-left: 3px solid var(--c); border-radius: 8px; transition: background 0.15s, border-color 0.15s; }
+.course-list .cs-song:hover, .course-list .cs-song:focus-visible { background: rgba(255,255,255,0.09); border-color: var(--c); }
+.course-list img { width: 44px; height: 44px; border-radius: 4px; flex: none; }
+.course-list .cs-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.course-list .cs-text b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
+.course-list .cs-text small { color: #8a94c0; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.course-list .cs-lv { flex: none; font-family: var(--font-d); font-weight: 800; font-size: 12px; padding: 2px 8px; border-radius: 4px; }
+.course-list .cs-lv.easy { color: #7dffb0; background: rgba(125,255,176,0.12); }
+.course-list .cs-lv.normal { color: #ffd25e; background: rgba(255,210,94,0.12); }
+.course-list .cs-lv.hard { color: #ff6b9e; background: rgba(255,107,158,0.12); }
+.course-list .cs-move { display: flex; flex-direction: column; gap: 2px; }
+.course-list .cs-move button { background: none; border: 1px solid var(--panel-line); color: inherit; border-radius: 4px; font-size: 9px; line-height: 1; padding: 3px 6px; cursor: pointer; }
+.course-list .cs-move button:disabled { opacity: 0.25; cursor: default; }
+.cs-del { width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--panel-line); background: transparent; color: var(--text); flex: none; }
 .cs-del:disabled { opacity: 0.3; }
 .course-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
 .course-row label { margin-left: auto; font-size: 13px; }
@@ -1171,3 +1182,11 @@ body.live #btn-p-retry { display: none; }
 .calib-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .pad-help { margin: 4px 0 8px; }
 .modal-box select { background: rgba(0, 0, 0, 0.45); color: var(--text); border: 1px solid var(--panel-line); border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 13px; }
+
+/* コースの曲選び中の選曲画面 */
+.pick-bar { display: flex; align-items: center; gap: 10px; margin-left: 12px; padding: 4px 6px 4px 12px; border: 1px solid #b18cff; border-radius: 999px; background: rgba(177,140,255,0.12); font-size: 13px; min-width: 0; }
+.pick-bar[hidden] { display: none; }
+.pick-bar b { color: #d6c4ff; white-space: nowrap; }
+.pick-bar span { color: #8a94c0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.picking #btn-share, body.picking #team-fx-mini { display: none; }
+@media (max-width: 700px) { .pick-bar span { display: none; } }

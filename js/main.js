@@ -21,6 +21,7 @@ import { initPlayer, openPlayer, playerKeydown, stop as stopPlayer } from './pla
 import { TUTORIAL_DEF, TUT_NOTES, tutCaptions } from './tutorial.js';
 import { initAdmin, openAdmin, stopAdmin } from './admin.js';
 import { initDan, openDan, bestDan, danName } from './dan.js';
+import { initEvent, eventActive } from './event.js';
 import { initExtras, renderDaily, dailyResult, drawJudgeGraph, setShareResult, courseFromUrl } from './extras.js';
 
 // ゴースト(自己ベストの判定の記録)を端末に保存。1判定 =「判定の頭文字 + 時刻(10ms単位・36進)」
@@ -74,7 +75,7 @@ function fileSongEntry(def) {
   const onsets = onsetList(DIFFS.flatMap((d) => charts[d].map((n) => n.t)));
   return {
     id: def.id, urlId: def.urlId, title: def.title, artist: def.artist, genre: def.genre, bpm: def.bpm, offset: def.offset || 0, color: def.color,
-    levels: def.levels, charts, stats, local: false, duration: def.duration, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [],
+    event: def.event || null, levels: def.levels, charts, stats, local: false, duration: def.duration, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [],
     previewAt: def.previewAt ?? def.duration * 0.3, credit: def.credit, creditUrl: def.creditUrl, onsets,
     buffer: null, rendering: null,
     load() {
@@ -135,7 +136,7 @@ function builtinEntry(def) {
   }
   return {
     id: def.id, urlId: def.urlId, title: def.title, artist: def.artist, genre: def.genre, bpm: def.bpm, color: def.color,
-    levels: def.levels, charts, stats, local: false, duration, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [],
+    event: def.event || null, levels: def.levels, charts, stats, local: false, duration, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [],
     previewAt: (def.preview ?? 32) * 60 / def.bpm, onsets,
     // 手作りMVがない曲の自動MV用(曲の構成は使うときに調べる)
     mvAuto() { return (this._mv ||= { title: def.title, genre: def.genre, color: def.color, sections: analyzeSections(events, def.bpm, duration) }); },
@@ -147,7 +148,8 @@ function builtinEntry(def) {
     },
   };
 }
-const entries = SONGS.map((def) => (def.audio ? fileSongEntry(def) : builtinEntry(def)));
+// 期間限定の曲(event つき)は、そのイベントの期間だけ出す
+const entries = SONGS.filter((def) => !def.event || eventActive(def.event)).map((def) => (def.audio ? fileSongEntry(def) : builtinEntry(def)));
 let tutorialEntry = null; // 使うときに作る
 
 let sel = Math.max(0, Math.min(entries.length - 1, load('sel', 0)));
@@ -458,7 +460,7 @@ function renderList() {
       const mark = best?.ap ? 'AP' : best?.fc ? 'FC' : '';
       return `<span class="lv ${d}">${e.levels[d]}${mark ? `<span class="mark">${mark}</span>` : ''}</span>`;
     }).join('');
-    b.innerHTML = `${jacketImg(e, 128, 'sc-jacket')}<div class="sc-text"><div class="sc-title">${esc(e.title)}</div><div class="sc-sub">${esc(e.genre)} ・ BPM ${Math.round(e.bpm)}${e.local ? ' ・ LOCAL' : ''}${hasMV(e.id) ? ' <span class="mv-tag" title="MVつき">MV</span>' : ''}</div></div><div class="sc-lv">${lv}</div>`;
+    b.innerHTML = `${jacketImg(e, 128, 'sc-jacket')}<div class="sc-text"><div class="sc-title">${e.event ? '<span class="ev-tag">期間限定</span>' : ''}${esc(e.title)}</div><div class="sc-sub">${esc(e.genre)} ・ BPM ${Math.round(e.bpm)}${e.local ? ' ・ LOCAL' : ''}${hasMV(e.id) ? ' <span class="mv-tag" title="MVつき">MV</span>' : ''}</div></div><div class="sc-lv">${lv}</div>`;
     b.querySelector('.sc-text').prepend(favMark(e));
     b.addEventListener('click', () => { if (sel === i) startGame(); else selectSong(i); });
     list.appendChild(b);
@@ -1042,6 +1044,7 @@ $('btn-tut-skip').addEventListener('click', () => { save('tutorialSkipped', true
 $('btn-tut-home').addEventListener('click', () => overlay('tut-done', false));
 $('btn-tut-play').addEventListener('click', () => { overlay('tut-done', false); goHome(true); goSelect(); });
 for (const b of document.querySelectorAll('[data-home]')) b.addEventListener('click', () => goHome());
+initEvent({ songs: SONGS.filter((d) => d.event === 'xmas' && eventActive('xmas')) });
 initMeta({ show: (n) => { stopPreview(); show(n); }, toast, back: () => goHome(), current: () => state });
 initMaker({
   entries, show: (n) => { stopPreview(); show(n); }, toast, back: () => goHome(), current: () => state, overlay,

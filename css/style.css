@@ -1190,3 +1190,55 @@ body.live #btn-p-retry { display: none; }
 .pick-bar span { color: #8a94c0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 body.picking #btn-share, body.picking #team-fx-mini { display: none; }
 @media (max-width: 700px) { .pick-bar span { display: none; } }
+
+/* ===== クリスマスイベント(12/1〜1/31。body.xmas は js/event.js が付ける) ===== */
+body.xmas { --accent: #ff5a6e; --panel-line: rgba(255, 140, 150, 0.24); }
+.xmas-snow { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 3; pointer-events: none; }
+body.playing .xmas-snow { display: none; }
+body.xmas .screen.meta { background:
+  radial-gradient(ellipse at 0% 0%, rgba(255, 59, 78, 0.16), transparent 45%),
+  radial-gradient(ellipse at 100% 100%, rgba(47, 220, 106, 0.13), transparent 50%), rgba(2, 3, 10, 0.55); }
+/* ロゴ: 赤と緑の光 + サンタ帽 */
+body.xmas .logo-big b { text-shadow: 0 0 18px #ff3b4e, 0 0 50px rgba(255, 59, 78, 0.45), 4px 0 0 rgba(47, 220, 106, 0.7); }
+.xmas-hat { position: absolute; left: -0.1em; top: -0.3em; width: 0.62em; transform: rotate(-16deg); filter: drop-shadow(0 0 10px rgba(255, 59, 78, 0.6)); pointer-events: none; }
+body.xmas .logo-small b { color: #fff; text-shadow: 0 0 10px #ff3b4e, 2px 0 0 rgba(47, 220, 106, 0.6); }
+body.xmas .logo-small b::after { content: ' 🎄'; text-shadow: none; }
+/* 上のバーに電飾 */
+body.xmas .screen.meta .topbar { position: relative; }
+body.xmas .screen.meta .topbar::after { content: ''; position: absolute; left: 0; right: 0; bottom: -6px; height: 12px; pointer-events: none;
+  background-image: radial-gradient(circle, #ff3b4e 0 3px, transparent 4px), radial-gradient(circle, #2fdc6a 0 3px, transparent 4px), radial-gradient(circle, #ffd25e 0 3px, transparent 4px), radial-gradient(circle, #5ec8ff 0 3px, transparent 4px);
+  background-size: 96px 12px; background-position: 0 0, 24px 0, 48px 0, 72px 0; background-repeat: repeat-x;
+  filter: drop-shadow(0 0 4px rgba(255, 220, 160, 0.8)); animation: xmasTwinkle 1.6s steps(2) infinite; }
+@keyframes xmasTwinkle { 50% { opacity: 0.55; } }
+body.xmas .h-tile:hover, body.xmas .h-tile:focus-visible { border-color: #ff5a6e; }
+/* ホームのお知らせ */
+.xmas-banner { position: relative; overflow: hidden; flex: none; display: flex; align-items: center; padding: 20px 20px 14px; border-radius: 12px; border: 1px solid rgba(255, 90, 110, 0.6);
+  background: linear-gradient(110deg, rgba(200, 20, 40, 0.45), rgba(20, 110, 60, 0.42)), #0a0612; box-shadow: 0 0 24px rgba(255, 59, 78, 0.25); }
+.xmas-banner .xb-lights { position: absolute; left: 0; right: 0; top: 2px; height: 10px;
+  background-image: radial-gradient(circle, #ffd25e 0 2.5px, transparent 3.5px), radial-gradient(circle, #fff 0 2px, transparent 3px);
+  background-size: 40px 10px; background-position: 0 0, 20px 0; animation: xmasTwinkle 1.2s steps(2) infinite; }
+.xb-text { display: flex; flex-direction: column; gap: 3px; }
+.xb-text small { font-family: var(--font-d); font-size: 11px; letter-spacing: 0.25em; color: #ffd25e; }
+.xb-text b { font-size: 20px; color: #fff; text-shadow: 0 0 12px rgba(255, 59, 78, 0.8); }
+.xb-text span { font-size: 13px; color: #ffe3e6; }
+/* 曲リストの「期間限定」 */
+.ev-tag { display: inline-block; font-size: 10px; font-weight: 800; color: #fff; background: linear-gradient(90deg, #e0283c, #1f9c50); border-radius: 3px; padding: 0 5px; margin-right: 6px; vertical-align: 2px; letter-spacing: 0; }
+/* クリスマスガチャ */
+.g-tab.theme-xmas { border-color: rgba(255, 90, 110, 0.5); }
+.g-tab.theme-xmas small { color: #ff9aa6; }
+.g-tab.theme-xmas.sel { border-color: #ff3b4e; background: linear-gradient(135deg, rgba(255, 59, 78, 0.25), rgba(47, 220, 106, 0.2)), var(--panel); box-shadow: 0 0 18px rgba(255, 59, 78, 0.4); }
+.gacha-banner.theme-xmas { border-color: rgba(255, 90, 110, 0.6); background:
+  radial-gradient(circle at 50% -10%, rgba(255, 210, 94, 0.25), transparent 35%),
+  radial-gradient(circle at 15% 100%, rgba(255, 59, 78, 0.35), transparent 55%),
+  radial-gradient(circle at 85% 100%, rgba(47, 220, 106, 0.3), transparent 55%), #070a12; }
+.gacha-banner.theme-xmas .gb-deco { display: block; position: absolute; inset: 0; pointer-events: none;
+  background-image: radial-gradient(circle at 10% 20%, #fff 0 1.5px, transparent 2.5px), radial-gradient(circle at 30% 60%, #fff 0 1px, transparent 2px), radial-gradient(circle at 75% 30%, #fff 0 2px, transparent 3px), radial-gradient(circle at 90% 70%, #fff 0 1px, transparent 2px), radial-gradient(circle at 55% 85%, #fff 0 1.5px, transparent 2.5px);
+  opacity: 0.7; animation: hwFloat 5s ease-in-out infinite alternate; }
+.gacha-banner.theme-xmas .gb-title { color: #7dffb0; }
+.gacha-banner.theme-xmas .gb-title b { text-shadow: 0 0 18px #ff3b4e, 0 0 32px rgba(255, 59, 78, 0.6); }
+.gacha-banner.theme-xmas .gb-period, .gacha-banner.theme-xmas .gp-label { color: #ffd25e; }
+.gacha-banner.theme-xmas .gb-pity { color: #ff5a6e; }
+.gacha-banner.theme-xmas .gb-sub { color: #ffe3e6; }
+.gacha-banner.theme-xmas #btn-gacha-10 { border-color: #ff3b4e; background: rgba(255, 59, 78, 0.18); box-shadow: 0 0 18px rgba(255, 59, 78, 0.4); }
+body.xmas .h-event { color: #ff5a6e; }
+body.xmas .h-tile.h-event-on { border-color: rgba(255, 90, 110, 0.6); }

@@ -1119,6 +1119,474 @@ const crimsonRumba = {
   ],
 };
 
+// ---------------------------------------------------------------------------
+// クリスマス曲のMV(Jingle Circuit / Snowlight Carol)
+// ---------------------------------------------------------------------------
+const XM = { red: '#ff3b4e', green: '#2fdc6a', gold: '#ffd25e', snow: '#f2f8ff', ice: '#7fd8ff', night: ['#02040e', '#0a1430', '#142a4a'] };
+const LIGHT_COLS = ['#ff3b4e', '#2fdc6a', '#ffd25e', '#5ec8ff', '#ff7ad9'];
+const SNOW = table(140, 2512, (r) => ({ x: r(), y: r(), s: 0.5 + r() * r() * 2.2, sp: 0.05 + r() * 0.08, ph: r() * TAU }));
+const XSTARS = table(90, 1224, (r) => ({ x: r(), y: r() * 0.6, r: 0.6 + r() * 1.6, sp: 1 + r() * 3, ph: r() * TAU, vis: 0.5 + r() * 0.5, big: r() < 0.2 ? 1 : 0 }));
+// 点群のツリー(円すい状に並べた点。LiDAR でスキャンしたような見た目)
+const TREE_PTS = (() => {
+  const pts = [], r = rng(1225);
+  for (let i = 0; i < 520; i++) {
+    const h = r(); // 0=てっぺん 1=根元
+    const layer = h * 7 % 1; // 段々の枝ぶり
+    const rad = h * (0.75 + 0.25 * layer);
+    pts.push({ h, a: r() * TAU, rad: rad * (0.8 + r() * 0.2), light: r() < 0.16 ? Math.floor(r() * LIGHT_COLS.length) : -1, ph: r() * TAU });
+  }
+  return pts;
+})();
+const HOUSES = table(9, 77, (r) => ({ w: 0.08 + r() * 0.06, h: 0.1 + r() * 0.08, roof: 0.05 + r() * 0.04, win: Math.floor(r() * 3) + 1, ph: r() }));
+const GIFTS = table(14, 1226, (r) => ({ x: r(), sp: 0.12 + r() * 0.12, s: 0.05 + r() * 0.04, col: Math.floor(r() * LIGHT_COLS.length), rot: (r() - 0.5) * 2, ph: r() }));
+
+// 雪(ふわふわ落ちる)
+function snowfall(c, speed = 1, alpha = 1, scale = 1) {
+  const g = c.g;
+  g.fillStyle = XM.snow;
+  for (const f of SNOW) {
+    const y = frac(f.y + c.t * f.sp * speed) * (c.h + 20) - 10;
+    const x = frac(f.x + Math.sin(c.t * 0.8 + f.ph) * 0.02) * c.w;
+    g.globalAlpha = alpha * (0.4 + f.s / 4);
+    const r = f.s * scale * c.h / 360;
+    g.beginPath(); g.arc(x, y, r + 0.3, 0, TAU); g.fill();
+  }
+  g.globalAlpha = 1;
+}
+// 電飾のひも(たるんだ線に色電球)。ph で点滅の順番がずれていく
+function stringLights(c, y, sag, n, ph, alpha = 1) {
+  const g = c.g;
+  g.save();
+  g.globalAlpha = alpha * 0.5;
+  g.strokeStyle = '#1a2a1e'; g.lineWidth = Math.max(1, c.h / 300);
+  g.beginPath();
+  for (let i = 0; i <= 40; i++) { const u = i / 40; g.lineTo(u * c.w, y + Math.sin(u * Math.PI * 3) ** 2 * sag); }
+  g.stroke();
+  for (let i = 0; i < n; i++) {
+    const u = (i + 0.5) / n, x = u * c.w, yy = y + Math.sin(u * Math.PI * 3) ** 2 * sag + c.h * 0.012;
+    const on = (i + Math.floor(ph)) % 3 !== 0;
+    const col = LIGHT_COLS[i % LIGHT_COLS.length];
+    g.globalAlpha = alpha * (on ? 1 : 0.25);
+    g.fillStyle = col; g.shadowColor = col; g.shadowBlur = on ? c.h * 0.03 : 0;
+    g.beginPath(); g.ellipse(x, yy, c.h * 0.008, c.h * 0.013, 0, 0, TAU); g.fill();
+  }
+  g.restore();
+}
+// 点群のクリスマスツリー。rot で回る。上に星
+function pointTree(c, cx, top, H, rot, { alpha = 1, pulse = 0, starGlow = 1 } = {}) {
+  const g = c.g;
+  const W = H * 0.42;
+  const list = TREE_PTS.map((p) => {
+    const a = p.a + rot;
+    return { p, x: Math.cos(a) * p.rad, z: Math.sin(a) * p.rad };
+  }).sort((a, b) => a.z - b.z);
+  for (const { p, x, z } of list) {
+    const depth = 0.35 + 0.65 * (z + 1) / 2;
+    const sx = cx + x * W, sy = top + p.h * H;
+    if (p.light >= 0) {
+      const col = LIGHT_COLS[p.light];
+      const on = 0.5 + 0.5 * Math.sin(c.t * 4 + p.ph + c.beat * Math.PI);
+      g.globalAlpha = alpha * depth * (0.4 + 0.6 * on);
+      g.fillStyle = col;
+      const r = (2.2 + 2.4 * on + pulse * 2) * c.h / 360;
+      g.beginPath(); g.arc(sx, sy, r, 0, TAU); g.fill();
+    } else {
+      g.globalAlpha = alpha * (0.3 + depth * 0.7);
+      g.fillStyle = depth > 0.7 ? '#9dffc4' : '#2fdc6a';
+      const r = (1.4 + depth * 1.8) * c.h / 360;
+      g.fillRect(sx - r / 2, sy - r / 2, r, r);
+    }
+  }
+  g.globalAlpha = 1;
+  // 幹
+  g.fillStyle = `rgba(150,90,50,${0.8 * alpha})`;
+  g.fillRect(cx - H * 0.035, top + H, H * 0.07, H * 0.08);
+  // 星
+  star5(c, cx, top - H * 0.02, H * (0.07 + 0.015 * pulse), XM.gold, alpha, starGlow * (0.6 + pulse));
+}
+function star5(c, x, y, r, col, alpha = 1, glow = 1, rot = 0) {
+  const g = c.g;
+  g.save();
+  g.globalAlpha = alpha;
+  g.fillStyle = col; g.shadowColor = col; g.shadowBlur = r * glow;
+  g.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + rot + i * Math.PI / 5, rr = i % 2 ? r * 0.42 : r;
+    g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+  }
+  g.closePath(); g.fill();
+  g.restore();
+}
+// 雪の積もった家並み(窓に灯り)
+function snowTown(c, base, alpha = 1) {
+  const g = c.g;
+  let x = -c.w * 0.02;
+  for (const hs of HOUSES) {
+    const w = hs.w * c.w * 1.2, h = hs.h * c.h, rf = hs.roof * c.h;
+    g.globalAlpha = alpha;
+    g.fillStyle = '#0d1530';
+    g.fillRect(x, base - h, w, h);
+    g.beginPath(); g.moveTo(x - w * 0.08, base - h); g.lineTo(x + w / 2, base - h - rf); g.lineTo(x + w * 1.08, base - h); g.closePath(); g.fill();
+    // 屋根の雪
+    g.fillStyle = XM.snow;
+    g.beginPath(); g.moveTo(x - w * 0.08, base - h); g.lineTo(x + w / 2, base - h - rf); g.lineTo(x + w * 1.08, base - h);
+    g.lineTo(x + w * 0.9, base - h + c.h * 0.01); g.lineTo(x + w / 2, base - h - rf + c.h * 0.012); g.lineTo(x + w * 0.1, base - h + c.h * 0.01); g.closePath(); g.fill();
+    // 窓
+    for (let k = 0; k < hs.win; k++) {
+      const lit = 0.6 + 0.4 * Math.sin(c.t * 1.3 + hs.ph * 9 + k);
+      g.fillStyle = `rgba(255,${190 + 40 * lit | 0},110,${0.55 + 0.45 * lit})`;
+      const ww = w / (hs.win * 2 + 1);
+      g.fillRect(x + ww * (k * 2 + 1), base - h * 0.62, ww, h * 0.28);
+    }
+    x += w * 1.15;
+  }
+  g.globalAlpha = alpha;
+  g.fillStyle = '#9fb3d6';
+  g.fillRect(0, base, c.w, c.h - base);
+  g.globalAlpha = 1;
+}
+// ソリとトナカイのシルエット(u=0→1 で左から右へ)
+function sleigh(c, u, y, s, col = '#0a0f22', alpha = 1) {
+  const g = c.g;
+  const x = -s * 3 + u * (c.w + s * 6);
+  g.save();
+  g.globalAlpha = alpha;
+  g.translate(x, y + Math.sin(u * TAU * 2) * s * 0.15);
+  g.fillStyle = col; g.strokeStyle = col; g.lineWidth = s * 0.06;
+  // ソリ
+  g.beginPath(); g.moveTo(-s * 1.4, 0); g.lineTo(-s * 0.4, 0); g.quadraticCurveTo(-s * 0.2, -s * 0.5, -s * 0.6, -s * 0.5); g.lineTo(-s * 1.3, -s * 0.5); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(-s * 1.5, s * 0.12); g.lineTo(-s * 0.3, s * 0.12); g.quadraticCurveTo(-s * 0.1, s * 0.12, -s * 0.15, -s * 0.05); g.stroke();
+  g.beginPath(); g.arc(-s * 1.0, -s * 0.62, s * 0.18, 0, TAU); g.fill(); // サンタ
+  // トナカイ3頭
+  for (let k = 0; k < 3; k++) {
+    const rx = s * (0.3 + k * 0.75), lg = Math.sin(c.t * 12 + k) * s * 0.12;
+    g.beginPath(); g.ellipse(rx, -s * 0.15, s * 0.28, s * 0.12, 0, 0, TAU); g.fill();
+    g.beginPath(); g.moveTo(rx + s * 0.22, -s * 0.2); g.lineTo(rx + s * 0.36, -s * 0.45); g.stroke();
+    g.beginPath(); g.moveTo(rx + s * 0.36, -s * 0.45); g.lineTo(rx + s * 0.3, -s * 0.62); g.moveTo(rx + s * 0.36, -s * 0.45); g.lineTo(rx + s * 0.48, -s * 0.6); g.stroke();
+    g.beginPath(); g.moveTo(rx - s * 0.15, -s * 0.05); g.lineTo(rx - s * 0.2 - lg, s * 0.15); g.moveTo(rx + s * 0.15, -s * 0.05); g.lineTo(rx + s * 0.2 + lg, s * 0.15); g.stroke();
+  }
+  g.beginPath(); g.moveTo(-s * 0.4, -s * 0.25); g.lineTo(s * 1.9, -s * 0.15); g.stroke(); // 手綱
+  // 先頭の赤い鼻
+  g.fillStyle = XM.red; g.shadowColor = XM.red; g.shadowBlur = s * 0.4;
+  g.beginPath(); g.arc(s * 1.95, -s * 0.47, s * 0.06, 0, TAU); g.fill();
+  g.restore();
+}
+// プレゼントの箱
+function giftBox(c, x, y, s, col, rot = 0, alpha = 1) {
+  const g = c.g;
+  g.save();
+  g.globalAlpha = alpha;
+  g.translate(x, y); g.rotate(rot);
+  g.fillStyle = col; g.fillRect(-s / 2, -s / 2, s, s);
+  g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(-s / 2, -s / 2, s, s * 0.22);
+  g.fillStyle = XM.gold;
+  g.fillRect(-s * 0.08, -s / 2, s * 0.16, s); g.fillRect(-s / 2, -s * 0.36, s, s * 0.12);
+  g.beginPath(); g.ellipse(-s * 0.16, -s * 0.58, s * 0.16, s * 0.1, -0.5, 0, TAU); g.ellipse(s * 0.16, -s * 0.58, s * 0.16, s * 0.1, 0.5, 0, TAU); g.fill();
+  g.restore();
+}
+// ベル(sw=揺れの角度)。鳴った瞬間に音の輪が広がる
+function bellShape(c, x, y, s, sw, ring = 0) {
+  const g = c.g;
+  g.save();
+  g.translate(x, y); g.rotate(sw);
+  const gr = g.createLinearGradient(-s, 0, s, 0);
+  gr.addColorStop(0, '#a8741a'); gr.addColorStop(0.45, '#ffe7a8'); gr.addColorStop(1, '#b8841f');
+  g.fillStyle = gr;
+  g.beginPath();
+  g.moveTo(-s * 0.12, 0); g.quadraticCurveTo(-s * 0.55, s * 0.05, -s * 0.6, s * 0.7); g.lineTo(-s * 0.8, s * 0.95); g.lineTo(s * 0.8, s * 0.95); g.lineTo(s * 0.6, s * 0.7); g.quadraticCurveTo(s * 0.55, s * 0.05, s * 0.12, 0); g.closePath(); g.fill();
+  g.beginPath(); g.arc(0, s * 1.02, s * 0.14, 0, TAU); g.fill();
+  g.fillStyle = XM.red; // リボン
+  g.beginPath(); g.ellipse(-s * 0.22, -s * 0.05, s * 0.22, s * 0.1, -0.4, 0, TAU); g.ellipse(s * 0.22, -s * 0.05, s * 0.22, s * 0.1, 0.4, 0, TAU); g.fill();
+  g.restore();
+  if (ring > 0) {
+    g.save();
+    g.strokeStyle = XM.gold; g.lineWidth = s * 0.05;
+    for (let k = 0; k < 3; k++) {
+      const rr = s * (1 + (1 - ring) * 1.6 + k * 0.35);
+      g.globalAlpha = ring * (0.6 - k * 0.18);
+      g.beginPath(); g.arc(x, y + s * 0.6, rr, 0, TAU); g.stroke();
+    }
+    g.restore();
+  }
+}
+// 雪の結晶(6方向に枝分かれ)
+function snowCrystal(c, x, y, R, rot, col = XM.snow, alpha = 1, glow = 0) {
+  const g = c.g;
+  g.save();
+  g.translate(x, y); g.rotate(rot);
+  g.globalAlpha = alpha;
+  g.strokeStyle = col; g.lineWidth = Math.max(1, R * 0.045); g.lineCap = 'round';
+  if (glow) { g.shadowColor = col; g.shadowBlur = R * 0.15 * glow; }
+  for (let i = 0; i < 6; i++) {
+    g.save(); g.rotate(i * TAU / 6);
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -R);
+    for (const [d, l] of [[0.35, 0.28], [0.6, 0.22], [0.82, 0.13]]) {
+      g.moveTo(0, -R * d); g.lineTo(-R * l, -R * (d + l * 0.7));
+      g.moveTo(0, -R * d); g.lineTo(R * l, -R * (d + l * 0.7));
+    }
+    g.stroke();
+    g.restore();
+  }
+  g.beginPath(); g.arc(0, 0, R * 0.12, 0, TAU); g.stroke();
+  g.restore();
+}
+// オーロラ(ゆらぐ光の帯)
+function aurora(c, y, amp, alpha = 1) {
+  const g = c.g;
+  g.save();
+  g.globalCompositeOperation = 'lighter';
+  for (let band = 0; band < 3; band++) {
+    const col = ['rgba(60,255,170,', 'rgba(90,200,255,', 'rgba(190,120,255,'][band];
+    for (let i = 0; i < 48; i++) {
+      const u = i / 47, x = u * c.w;
+      const yy = y + Math.sin(u * 5 + c.t * 0.4 + band * 1.3) * amp + Math.sin(u * 13 - c.t * 0.7) * amp * 0.25 + band * c.h * 0.04;
+      const hh = c.h * (0.16 + 0.08 * Math.sin(u * 7 + c.t * 0.6 + band));
+      const gr = g.createLinearGradient(0, yy - hh, 0, yy);
+      gr.addColorStop(0, col + '0)'); gr.addColorStop(1, col + (0.16 * alpha) + ')');
+      g.fillStyle = gr;
+      g.fillRect(x - c.w / 47, yy - hh, c.w / 47 * 2, hh);
+    }
+  }
+  g.restore();
+}
+// 雪山
+function snowMountains(c, base, alpha = 1) {
+  const g = c.g;
+  g.globalAlpha = alpha;
+  for (const [k, col, hh] of [[0, '#1a2c50', 0.3], [1, '#0e1a34', 0.22]]) {
+    g.fillStyle = col;
+    g.beginPath(); g.moveTo(0, c.h);
+    for (let i = 0; i <= 12; i++) {
+      const u = i / 12, peak = i % 2 ? 1 : 0.55 + 0.2 * Math.sin(i * 7 + k);
+      g.lineTo(u * c.w, base - peak * c.h * hh * (0.7 + 0.3 * Math.sin(i * 3.1 + k * 2)));
+    }
+    g.lineTo(c.w, c.h); g.closePath(); g.fill();
+  }
+  g.globalAlpha = 1;
+}
+// 教会のバラ窓(ステンドグラス)
+function roseWindow(c, x, y, R, rot, glow = 0) {
+  const g = c.g;
+  const cols = ['#ff3b4e', '#2f7dff', '#ffd25e', '#2fdc6a', '#b46bff', '#ff7a2f'];
+  g.save();
+  g.translate(x, y); g.rotate(rot);
+  for (let ring = 3; ring >= 1; ring--) {
+    const n = ring * 6;
+    for (let i = 0; i < n; i++) {
+      const a0 = i * TAU / n, a1 = (i + 1) * TAU / n;
+      g.fillStyle = cols[(i + ring) % cols.length];
+      g.globalAlpha = 0.55 + 0.35 * Math.sin(c.t * 1.5 + i + ring) + glow * 0.2;
+      g.beginPath(); g.arc(0, 0, R * ring / 3, a0, a1); g.arc(0, 0, R * (ring - 1) / 3, a1, a0, true); g.closePath(); g.fill();
+    }
+  }
+  g.globalAlpha = 1;
+  g.strokeStyle = '#0a0612'; g.lineWidth = R * 0.03;
+  for (let ring = 1; ring <= 3; ring++) { g.beginPath(); g.arc(0, 0, R * ring / 3, 0, TAU); g.stroke(); }
+  for (let i = 0; i < 18; i++) { const a = i * TAU / 18; g.beginPath(); g.moveTo(Math.cos(a) * R / 3, Math.sin(a) * R / 3); g.lineTo(Math.cos(a) * R, Math.sin(a) * R); g.stroke(); }
+  g.restore();
+}
+// 教会と鐘楼のシルエット
+function church(c, x, base, s, alpha = 1) {
+  const g = c.g;
+  g.globalAlpha = alpha;
+  g.fillStyle = '#070b1c';
+  g.fillRect(x - s * 0.6, base - s * 0.5, s * 1.2, s * 0.5);
+  g.beginPath(); g.moveTo(x - s * 0.7, base - s * 0.5); g.lineTo(x, base - s * 0.9); g.lineTo(x + s * 0.7, base - s * 0.5); g.fill();
+  g.fillRect(x + s * 0.3, base - s * 1.25, s * 0.3, s * 0.8);
+  g.beginPath(); g.moveTo(x + s * 0.26, base - s * 1.25); g.lineTo(x + s * 0.45, base - s * 1.65); g.lineTo(x + s * 0.64, base - s * 1.25); g.fill();
+  const lit = 0.75 + 0.25 * Math.sin(c.t * 2);
+  g.fillStyle = `rgba(255,200,110,${lit})`;
+  g.beginPath(); g.arc(x, base - s * 0.55, s * 0.09, 0, TAU); g.fill();
+  g.fillRect(x - s * 0.35, base - s * 0.38, s * 0.1, s * 0.18); g.fillRect(x + s * 0.12, base - s * 0.38, s * 0.1, s * 0.18);
+  g.fillRect(x + s * 0.4, base - s * 1.1, s * 0.1, s * 0.16);
+  g.globalAlpha = 1;
+}
+const nightSky = (c) => { vgrad(c, XM.night); twinkle(c, XSTARS, '#fff', 0.6); };
+const flash = (c, col, a) => { if (a > 0) { c.g.fillStyle = col.replace('A', a.toFixed(3)); c.g.fillRect(0, 0, c.w, c.h); } };
+
+const jingleCircuit = {
+  scenes: [
+    { from: 0, to: 16, draw(c) { // 夜空と雪、電飾に囲まれた曲名
+      nightSky(c);
+      snowfall(c, 0.8, 0.8);
+      stringLights(c, c.h * 0.02, c.h * 0.06, 14, c.beat);
+      stringLights(c, c.h * 0.86, c.h * 0.05, 14, c.beat + 1);
+      const a = ease((c.lb - 1) / 3);
+      text(c, 'Jingle Circuit', c.w / 2, c.h * 0.44, c.h * 0.11, '#fff', a, { glow: 22 + 10 * c.pulse });
+      text(c, 'CHRISTMAS POP', c.w / 2, c.h * 0.57, c.h * 0.035, XM.gold, a, { weight: 700, spacing: 8 });
+    } },
+    { from: 16, to: 48, draw(c) { // 雪の町。真ん中のツリーが拍で光る
+      nightSky(c);
+      moon(c, c.w * 0.82, c.h * 0.17, c.h * 0.06, '#fff4d6');
+      snowTown(c, c.h * 0.82);
+      pointTree(c, c.w / 2, c.h * 0.3, c.h * 0.48, c.t * 0.3, { pulse: c.pulse });
+      snowfall(c, 1, 0.9);
+      stringLights(c, c.h * 0.02, c.h * 0.05, 16, c.beat * 2);
+    } },
+    { from: 48, to: 64, draw(c) { // 月の前をソリが横切る
+      vgrad(c, ['#03061a', '#0d1d44']);
+      twinkle(c, XSTARS, '#fff', 0.8);
+      moon(c, c.w / 2, c.h * 0.45, c.h * 0.26, '#fff4d6');
+      sleigh(c, ease(c.p), c.h * 0.48, c.h * 0.09, '#0a0f22');
+      snowMountains(c, c.h * 0.95);
+      snowfall(c, 1.4, 0.7);
+    } },
+    { from: 64, to: 96, draw(c) { // サビ: 大きな点群ツリーが回り、プレゼントが跳ねる
+      vgrad(c, ['#06020a', '#2a0812', '#0a2414']);
+      radialLines(c, 24, 'rgba(255,210,94,0.08)', 1, c.t * 0.1, 0.05);
+      pointTree(c, c.w / 2, c.h * 0.16, c.h * 0.68, c.t * 0.9, { pulse: c.pulse, starGlow: 2 });
+      for (let i = 0; i < 5; i++) {
+        const x = c.w * (0.1 + i * 0.2 + (i >= 2 ? 0.0 : 0)), hop = Math.abs(Math.sin((c.beat + i * 0.5) * Math.PI)) * c.h * 0.08;
+        if (Math.abs(x - c.w / 2) < c.w * 0.12) continue;
+        giftBox(c, x, c.h * 0.88 - hop, c.h * 0.1, LIGHT_COLS[i], Math.sin(c.beat * Math.PI + i) * 0.15);
+      }
+      snowfall(c, 1.2, 0.8);
+      stringLights(c, c.h * 0.02, c.h * 0.05, 16, c.beat * 2);
+      flash(c, 'rgba(255,255,255,A)', 0.2 * c.pulse);
+    } },
+    { from: 96, to: 112, draw(c) { // 間奏: 2つのベルが揺れて鳴る
+      vgrad(c, ['#120408', '#3a0a14']);
+      lunares(c, 'rgba(255,210,94,0.12)', c.h * 0.02, 0.04);
+      const sw = Math.sin(c.beat * Math.PI) * 0.45;
+      bellShape(c, c.w * 0.36, c.h * 0.22, c.h * 0.24, sw, Math.max(0, 1 - frac(c.beat) * 1.5));
+      bellShape(c, c.w * 0.64, c.h * 0.22, c.h * 0.24, -sw, Math.max(0, 1 - frac(c.beat + 0.5) * 1.5));
+      snowfall(c, 0.8, 0.6);
+    } },
+    { from: 112, to: 160, draw(c) { // Aメロ2: プレゼントの雨と雪だるま気分の雪原
+      nightSky(c);
+      snowMountains(c, c.h * 0.8, 0.9);
+      c.g.fillStyle = '#9fb3d6'; c.g.fillRect(0, c.h * 0.8, c.w, c.h * 0.2);
+      for (const gf of GIFTS) {
+        const y = frac(gf.ph + c.t * gf.sp) * (c.h * 1.2) - c.h * 0.1;
+        giftBox(c, gf.x * c.w, y, gf.s * c.h * 1.6, LIGHT_COLS[gf.col], gf.rot * c.t * 0.5 + gf.rot);
+      }
+      snowfall(c, 1, 0.8);
+      if (c.lb >= 32) sleigh(c, ease((c.lb - 32) / 16), c.h * 0.3, c.h * 0.06, '#fff4d6', 0.9);
+    } },
+    { from: 160, to: 192, draw(c) { // サビ2: 飾り玉のトンネルを抜ける
+      vgrad(c, ['#02040e', '#081830']);
+      for (let i = 0; i < 3; i++) tunnel(c, 12, 0.35, LIGHT_COLS[i], { rot: c.t * 0.2 * (i % 2 ? -1 : 1) + i, n: 10, lw: 2, alpha: 0.5, scale: 1 + i * 0.15 });
+      pointTree(c, c.w / 2, c.h * 0.2, c.h * 0.6, -c.t * 1.2, { pulse: c.pulse, starGlow: 2.5 });
+      snowfall(c, 2.5, 0.7);
+      flash(c, 'rgba(255,59,78,A)', 0.18 * c.pulse);
+    } },
+    { from: 192, to: 224, draw(c) { // ブリッジ: 静かな雪の夜。大きな結晶がゆっくり育つ
+      vgrad(c, ['#030612', '#0c1a36']);
+      twinkle(c, XSTARS, '#fff', 0.3);
+      snowCrystal(c, c.w / 2, c.h * 0.48, c.h * 0.36 * ease(c.p * 1.4 + 0.1), c.t * 0.08, XM.ice, 0.9, 1.5);
+      snowCrystal(c, c.w / 2, c.h * 0.48, c.h * 0.2 * ease(c.p * 1.4), -c.t * 0.12, '#fff', 0.6);
+      snowfall(c, 0.5, 0.9, 1.3);
+    } },
+    { from: 224, to: 256, draw(c) { // ラストサビ: ツリー・ソリ・プレゼント全部
+      vgrad(c, ['#06020a', '#2a0812', '#0a2414']);
+      radialLines(c, 32, 'rgba(255,210,94,0.12)', 1, c.t * 0.2, 0.05);
+      moon(c, c.w * 0.85, c.h * 0.16, c.h * 0.07, '#fff4d6');
+      sleigh(c, frac(c.lb / 16), c.h * 0.2, c.h * 0.05, '#fff4d6', 0.85);
+      pointTree(c, c.w / 2, c.h * 0.18, c.h * 0.66, c.t * 1.4, { pulse: c.pulse, starGlow: 3 });
+      for (let i = 0; i < 4; i++) {
+        const x = c.w * [0.12, 0.27, 0.73, 0.88][i], hop = Math.abs(Math.sin((c.beat + i * 0.5) * Math.PI)) * c.h * 0.1;
+        giftBox(c, x, c.h * 0.88 - hop, c.h * 0.11, LIGHT_COLS[i + 1], Math.sin(c.beat * Math.PI + i) * 0.2);
+      }
+      snowfall(c, 1.5, 0.9);
+      stringLights(c, c.h * 0.02, c.h * 0.05, 18, c.beat * 2);
+      flash(c, 'rgba(255,255,255,A)', 0.22 * c.pulse);
+    } },
+    { from: 256, to: 1e9, draw(c) { // MERRY CHRISTMAS
+      nightSky(c);
+      snowfall(c, 0.7, 0.9);
+      star5(c, c.w / 2, c.h * 0.24, c.h * 0.08, XM.gold, 1, 1.5, c.t * 0.3);
+      const a = ease(c.lb / 2);
+      text(c, 'MERRY CHRISTMAS', c.w / 2, c.h * 0.5, c.h * 0.09, '#fff', a, { glow: 24 });
+      text(c, 'Jingle Circuit', c.w / 2, c.h * 0.62, c.h * 0.04, XM.gold, a, { weight: 700, spacing: 6 });
+      stringLights(c, c.h * 0.86, c.h * 0.05, 14, c.t * 2);
+    } },
+  ],
+};
+
+const snowlightCarol = {
+  scenes: [
+    { from: 0, to: 32, draw(c) { // 雪山にオーロラ。曲名
+      vgrad(c, ['#010309', '#061430', '#0e2a4a']);
+      twinkle(c, XSTARS, '#fff', 0.5);
+      aurora(c, c.h * 0.42, c.h * 0.06, 0.6 + 0.4 * ease(c.p * 2));
+      snowMountains(c, c.h * 0.98);
+      snowfall(c, 0.5, 0.8);
+      const a = ease((c.lb - 2) / 4) * (1 - ease((c.lb - 28) / 3));
+      text(c, 'Snowlight Carol', c.w / 2, c.h * 0.36, c.h * 0.1, '#eaf8ff', a, { font: 'Georgia', weight: 'italic 700', glow: 20 });
+      text(c, 'CHRISTMAS TRANCE', c.w / 2, c.h * 0.47, c.h * 0.032, XM.ice, a, { weight: 700, spacing: 8 });
+    } },
+    { from: 32, to: 64, draw(c) { // 聖歌: 教会のバラ窓とろうそく
+      vgrad(c, ['#05030c', '#120a24']);
+      const gl = c.g.createRadialGradient(c.w / 2, c.h * 0.42, 0, c.w / 2, c.h * 0.42, c.h * 0.6);
+      gl.addColorStop(0, 'rgba(255,220,160,0.18)'); gl.addColorStop(1, 'rgba(0,0,0,0)');
+      c.g.fillStyle = gl; c.g.fillRect(0, 0, c.w, c.h);
+      roseWindow(c, c.w / 2, c.h * 0.42, c.h * 0.3, c.t * 0.03, c.pulse);
+      for (let i = 0; i < 9; i++) candle(c, c.w * (0.06 + i * 0.11), c.h * 0.99, c.h * (0.08 + (i % 3) * 0.03), i * 1.3);
+      snowfall(c, 0.3, 0.35);
+    } },
+    { from: 64, to: 80, draw(c) { // ビルドアップ: 雪が星になって奥へ加速
+      vgrad(c, ['#010309', '#081a38']);
+      starfield(c, SNOW.map((f) => ({ x: f.x, y: f.y, z: f.ph / TAU })), 0.15 + 0.9 * c.p * c.p, '#eaf8ff', 3);
+      snowCrystal(c, c.w / 2, c.h / 2, c.h * 0.12 * (1 + c.p), c.t * (0.5 + 3 * c.p), XM.ice, 0.4 + 0.6 * c.p, 2);
+      flash(c, 'rgba(234,248,255,A)', Math.max(0, (c.lb - 14) / 2) * 0.8);
+    } },
+    { from: 80, to: 144, draw(c) { // ドロップ1: 氷の六角トンネルと、回る巨大な結晶
+      vgrad(c, ['#010309', '#05142e']);
+      tunnel(c, 6, 0.45, XM.ice, { rot: c.t * 0.25, n: 14, lw: 2.5, alpha: 0.7 });
+      tunnel(c, 6, 0.45, '#ffffff', { rot: c.t * 0.25 + Math.PI / 6, n: 7, lw: 1.2, alpha: 0.35, scale: 1.3 });
+      snowCrystal(c, c.w / 2, c.h / 2, c.h * (0.3 + 0.04 * c.pulse), c.beat * Math.PI / 12, '#eaf8ff', 0.95, 2 + 2 * c.pulse);
+      snowCrystal(c, c.w / 2, c.h / 2, c.h * 0.14, -c.beat * Math.PI / 8, XM.gold, 0.8, 1.5);
+      if (c.lb >= 32) aurora(c, c.h * 0.25, c.h * 0.05, 0.7);
+      starfield(c, SNOW.map((f) => ({ x: f.x, y: f.y, z: f.ph / TAU })), 0.6, '#eaf8ff', 2.5);
+      flash(c, 'rgba(127,216,255,A)', 0.22 * c.pulse);
+    } },
+    { from: 144, to: 176, draw(c) { // 中間: 静かな雪の村と鐘楼
+      vgrad(c, ['#020410', '#0b1838', '#16284a']);
+      twinkle(c, XSTARS, '#fff', 0.3);
+      aurora(c, c.h * 0.3, c.h * 0.05, 0.5);
+      church(c, c.w * 0.5, c.h * 0.8, c.h * 0.3);
+      snowTown(c, c.h * 0.86, 0.85);
+      snowfall(c, 0.6, 0.9, 1.2);
+    } },
+    { from: 176, to: 192, draw(c) { // ビルドアップ2: 鐘が鳴り、光が集まる
+      vgrad(c, ['#020410', '#0b1838']);
+      radialLines(c, 36, `rgba(255,210,94,${0.1 + 0.3 * c.p})`, 1, c.t * (0.2 + c.p), 0.05);
+      bellShape(c, c.w / 2, c.h * 0.2, c.h * 0.26, Math.sin(c.beat * Math.PI) * 0.5, Math.max(0, 1 - frac(c.beat) * 1.5));
+      snowfall(c, 1 + 3 * c.p, 0.8);
+      flash(c, 'rgba(255,244,214,A)', Math.max(0, (c.lb - 14) / 2) * 0.8);
+    } },
+    { from: 192, to: 224, draw(c) { // ドロップ2前半: オーロラの下で点群のツリーが回る
+      vgrad(c, ['#010309', '#061430', '#0e2a4a']);
+      aurora(c, c.h * 0.32, c.h * 0.07, 1);
+      twinkle(c, XSTARS, '#fff', 1);
+      pointTree(c, c.w / 2, c.h * 0.16, c.h * 0.7, c.t * 1.1, { pulse: c.pulse, starGlow: 3 });
+      snowfall(c, 2, 0.8);
+      flash(c, 'rgba(127,216,255,A)', 0.2 * c.pulse);
+    } },
+    { from: 224, to: 256, draw(c) { // ドロップ2後半: 結晶の万華鏡
+      vgrad(c, ['#010309', '#081a38']);
+      for (let i = 0; i < 6; i++) {
+        const a = i * TAU / 6 + c.t * 0.4, r = c.h * (0.32 + 0.04 * c.pulse);
+        snowCrystal(c, c.w / 2 + Math.cos(a) * r, c.h / 2 + Math.sin(a) * r, c.h * 0.1, -c.t, LIGHT_COLS[i % 5], 0.85, 1.5);
+      }
+      snowCrystal(c, c.w / 2, c.h / 2, c.h * (0.22 + 0.03 * c.pulse), c.beat * Math.PI / 10, '#eaf8ff', 1, 3);
+      aurora(c, c.h * 0.95, c.h * 0.04, 0.8);
+      starfield(c, SNOW.map((f) => ({ x: f.x, y: f.y, z: f.ph / TAU })), 0.8, '#eaf8ff', 2.5);
+      flash(c, 'rgba(255,255,255,A)', 0.2 * c.pulse);
+    } },
+    { from: 256, to: 1e9, draw(c) { // 締め: 雪山と星、聖夜のことば
+      vgrad(c, ['#010309', '#061430', '#0e2a4a']);
+      twinkle(c, XSTARS, '#fff', 0.2);
+      aurora(c, c.h * 0.4, c.h * 0.05, 0.7);
+      snowMountains(c, c.h * 0.98);
+      snowfall(c, 0.4, 0.9);
+      const a = ease(c.lb / 2);
+      star5(c, c.w / 2, c.h * 0.2, c.h * 0.06, XM.gold, a, 2);
+      text(c, 'Silent Night, Snowlight', c.w / 2, c.h * 0.4, c.h * 0.07, '#eaf8ff', a, { font: 'Georgia', weight: 'italic 700', glow: 18 });
+    } },
+  ],
+};
+
 const MVS = {
   'lidar-rush': lidarRush,
   'neon-highway': neonHighway,
@@ -1127,6 +1595,8 @@ const MVS = {
   'final-protocol': finalProtocol,
   'kawaii-bubble': kawaiiBubble,
   'crimson-rumba': crimsonRumba,
+  'jingle-circuit': jingleCircuit,
+  'snowlight-carol': snowlightCarol,
 };
 // 動画のMV(配布されている映像素材を使う曲)。動画は曲の頭(0秒)にそろえて切り出してある
 //  INMU KING: YAJU-MC(やじゅまん)が個別に配布している映像素材
@@ -1461,7 +1931,7 @@ const THEME_RULES = [
   ['field', /BEGINNER|ACOUSTIC|SHIBUYA|FOLK|COUNTRY|BLUEGRASS|CELTIC|CAMPFIRE|MARCH|POLKA/],
   ['retro', /SYNTH|OUTRUN|CITY POP|FUTURE FUNK|VAPOR|EUROBEAT|DISCO|^FUNK/],
   ['tropical', /BOSSA|REGGAE|SAMBA|TROPICAL|MOOMBAH|^DUB$|AFRO|SALSA|FLAMENCO|MARIACHI|DEMBOW|ARABIAN|BOLLYWOOD|TANGO/],
-  ['night', /LO-FI|JAZZ|LOUNGE|BALLAD|PIANO|R&B|SOUL|BLUES|CHILL|WALTZ|GOSPEL|WINTER|HIP HOP|BIG BAND|SWING/],
+  ['night', /CHRISTMAS|LO-FI|JAZZ|LOUNGE|BALLAD|PIANO|R&B|SOUL|BLUES|CHILL|WALTZ|GOSPEL|WINTER|HIP HOP|BIG BAND|SWING/],
   ['rock', /ROCK|METAL|PUNK/],
   ['space', /TRANCE|PSY|PROGRESSIVE|AMBIENT/],
   ['cyber', /DRUM|JUNGLE|NEURO|LIQUID|CORE|SPEED|GABBER|BREAK|HARDSTYLE|FLASH|DARK|JUMP UP/],

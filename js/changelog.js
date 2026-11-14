@@ -2,6 +2,14 @@
 // 大きな機能追加 = 2つ目の数字を上げる / 不具合修正や小さな改善 = 3つ目の数字を上げる
 export const CHANGELOG = [
   {
+    version: '1.48.0', date: '2026-11-14',
+    notes: [
+      '🎄 クリスマスイベント(毎年 12/1〜1/31): 期間中は全体がクリスマス仕様に(雪・電飾・サンタ帽のロゴ・赤と緑の色)',
+      'クリスマスガチャ開催(12/1〜1/31): 期間限定キャラ8体(★4 Santa Scanner・Snow Queen、★3 Reindeer Rocket・Present Bot、★2 Gingerbread Bot・Snowman Sentry・Ornament Drone・Bell Angel)',
+      '期間限定曲「Jingle Circuit」(CHRISTMAS POP / 150 BPM)と「Snowlight Carol」(CHRISTMAS TRANCE / 138 BPM)。どちらも特製MVつき',
+    ],
+  },
+  {
     version: '1.47.0', date: '2026-11-14',
     notes: [
       '「INMU KING」のMVを、YAJU-MC さんが配布している映像素材に変更(曲にぴったり合わせて流れます)',

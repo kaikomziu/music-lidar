@@ -1,5 +1,6 @@
 // クエスト・ガチャ・編成・アカウント画面
 import * as acc from './account.js';
+import { PREVIEW } from './event.js';
 import { unitIcon, skillText, skillValue, fxText, stars, KIND_LABEL, KIND_COLOR, KIND_DESC, RARITY_COLOR } from './units.js';
 import { load, save } from './storage.js';
 
@@ -208,8 +209,9 @@ const rankM = (m) => (m.claimed ? 2 : m.progress >= m.goal ? 0 : 1);
 // ガチャの種類: 通常ガチャ('normal') と、期間限定のイベントガチャ(サーバーの mlidar_banners)
 let banners = [], clockOff = 0, gachaSel = 'normal';
 const srvNow = () => Date.now() + clockOff;
-const activeBanners = () => banners.filter((b) => srvNow() >= b.starts && srvNow() < b.ends);
-const THEME_LABEL = { halloween: '🎃 ' };
+// ?event=xmas のプレビュー中は、開始前のそのイベントのガチャも見られる(引くのはサーバーが期間内しか受けつけない)
+const activeBanners = () => banners.filter((b) => (srvNow() >= b.starts || PREVIEW === b.theme) && srvNow() < b.ends);
+const THEME_LABEL = { halloween: '🎃 ', xmas: '🎄 ' };
 const jst = (ms) => new Date(ms).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 const pct = (x) => `${Math.round(x * 1000) / 10}%`;
 function remainText(ms) {
@@ -262,7 +264,7 @@ function renderGachaInfo() {
     return;
   }
   const lim = cat.filter((u) => u.banner === b.id);
-  $('gacha-title').innerHTML = b.theme === 'halloween' ? 'HALLOWEEN<b>SCAN</b>' : `<b>${esc(b.name)}</b>`;
+  $('gacha-title').innerHTML = b.theme === 'halloween' ? 'HALLOWEEN<b>SCAN</b>' : b.theme === 'xmas' ? 'CHRISTMAS<b>SCAN</b>' : `<b>${esc(b.name)}</b>`;
   $('gacha-sub').textContent = b.description;
   $('gacha-period').hidden = false;
   $('gacha-period').innerHTML = `期間限定 ${jst(b.starts)} 〜 ${jst(b.ends - 1)} <b>${remainText(b.ends - srvNow())}</b>`;

@@ -13,7 +13,8 @@ export default {
   bpm: data.bpm,
   offset: data.offset, // 1拍目の位置(秒)
   duration: data.duration,
-  audio: 'audio/shining-star.mp3',
+  audio: 'audio/shining-star.bin',
+  audioKey: 'bDldIcWYRLkh8wU4Beyu2ygnHOgLFUS2',
   fixedCharts: data.charts,
   levels: { easy: 3, normal: 6, hard: 8 },
   previewAt: 71.43, // 秒

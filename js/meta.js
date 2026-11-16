@@ -30,7 +30,10 @@ export function initMeta(api) {
   loadBanners();
   $('btn-gacha-1').addEventListener('click', () => pull(1));
   $('btn-gacha-10').addEventListener('click', () => pull(10));
-  $('gacha-result').addEventListener('click', (ev) => { if (ev.target.closest('.btn-gacha-close')) closeGachaResult(); });
+  $('gacha-result').addEventListener('click', (ev) => {
+    if (ev.target.closest('.btn-gacha-skip')) { skipGachaReveal(); return; }
+    if (ev.target.closest('.btn-gacha-close')) closeGachaResult();
+  });
 
   // 編成
   $('team-sort').addEventListener('change', renderTeam);
@@ -278,9 +281,28 @@ function renderGachaInfo() {
 }
 
 let pulling = false;
+let gachaTrigger = null;
+let gachaRevealTimers = [];
+let gachaRevealQueue = [];
+let gachaRevealResults = [];
+
+function clearGachaRevealTimers() {
+  gachaRevealTimers.forEach((timer) => clearTimeout(timer));
+  gachaRevealTimers = [];
+}
+function scheduleGachaReveal(callback, delay) {
+  const timer = setTimeout(() => {
+    gachaRevealTimers = gachaRevealTimers.filter((id) => id !== timer);
+    callback();
+  }, delay);
+  gachaRevealTimers.push(timer);
+}
+
 async function pull(n) {
   if (pulling) return;
   pulling = true;
+  const active = document.activeElement;
+  gachaTrigger = active && typeof active.focus === 'function' ? active : null;
   try {
     const res = gachaSel === 'normal' ? await acc.gacha(n) : await acc.gachaEvent(gachaSel, n);
     showGachaResult(res);
@@ -293,26 +315,105 @@ async function pull(n) {
 
 function showGachaResult(res) {
   const box = $('gacha-result');
-  const best = Math.max(...res.map((r) => r.rarity));
+  clearGachaRevealTimers();
+  const results = Array.isArray(res) ? res.filter((r) => r && typeof r === 'object').map((r) => {
+    const rarity = Number(r.rarity);
+    return { ...r, rarity: Number.isInteger(rarity) && rarity >= 1 && rarity <= 4 ? rarity : 1 };
+  }) : [];
+  if (!results.length) {
+    gachaTrigger = null;
+    ui.toast('抽選結果を表示できませんでした');
+    return;
+  }
+  gachaRevealResults = results;
+  gachaRevealQueue = results.map((_, i) => i).sort((a, b) =>
+    results[a].rarity - results[b].rarity || Number(!!results[a].new) - Number(!!results[b].new) || a - b);
+  const best = Math.max(...results.map((r) => r.rarity));
   box.className = 'gacha-result on scanning best' + best;
-  // まずスキャン演出(最高レアの色がにじむ)→ カード。タップで飛ばせる
-  const reveal = () => { if (box.classList.contains('scanning')) box.classList.remove('scanning'); };
-  clearTimeout(showGachaResult.t);
-  showGachaResult.t = setTimeout(reveal, best >= 4 ? 2200 : best >= 3 ? 1700 : 1300);
-  box.onclick = (ev) => { if (box.classList.contains('scanning')) { ev.stopPropagation(); reveal(); } };
-  box.innerHTML = `<div class="gr-scan"><div class="gr-ring"></div><div class="gr-ring r2"></div><div class="gr-scantext">SCANNING<span>${best >= 4 ? 'SIGNAL ★★★★' : 'SIGNAL DETECTED'}</span></div></div>
-  <div class="gr-inner"><div class="gr-cards">${res.map((r, i) => {
-    const u = acc.unitById(r.id) || { id: r.id, name: r.id, rarity: r.rarity, kind: 'score' };
-    return `<div class="gr-card r${r.rarity}" style="animation-delay:${0.15 + i * 0.12}s">
+  box.setAttribute('role', 'dialog');
+  box.setAttribute('aria-modal', 'true');
+  box.setAttribute('aria-label', 'ガチャ結果');
+  box.innerHTML = `<div class="gr-scan">
+    <div class="gr-scan-visual" aria-hidden="true"><div class="gr-ring"></div><div class="gr-ring r2"></div><div class="gr-ring r3"></div><div class="gr-core"><span>✦</span></div></div>
+    <div class="gr-scantext">SIGNAL LOCK<span>${best >= 4 ? '最高レアを検出 ★★★★' : best >= 3 ? '強い反応を検出 ★★★' : '新しい信号を検出'}</span></div>
+    <button type="button" class="btn-line btn-gacha-skip gr-scan-skip">タップでスキップ</button>
+  </div>
+  <div class="gr-inner">
+    <div class="gr-result-head"><span class="gr-count">0 / ${results.length}</span><p class="gr-status" role="status" aria-live="polite">信号を解析中…</p></div>
+    <div class="gr-cards">${results.map((r, i) => {
+    const u = acc.unitById(r.id) || { id: r.id || 'unknown', name: r.id || 'UNKNOWN', rarity: r.rarity, kind: 'score' };
+    return `<article class="gr-card r${r.rarity}" data-reveal-index="${i}" data-rarity="${r.rarity}" data-name="${esc(u.name)}" hidden>
       ${r.new ? '<span class="gr-new">NEW</span>' : ''}${u.banner ? '<span class="gr-lim">限定</span>' : ''}
       ${unitIcon(u, 72)}
       <div class="gr-stars" style="color:${RARITY_COLOR[r.rarity]}">${stars(r.rarity)}</div>
       <div class="gr-name">${esc(u.name)}</div>
       <div class="gr-sub">${r.coinBack ? `Lv MAX → ◎${r.coinBack}` : r.new ? KIND_LABEL[u.kind] : `Lv ${r.lv}`}</div>
-    </div>`;
-  }).join('')}</div><button class="btn-glow btn-gacha-close">OK</button></div>`;
+    </article>`;
+  }).join('')}</div>
+    <div class="gr-actions"><button type="button" class="btn-line btn-gacha-skip">演出をスキップ</button><button type="button" class="btn-glow btn-gacha-close" hidden>結果を見る</button></div>
+  </div>`;
+  box.querySelector('.gr-scan-skip')?.focus({ preventScroll: true });
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+    completeGachaReveal(box);
+    return;
+  }
+  scheduleGachaReveal(() => startGachaReveal(box), best >= 4 ? 2200 : best >= 3 ? 1700 : 1250);
 }
-function closeGachaResult() { $('gacha-result').className = 'gacha-result'; renderGachaInfo(); }
+
+function startGachaReveal(box) {
+  if (!box.classList.contains('on')) return;
+  box.classList.remove('scanning');
+  box.querySelector('.gr-inner .btn-gacha-skip')?.focus({ preventScroll: true });
+  revealNextGachaCard(box);
+}
+function revealNextGachaCard(box) {
+  if (!box.classList.contains('on')) return;
+  if (!gachaRevealQueue.length) { completeGachaReveal(box); return; }
+  const index = gachaRevealQueue.shift();
+  const card = box.querySelector(`.gr-card[data-reveal-index="${index}"]`);
+  if (!card) { scheduleGachaReveal(() => revealNextGachaCard(box), 0); return; }
+  card.hidden = false;
+  card.classList.add('revealed');
+  const shown = box.querySelectorAll('.gr-card.revealed').length;
+  box.querySelector('.gr-count').textContent = `${shown} / ${gachaRevealResults.length}`;
+  box.querySelector('.gr-status').textContent = `発見 ${shown} / ${gachaRevealResults.length}：${card.dataset.name}、★${card.dataset.rarity}`;
+  const rarity = Number(card.dataset.rarity) || 1;
+  const delay = rarity >= 4 ? 380 : rarity >= 3 ? 250 : 145;
+  scheduleGachaReveal(() => revealNextGachaCard(box), gachaRevealQueue.length ? delay : 420);
+}
+function completeGachaReveal(box) {
+  clearGachaRevealTimers();
+  box.classList.remove('scanning');
+  box.classList.add('complete');
+  box.querySelectorAll('.gr-card').forEach((card) => { card.hidden = false; card.classList.add('revealed'); });
+  box.querySelectorAll('.btn-gacha-skip').forEach((button) => { button.hidden = true; });
+  const newCount = gachaRevealResults.filter((r) => r.new).length;
+  box.querySelector('.gr-count').textContent = `${gachaRevealResults.length} / ${gachaRevealResults.length}`;
+  box.querySelector('.gr-status').textContent = newCount ? `スキャン完了！新しいユニット ${newCount}体を発見！` : 'スキャン完了！ユニットを確認しよう';
+  const close = box.querySelector('.btn-gacha-close');
+  close.hidden = false;
+  close.focus({ preventScroll: true });
+}
+function skipGachaReveal() {
+  const box = $('gacha-result');
+  if (!box.classList.contains('on') || box.classList.contains('complete')) return;
+  completeGachaReveal(box);
+}
+function closeGachaResult() {
+  clearGachaRevealTimers();
+  const box = $('gacha-result');
+  box.className = 'gacha-result';
+  box.removeAttribute('role');
+  box.removeAttribute('aria-modal');
+  box.removeAttribute('aria-label');
+  box.replaceChildren();
+  gachaRevealQueue = [];
+  gachaRevealResults = [];
+  renderGachaInfo();
+  const trigger = gachaTrigger;
+  gachaTrigger = null;
+  if (trigger?.isConnected && !trigger.disabled) trigger.focus({ preventScroll: true });
+}
 export function gachaResultOpen() { return $('gacha-result').classList.contains('on'); }
 export function closeGacha() { closeGachaResult(); }
 

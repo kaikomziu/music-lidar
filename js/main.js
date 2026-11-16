@@ -2,6 +2,7 @@ import SONGS from './songs/index.js';
 import { composeSong, candidatesFromEvents, generateChart, chartStats, DIFFS, hashStr } from './composer.js';
 import { getCtx, setVolumes, playPreview, stopPreview } from './audio.js';
 import { loadSongAudio } from './audio-cache.js';
+import { loadExternalAudio } from './external-audio.js';
 import { showLoading, hideLoading } from './loading.js';
 import { analyzeFile, hashFile } from './analyzer.js';
 import { buildScroll, dropNotesInStops, gimmickLabel } from './gimmick.js';
@@ -24,6 +25,8 @@ import { initDan, openDan, bestDan, danName } from './dan.js';
 import { initEvent, eventActive } from './event.js';
 import { initExtras, renderDaily, dailyResult, drawJudgeGraph, setShareResult, courseFromUrl } from './extras.js';
 
+const APP_ROOT_URL = new URL('../', import.meta.url);
+
 // ゴースト(自己ベストの判定の記録)を端末に保存。1判定 =「判定の頭文字 + 時刻(10ms単位・36進)」
 const GH = { PERFECT: 'P', GREAT: 'G', GOOD: 'D', MISS: 'M' }, GH_R = { P: 'PERFECT', G: 'GREAT', D: 'GOOD', M: 'MISS' };
 const saveGhost = (id, d, log) => { try { save(`ghost:${id}:${d}`, log.map(([t, res]) => GH[res] + Math.max(0, Math.round(t * 100)).toString(36)).join(',')); } catch { /* 容量オーバー */ } };
@@ -45,14 +48,7 @@ let lastResult = null;
 // ---------------------------------------------------------------------------
 // 曲の準備
 // ---------------------------------------------------------------------------
-// 音源ファイルの曲(def.audio)。譜面は def.fixedCharts、音は fetch して展開
-// tools/scramble_audio.py と同じ方法で元に戻す(鍵の文字と位置で XOR)
-function unscramble(ab, key) {
-  const u8 = new Uint8Array(ab);
-  const k = new TextEncoder().encode(key);
-  for (let i = 0; i < u8.length; i++) u8[i] ^= k[i % k.length] ^ ((i >> 8) & 255);
-  return u8.buffer;
-}
+// 音源ファイルの曲(def.audio)。譜面は def.fixedCharts、音源取得と展開は外部音源ローダーに任せる
 // 音源はメモリを大きく使う(1曲 数十MB)ので、最近使った数曲だけ持っておく。
 // 外した曲はまた使うときに読み直す(合成した曲は端末に保存してあるので速い)
 const KEEP_BUFFERS = 3;
@@ -81,35 +77,14 @@ function fileSongEntry(def) {
     load() {
       if (this.buffer) { touchBuffer(this); return Promise.resolve(this.buffer); }
       if (!this.rendering) {
-        this.rendering = (async () => {
-          const res = await fetch(def.audio);
-          if (!res.ok) throw new Error('audio ' + res.status);
-          const total = +res.headers.get('content-length') || 0;
-          let ab;
-          if (total && res.body) {
-            const reader = res.body.getReader(), parts = [];
-            let got = 0;
-            for (;;) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              parts.push(value); got += value.length;
-              this.progress = 0.85 * (got / total);
-            }
-            const u8 = new Uint8Array(got);
-            let o = 0;
-            for (const p of parts) { u8.set(p, o); o += p.length; }
-            ab = u8.buffer;
-          } else ab = await res.arrayBuffer();
-          // 音源ファイルをそのまま聞ける形で置けない曲(ライセンス上)は、並べ替えた .bin で置いてここで元に戻す
-          if (def.audioKey) ab = unscramble(ab, def.audioKey);
-          // AudioContext を使わずに展開(ユーザー操作前でも可)
-          const buf = await new OfflineAudioContext(2, 1, 44100).decodeAudioData(ab);
+        this.loadFailed = false;
+        this.rendering = loadExternalAudio(new URL(def.audio, APP_ROOT_URL), def.audioKey, (p) => { this.progress = p; }).then((buf) => {
           this.progress = 1;
+          this.loadFailed = false;
           this.buffer = buf;
           touchBuffer(this);
           return buf;
-        })();
-        this.rendering.catch(() => { this.rendering = null; });
+        }).catch((err) => { this.rendering = null; this.progress = 0; this.loadFailed = true; throw err; });
       }
       return this.rendering;
     },
@@ -487,7 +462,12 @@ function selectSong(i, force = false) {
     if (selectSong.token !== token || state !== 'select') return;
     playPreview(buf, e.previewAt);
     renderDetail();
-  }).catch((err) => { console.error(err); toast('音源の生成に失敗しました'); });
+  }).catch((err) => {
+    console.error(err);
+    if (selectSong.token !== token || state !== 'select') return;
+    renderDetail();
+    toast('音源の読み込みに失敗しました。プレイを押すともう一度試せます');
+  });
 }
 
 function setDiff(d) {
@@ -538,7 +518,7 @@ function renderDetail() {
   }
   const ready = !!e.buffer;
   $('btn-play').classList.toggle('wait', !ready);
-  $('play-sub').textContent = ready ? 'ENTER' : '音源を準備中…(初回のみ)';
+  $('play-sub').textContent = ready ? 'ENTER' : e.loadFailed ? '読み込み失敗・押して再試行' : '音源を準備中…(初回のみ)';
   loadRanking();
 }
 
@@ -676,7 +656,7 @@ async function startGameInner(entry, d, custom, live, extra) {
     getProgress: () => (entry.buffer ? 1 : entry.progress || 0),
   });
   if (!entry.buffer) {
-    try { await entry.load(); } catch (err) { console.error(err); toast('音源の生成に失敗しました'); hideLoading(); return; }
+    try { await entry.load(); } catch (err) { console.error(err); toast('音源の読み込みに失敗しました。通信を確認して、もう一度プレイを押してください'); hideLoading(); if (state === 'select') renderDetail(); return; }
   }
   await hideLoading(isRetry ? 500 : 1400);
   playing = { entry, diff: d, custom, live, extra, label };

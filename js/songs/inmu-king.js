@@ -15,7 +15,8 @@ export default {
   bpm: data.bpm,
   offset: data.offset, // 1拍目の位置(秒)
   duration: data.duration,
-  audio: 'audio/inmu-king.mp3',
+  audio: 'audio/inmu-king.bin',
+  audioKey: 'xbrgE5EWB89kvsep46gSDTYcp5sAw3wz',
   fixedCharts: data.charts,
   levels: { easy: 2, normal: 6, hard: 9 },
   previewAt: 70, // 秒

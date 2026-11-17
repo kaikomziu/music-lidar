@@ -10,8 +10,33 @@ const SITE = 'https://kaikomziu.github.io/music-lidar/';
 const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 
 const songs = (await import(pathToFileURL(path.join(root, 'js/songs/index.js')).href)).default;
-const base = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// --- 曲数と収録曲一覧を最新にする(検索エンジンが曲ページを見つけられるように) ---
+// 「全◯曲」はいつでも遊べる曲の数(期間限定曲は数えない)
+const always = songs.filter((s) => !s.event).length;
+const EVENT_LABEL = { xmas: '12/1〜1/31 期間限定' };
+for (const f of ['index.html', 'guide.html']) {
+  const p = path.join(root, f);
+  const before = fs.readFileSync(p, 'utf8');
+  let h = before.replace(/全\d+曲/g, `全${always}曲`);
+  if (f === 'guide.html') {
+    // 既存の行(日本語のジャンル名つき)は残し、足りない曲を足し、消えた曲は外す。並びは曲リストの順
+    const rows = new Map();
+    for (const m of h.matchAll(/<tr><td><a href="music\/([a-z0-9]+)\/">[\s\S]*?<\/tr>/g)) rows.set(m[1], m[0]);
+    const body = songs.map((s) => {
+      const lv = `${s.levels.easy} / ${s.levels.normal} / ${s.levels.hard}`;
+      let row = rows.get(s.urlId) ||
+        `<tr><td><a href="music/${s.urlId}/">${esc(s.title)}</a></td><td>${esc(s.genre)}</td><td>${Math.round(s.bpm)}</td><td class="lv">${lv}</td></tr>`;
+      row = row.replace(/<td class="lv">[^<]*<\/td>/, `<td class="lv">${lv}</td>`); // レベルは曲ファイルに合わせる
+      if (s.event && !row.includes('期間限定')) row = row.replace(/(<\/a><\/td><td>)([^<]*)/, `$1$2(${EVENT_LABEL[s.event] || '期間限定'})`);
+      return '      ' + row;
+    }).join('\n');
+    h = h.replace(/(<tbody>\r?\n)[\s\S]*?(\r?\n\s*<\/tbody>)/, `$1${body}$2`);
+  }
+  if (h !== before) fs.writeFileSync(p, h);
+}
+const base = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 
 function setMeta(html, attr, key, value) {
   const re = new RegExp(`(<meta ${attr}="${key}" content=")[^"]*(">)`);

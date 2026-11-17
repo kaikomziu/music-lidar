@@ -1287,3 +1287,28 @@ body.xmas .h-tile:hover, body.xmas .h-tile:focus-visible { border-color: #ff5a6e
 .gacha-banner.theme-xmas #btn-gacha-10 { border-color: #ff3b4e; background: rgba(255, 59, 78, 0.18); box-shadow: 0 0 18px rgba(255, 59, 78, 0.4); }
 body.xmas .h-event { color: #ff5a6e; }
 body.xmas .h-tile.h-event-on { border-color: rgba(255, 90, 110, 0.6); }
+
+/* お問い合わせ(リクエスト箱) */
+.rq-box { width: min(620px, 100%); }
+.rq-box h2 { margin-top: 4px; }
+.rq-box textarea { width: 100%; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--panel-line); color: var(--text); border-radius: 8px; padding: 10px 12px; font: inherit; font-size: 15px; resize: vertical; min-height: 110px; -webkit-user-select: text; user-select: text; }
+.rq-box textarea:focus { outline: none; border-color: var(--accent); }
+.rq-box select { width: 100%; font-size: 15px; padding: 8px 10px; }
+.rq-count { display: block; text-align: right; color: var(--muted); font-size: 11px; margin-top: 2px; }
+.rq-count.over { color: #ff8a9a; }
+.rq-h { margin: 18px 0 8px; font-size: 14px; color: var(--muted); letter-spacing: 0.1em; }
+.rq-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
+.rq-list li { border: 1px solid var(--panel-line); border-radius: 10px; padding: 8px 12px; background: rgba(0, 0, 0, 0.25); }
+.rq-list p { margin: 4px 0 0; font-size: 13px; white-space: pre-wrap; word-break: break-word; }
+.rq-top { display: flex; gap: 8px; align-items: center; font-size: 11px; }
+.rq-top small { color: var(--muted); }
+.rq-top small:last-child { margin-left: auto; }
+.rq-kind { color: var(--muted); }
+.rq-st { padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; }
+.st-new { color: #9ab0d6; } .st-doing { color: #ffd25e; } .st-done { color: #6dffb0; } .st-wont { color: #8a8fa6; }
+.rq-reply { border-left: 3px solid var(--accent); padding-left: 8px; color: var(--text); }
+.rq-reply b { display: block; font-size: 11px; color: var(--accent); }
+.adm-rq li { display: block; }
+.adm-rq .rq-edit { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.adm-rq .rq-edit input { flex: 1; min-width: 160px; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--panel-line); color: var(--text); border-radius: 6px; padding: 5px 8px; font: inherit; font-size: 13px; }
+.adm-rq .rq-edit select { background: rgba(0, 0, 0, 0.4); color: var(--text); border: 1px solid var(--panel-line); border-radius: 6px; padding: 4px 6px; }

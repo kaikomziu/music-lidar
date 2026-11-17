@@ -21,6 +21,7 @@ import { initLive, openLive, backToRoom } from './live.js';
 import { initPlayer, openPlayer, playerKeydown, stop as stopPlayer } from './player.js';
 import { TUTORIAL_DEF, TUT_NOTES, tutCaptions } from './tutorial.js';
 import { initAdmin, openAdmin, stopAdmin } from './admin.js';
+import { initRequest, closeRequest } from './request.js';
 import { initDan, openDan, bestDan, danName } from './dan.js';
 import { initEvent, eventActive } from './event.js';
 import { initExtras, renderDaily, dailyResult, drawJudgeGraph, setShareResult, courseFromUrl } from './extras.js';
@@ -941,6 +942,7 @@ function closeModals() {
   if ($('settings').classList.contains('on')) closeSettings();
   overlay('account-modal', false);
   overlay('changelog', false);
+  closeRequest();
   overlay('tut-offer', false);
   overlay('tut-done', false);
   overlay('dan-result', false);
@@ -1036,6 +1038,7 @@ initPlayer({ entries, show: (n) => { stopPreview(); show(n); }, back: () => goHo
 $('btn-player').addEventListener('click', () => openPlayer());
 initAdmin({ entries, show: (n) => { stopPreview(); show(n); }, back: () => goHome(), current: () => state, esc, toast });
 $('btn-admin').addEventListener('click', () => openAdmin());
+initRequest({ esc, toast });
 initDan({ entries, show: (n) => { stopPreview(); show(n); }, back: () => goHome(true), current: () => state, esc, jacketURL, toast, overlay,
   play: (entry, d, custom) => startGame(entry, d, custom) });
 initExtras({

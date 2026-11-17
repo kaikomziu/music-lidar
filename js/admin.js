@@ -2,10 +2,11 @@
 // 中身はサーバー(mlidar_admin_overview)が管理者かどうかを確かめてから返す
 import { rpc } from './ranking.js';
 import { load } from './storage.js';
+import { KIND, STATUS } from './request.js';
 
 const $ = (id) => document.getElementById(id);
 let ui = null; // { entries, show, back, current, esc, toast }
-let timer = 0, data = null, sortKey = 'last_seen';
+let timer = 0, data = null, sortKey = 'last_seen', requests = [];
 const ONLINE_MS = 2.5 * 60 * 1000; // 最後のやりとりからこの時間以内なら「オンライン」
 
 const PLACE = {
@@ -28,7 +29,10 @@ export function initAdmin(api) {
   ui = api;
   $('adm-back').addEventListener('click', () => { stop(); ui.back(); });
   $('adm-reload').addEventListener('click', () => refresh());
-  $('adm-body').addEventListener('click', (ev) => { const th = ev.target.closest('[data-sort]'); if (th) { sortKey = th.dataset.sort; render(); } });
+  $('adm-body').addEventListener('click', (ev) => {
+    const th = ev.target.closest('[data-sort]'); if (th) { sortKey = th.dataset.sort; render(); }
+    const sv = ev.target.closest('[data-rq-save]'); if (sv) saveRequest(sv.closest('[data-rq]'));
+  });
 }
 
 export function openAdmin() {
@@ -43,7 +47,9 @@ async function refresh() {
   stop();
   try {
     data = await rpc('mlidar_admin_overview', { p_token: load('token', null) });
-    render();
+    requests = await rpc('mlidar_request_list', { p_token: load('token', null) }).catch(() => requests);
+    // 返信を書いている途中なら描き直さない(入力が消えるので)
+    if (!document.activeElement?.closest?.('.adm-rq')) render();
   } catch (e) {
     const msg = e.message === 'NOT_ADMIN' ? 'このページは管理者だけが見られます' : e.message === 'AUTH' ? 'ログインしてください' : 'エラー: ' + e.message;
     $('adm-body').innerHTML = `<p class="adm-deny">${ui.esc(msg)}</p>`;
@@ -75,6 +81,14 @@ function render() {
       ${card('ランキング記録', t.records, `投稿譜面 ${t.charts}`)}
     </div>
 
+    <h3 class="adm-h">リクエスト・お問い合わせ(未対応 ${requests.filter((r) => r.status === 'new').length}件 / 全${requests.length}件)</h3>
+    ${requests.length ? `<ul class="adm-online adm-rq">${requests.map((r) => `<li data-rq="${r.id}">
+      <div class="rq-top"><span class="rq-kind">${KIND[r.kind] || r.kind}</span><span class="rq-st st-${r.status}">${STATUS[r.status] || r.status}</span><b>${esc(r.name || '名無し')}</b>${r.login ? '' : '<small>(ゲスト)</small>'}<small>${ago(r.at, now)} ・ ${jst(r.at)}</small></div>
+      <p class="rq-body">${esc(r.body)}</p>
+      <div class="rq-edit"><select data-rq-status>${Object.entries(STATUS).map(([k, v]) => `<option value="${k}" ${k === r.status ? 'selected' : ''}>${v}</option>`).join('')}</select>
+        <input data-rq-reply maxlength="500" placeholder="返信(本人の画面に出ます)" value="${esc(r.reply || '')}"><button class="chip" data-rq-save>保存</button></div></li>`).join('')}</ul>`
+      : '<p class="muted small">まだリクエストはありません</p>'}
+
     <h3 class="adm-h">いまオンライン</h3>
     ${online.length ? `<ul class="adm-online">${online.map((a) => `<li><i class="dot"></i><b>${esc(a.name)}</b><span>${esc(PLACE[a.place] || a.place || '-')}</span><small>${ago(a.last_seen, now)}</small></li>`).join('')}</ul>`
       : '<p class="muted small">いまオンラインの人はいません(ログインしていない人は数えません)</p>'}
@@ -102,3 +116,15 @@ function render() {
 }
 
 export const stopAdmin = stop;
+
+async function saveRequest(li) {
+  if (!li) return;
+  const id = +li.dataset.rq, status = li.querySelector('[data-rq-status]').value, reply = li.querySelector('[data-rq-reply]').value;
+  try {
+    await rpc('mlidar_request_set', { p_token: load('token', null), p_id: id, p_status: status, p_reply: reply });
+    const r = requests.find((x) => x.id === id); if (r) Object.assign(r, { status, reply });
+    document.activeElement?.blur?.();
+    ui.toast('保存しました');
+    render();
+  } catch (e) { ui.toast('保存できませんでした: ' + e.message); }
+}

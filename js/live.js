@@ -255,6 +255,7 @@ async function sfuTicket(action, roomName) {
 async function joinDaily(ticket) {
   await loadDaily();
   const call = window.DailyIframe.createCallObject({ videoSource: false, audioSource: false, subscribeToTracksAutomatically: false });
+  call.on('error', (ev) => console.warn('Daily:', ev?.errorMsg)); // 受け手がないと Daily が余計なエラーを出すので受けておく
   try { await call.join({ url: ticket.url, token: ticket.token, startVideoOff: true, startAudioOff: true }); }
   catch (e) { endCall(call); throw e; }
   return call;

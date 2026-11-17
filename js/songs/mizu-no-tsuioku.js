@@ -14,7 +14,8 @@ export default {
   bpm: data.bpm,
   offset: data.offset, // 1拍目の位置(秒)
   duration: data.duration,
-  audio: 'audio/mizu-no-tsuioku.mp3',
+  audio: 'audio/mizu-no-tsuioku.bin', // そのままでは再生できないよう並べ替えた音源(tools/scramble_audio.py)
+  audioKey: 'iPG627z5ohlSbfp08E7awoRBIZnYBIE5',
   fixedCharts: data.charts,
   levels: { easy: 3, normal: 6, hard: 9 },
   previewAt: 157.5, // 秒(いちばん盛り上がる所)

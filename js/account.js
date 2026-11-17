@@ -149,6 +149,10 @@ export function ping(place) {
   rpc('mlidar_ping', { p_token: token, p_place: place }).catch(() => {});
 }
 export const isAdmin = () => !!state?.admin;
+// みんなでライブの部屋一覧(部屋の掲示だけ。対戦の通信は WebRTC)
+export const lobbyList = () => rpc('mlidar_lobby_list', {});
+export const lobbyPut = (code, song, n, status) => call('mlidar_lobby_put', { p_code: code, p_song: song, p_n: n, p_status: status });
+export const lobbyClose = (code) => { if (token) rpc('mlidar_lobby_close', { p_token: token, p_code: code }).catch(() => {}); };
 // 開催中・開催予定のガチャ(ログイン不要)
 export const fetchBanners = () => rpc('mlidar_banners', {});
 

@@ -1,7 +1,8 @@
 // みんなでライブ: 同じ曲を同時にプレイ。プレイ中はみんなのコンボがほぼリアルタイムで届き、最後は編成込みスコアで競う
 // 通信は WebRTC(ブラウザどうしの直接通信)。ルームを作った人(ホスト)のブラウザがルームの状態を持ち、
 // 参加した人はホストとだけつながる。最初につながるための仲介(シグナリング)だけ PeerJS の公開サーバーを使う。
-// (サーバーにデータを置かないので、ルームはホストがいる間だけ。ホストが抜けると解散)
+// (対戦のデータはサーバーに置かないので、ルームはホストがいる間だけ。ホストが抜けると解散)
+// Supabase には「公開中のルーム一覧」(コード・曲・人数・状態)だけを載せる。ホストが20秒ごとに更新し、来なくなれば消える
 import { jacketImg } from './jacket.js';
 import { mvTag } from './mv.js';
 import { load } from './storage.js';
@@ -13,6 +14,8 @@ const MAX_MEMBERS = 8;
 const COMBO_MS = 500; // プレイ中にコンボを送る間隔
 const ALIVE_MS = 5000; // 生存確認(ping)の間隔
 const DEAD_MS = 16000; // これだけ何も届かなければ切れたとみなす
+const LOBBY_MS = 20000; // ホストが部屋一覧を更新する間隔
+const LIST_MS = 10000; // ロビーで一覧を読み直す間隔
 const PEER_SRC = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
 const ID_PREFIX = 'mlidar-live-'; // ホストの接続ID = これ + ルームコード
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // 見間違えやすい 0/O・1/I/L は使わない
@@ -33,7 +36,8 @@ let liveGame = null; // { getCombo(), round, entry, diff, game }
 let busy = false;
 let net = null; // { peer, host, conns: Map(相手ID → 接続)(ホスト), conn(参加者) }
 let comboTimer = 0, pingTimer = 0, castTimer = 0, cbTimer = 0, aliveTimer = 0;
-let lastHeard = 0; // 参加者: 最後にホストから何か届いた時刻
+let lastHeard = 0;
+let lobbyTimer = 0, listTimer = 0, lobbyKey = ''; // 部屋一覧(Supabase)の掲示・読み込み // 参加者: 最後にホストから何か届いた時刻
 
 const hostNow = () => Date.now() + clockOff;
 const entryOf = (id) => ui.entries.find((e) => e.id === id && !e.local);
@@ -47,6 +51,8 @@ export function initLive(api) {
   $('live-create').addEventListener('click', createRoom);
   $('live-join-form').addEventListener('submit', (ev) => { ev.preventDefault(); joinRoom($('live-code').value); });
   $('live-leave').addEventListener('click', leaveRoom);
+  $('live-reload').addEventListener('click', () => loadRooms());
+  $('live-rooms').addEventListener('click', (ev) => { const b = ev.target.closest('[data-code]'); if (b) joinRoom(b.dataset.code); });
   $('live-start').addEventListener('click', startRound);
   $('live-search').addEventListener('input', () => { pick.q = $('live-search').value; renderPick(true); });
   $('live-sort').addEventListener('change', () => { pick.sort = $('live-sort').value; renderPick(true); });
@@ -98,6 +104,7 @@ function closeNet() {
   comboTimer = pingTimer = castTimer = cbTimer = aliveTimer = 0;
   if (!net) return;
   const n = net;
+  if (n.host) unpublish();
   net = null;
   try { if (!n.host) n.conn?.send({ t: 'leave' }); } catch { /* noop */ }
   setTimeout(() => n.peer.destroy(), 100); // 「抜けます」を送り切ってから閉じる
@@ -132,6 +139,7 @@ function broadcast() {
     const data = { t: 'state', room: { ...room, me: undefined } };
     for (const c of net.conns.values()) if (c.open) c.send(data);
     onRoomUpdate();
+    publish();
   }, 60);
 }
 
@@ -202,6 +210,22 @@ function hostHandle(id, msg, conn = null) {
   broadcast();
 }
 
+// --- 部屋一覧への掲示(ホストだけ)。人数・曲・状態が変わったときと、20秒ごとの生存報告 ---
+function publish(force = false) {
+  if (!net?.host || !room) return;
+  const playing = room.status === 'play' && room.members.some((m) => m.in && !m.done);
+  const key = [room.song, room.members.length, playing].join('|');
+  if (!force && key === lobbyKey) return;
+  lobbyKey = key;
+  acc.lobbyPut(room.code, room.song, room.members.length, playing ? 'play' : 'wait').catch(() => {});
+  clearTimeout(lobbyTimer);
+  lobbyTimer = setTimeout(() => publish(true), LOBBY_MS);
+}
+function unpublish() {
+  clearTimeout(lobbyTimer); lobbyTimer = 0; lobbyKey = '';
+  if (room?.code) acc.lobbyClose(room.code);
+}
+
 // --- 参加者側 ---
 function clientListen(conn) {
   conn.on('data', (msg) => {
@@ -227,7 +251,7 @@ function lostHost() {
   closeNet();
   room = null;
   ui.toast(ERR.CLOSED, 3500);
-  if (mode === 'room' && ui.current() === 'live') { mode = 'lobby'; renderView(); }
+  if (mode === 'room' && ui.current() === 'live') { mode = 'lobby'; renderView(); loadRooms(); }
   else if (mode === 'result') renderResult();
 }
 
@@ -275,7 +299,29 @@ export function openLive() {
   if (room) { mode = 'room'; renderView(); renderRoom(); return; }
   mode = 'lobby';
   renderView();
+  loadRooms();
   loadPeerJs().catch(() => {}); // 先に読み込んでおく
+}
+
+// 公開中のルーム一覧(Supabase から読むだけ。参加は WebRTC でホストへ直接つなぐ)
+async function loadRooms() {
+  clearTimeout(listTimer); listTimer = 0;
+  if (mode !== 'lobby' || ui.current() !== 'live') return;
+  const box = $('live-rooms');
+  try {
+    const list = await acc.lobbyList();
+    if (mode !== 'lobby') return;
+    box.innerHTML = list.length ? list.map((r) => {
+      const e = entryOf(r.song);
+      const full = r.n >= MAX_MEMBERS;
+      return `<li><button class="live-room" data-code="${ui.esc(r.code)}" ${full ? 'disabled' : ''}>
+        ${e ? jacketImg(e, 128, '') : '<i></i>'}
+        <span class="lr-main"><b>${ui.esc(e?.title || r.song || '曲を選び中')}</b><small>CODE ${ui.esc(r.code)}</small></span>
+        <span class="lr-host">${ui.esc(r.host || '')}</span><span class="lr-n">${r.n}/${MAX_MEMBERS}</span>
+        <span class="lr-st ${r.status === 'play' ? 'play' : ''}">${full ? '満員' : r.status === 'play' ? 'ライブ中' : '募集中'}</span></button></li>`;
+    }).join('') : '<li class="empty">いま公開中のルームはありません。「ルームを作る」で作れます</li>';
+  } catch { box.innerHTML = '<li class="empty">一覧を読み込めませんでした(ルームコードでは参加できます)</li>'; }
+  listTimer = setTimeout(loadRooms, LIST_MS);
 }
 
 function renderView() {
@@ -307,6 +353,7 @@ async function createRoom() {
     };
     playedRound = 0;
     enterRoom();
+    publish(true);
   } catch (err) { closeNet(); room = null; ui.toast(errText(err)); }
   finally { busy = false; $('live-create').disabled = false; }
 }
@@ -362,6 +409,7 @@ function leaveRoom() {
   closeNet();
   room = null; mode = 'lobby'; playedRound = 0;
   renderView();
+  loadRooms();
 }
 
 // ---------------------------------------------------------------------------

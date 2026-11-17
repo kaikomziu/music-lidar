@@ -246,6 +246,16 @@ export class Game {
     this.holdSyncUntil = p + 400;
     getCtx().resume();
     this.pressed = [false, false, false, false];
+    // 止めている間に指を離したロングノーツは、再開した時点で離したものとして判定する
+    // (押したままでも、再開後は押し直しが必要。止めている間の放しを見逃して成功扱いにしないため)
+    const t = this.songTime(p) - this.inOffset;
+    for (let l = 0; l < 4; l++) for (const n of this.byLane[l]) {
+      if (!n.holding) continue;
+      n.holding = false; n.tailDone = true; this.jt = t;
+      const d = t - n.end;
+      if (d < -W_GOOD) { n.tailRes = 'MISS'; this.applyJudge('MISS', 'MISS', null, l); }
+      else { n.tailRes = judgeOf(Math.min(0, d), this.team.judge); this.applyJudge(n.tailRes, judgeOf(Math.min(0, d)), null, l); }
+    }
   }
   destroy() {
     this.ended = true;

@@ -119,7 +119,11 @@ function builtinEntry(def) {
     buffer: null, rendering: null,
     load() {
       if (this.buffer) { touchBuffer(this); return Promise.resolve(this.buffer); }
-      if (!this.rendering) this.rendering = loadSongAudio(def.id, events, duration, { sidechain: !!def.sidechain }, (p) => { this.progress = p; }).then((b) => { this.buffer = b; touchBuffer(this); return b; });
+      if (!this.rendering) {
+        this.rendering = loadSongAudio(def.id, events, duration, { sidechain: !!def.sidechain }, (p) => { this.progress = p; })
+          .then((b) => { this.buffer = b; touchBuffer(this); return b; })
+          .catch((err) => { this.rendering = null; this.progress = 0; throw err; }); // 失敗したら次に選んだときやり直せるように
+      }
       return this.rendering;
     },
   };
@@ -128,7 +132,11 @@ function builtinEntry(def) {
 const entries = SONGS.filter((def) => !def.event || eventActive(def.event)).map((def) => (def.audio ? fileSongEntry(def) : builtinEntry(def)));
 let tutorialEntry = null; // 使うときに作る
 
-let sel = Math.max(0, Math.min(entries.length - 1, load('sel', 0)));
+// 前回選んでいた曲。番号だと曲の追加や期間限定曲の出入りでずれるので、曲IDで覚える(昔の保存は番号)
+let sel = (() => {
+  const i = entries.findIndex((e) => e.id === load('selId', null));
+  return i >= 0 ? i : Math.max(0, Math.min(entries.length - 1, load('sel', 0)));
+})();
 // 曲ページ(music/<urlId>/)から来たらその曲を選んだ状態で始める
 const ROOT_PATH = new URL('./', document.baseURI).pathname;
 const urlSongId = document.querySelector('meta[name="song-id"]')?.content;
@@ -452,6 +460,7 @@ function selectSong(i, force = false) {
   if (i === sel && !force) return;
   sel = i;
   save('sel', entries[i].local ? 0 : i);
+  if (!entries[i].local) save('selId', entries[i].id);
   syncUrl(entries[i]);
   for (const c of $('song-list').querySelectorAll('.song-card[data-i]')) c.classList.toggle('sel', +c.dataset.i === i);
   $('song-list').querySelector(`.song-card[data-i="${i}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });

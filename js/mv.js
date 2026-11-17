@@ -1895,7 +1895,8 @@ const MVS = {
 // 動画のMV(配布されている映像素材を使う曲)。動画は曲の頭(0秒)にそろえて切り出してある
 //  INMU KING: YAJU-MC(やじゅまん)が個別に配布している映像素材
 const VIDEO_MVS = {
-  'inmu-king': { src: 'video/inmu-king.mp4' },
+  // そのままでは再生できないよう並べ替えてある(音源と同じ方式。tools/scramble_audio.py)。key で元に戻してから再生する
+  'inmu-king': { src: 'video/inmu-king.bin', key: 'Z32YC2kVndAwj09w2NckrXS9fg8aqhde' },
 };
 export const hasMV = (id) => !!(MVS[id] || VIDEO_MVS[id]); // MVがあるか(曲リストの MV マーク用)
 // 曲名やジャンルの横に付ける「MV」マーク(特製MV・動画MVのある曲だけ)。どの画面でもこれを使う
@@ -1903,17 +1904,36 @@ export const mvTag = (id) => (hasMV(id) ? ' <span class="mv-tag" title="MVつき
 
 // 動画MV: 曲の時刻に合わせて動画を再生し、画面いっぱい(はみ出す分は切る)に描く
 //  動画が読み込めるまで・読み込めなかったときは fallback(自動MV)を描く
+// 並べ替えた動画を取ってきて元に戻し、ページ内だけで使える URL(blob:)にする。2回目からは同じものを使う
+const videoUrls = new Map();
+function loadVideo(v) {
+  if (!videoUrls.has(v.src)) {
+    const p = fetch(new URL('../' + v.src, import.meta.url).href)
+      .then((r) => { if (!r.ok) throw new Error('video ' + r.status); return r.arrayBuffer(); })
+      .then((buf) => {
+        const bytes = new Uint8Array(buf);
+        if (v.key) {
+          const k = new TextEncoder().encode(v.key);
+          for (let i = 0; i < bytes.length; i++) bytes[i] ^= k[i % k.length] ^ ((i >> 8) & 255);
+        }
+        return URL.createObjectURL(new Blob([bytes], { type: 'video/mp4' }));
+      });
+    p.catch(() => videoUrls.delete(v.src)); // 失敗したら次の機会に取り直す
+    videoUrls.set(v.src, p);
+  }
+  return videoUrls.get(v.src);
+}
+
 function createVideoMV(v, fallback) {
   const video = document.createElement('video');
-  video.muted = true; video.playsInline = true; video.preload = 'auto'; video.crossOrigin = 'anonymous';
-  const url = new URL('../' + v.src, import.meta.url).href;
-  let failed = false, idle = 0, lastT = -1, lastAt = 0, calls = 0;
+  video.muted = true; video.playsInline = true; video.preload = 'auto';
+  let failed = false, idle = 0, lastT = -1, lastAt = 0, calls = 0, gone = false;
   video.addEventListener('error', () => { failed = true; });
   const stop = () => { if (!video.paused) video.pause(); };
   return {
     draw(g, W, H, t) {
       // 1回だけ描く用途(共有画像)では動画を読み込まない。続けて描かれたら読み込み開始
-      if (++calls === 2) video.src = url;
+      if (++calls === 2) loadVideo(v).then((u) => { if (!gone) video.src = u; }, () => { failed = true; });
       clearTimeout(idle);
       idle = setTimeout(stop, 700); // 描かれなくなった(一時停止・終了)ら止める
       const now = performance.now();
@@ -1931,7 +1951,7 @@ function createVideoMV(v, fallback) {
       const k = Math.max(W / vw, H / vh), dw = vw * k, dh = vh * k;
       g.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh);
     },
-    destroy() { clearTimeout(idle); stop(); video.removeAttribute('src'); video.load(); },
+    destroy() { gone = true; clearTimeout(idle); stop(); video.removeAttribute('src'); video.load(); },
   };
 }
 

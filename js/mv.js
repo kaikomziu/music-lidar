@@ -1876,6 +1876,547 @@ const neonSamurai = {
   ],
 };
 
+// ---- 追加MVの共通部品 ----
+const hash1 = (i) => frac(Math.sin(i * 12.9898 + 78.233) * 43758.5453);
+// 拍ごとに広がる波紋(最近 n 拍分)。where(i) は i 拍目の波紋の中心 [x, y](0〜1)
+function beatRipples(c, n, where, col, R, every = 1) {
+  const g = c.g, now = Math.floor(c.beat / every);
+  g.save(); g.strokeStyle = col;
+  for (let k = 0; k < n; k++) {
+    const i = now - k, age = (c.beat / every - i) / n;
+    if (i < 0 || age > 1) continue;
+    const [x, y] = where(i);
+    g.globalAlpha = (1 - age) * 0.8; g.lineWidth = Math.max(1, c.h * 0.006 * (1 - age));
+    for (const m of [1, 0.65]) { g.beginPath(); g.ellipse(x * c.w, y * c.h, R * age * m * c.h, R * age * m * c.h * 0.6, 0, 0, TAU); g.stroke(); }
+  }
+  g.restore();
+}
+// VHS 風の走査線
+function scanlines(c, alpha = 0.18) {
+  const g = c.g; g.fillStyle = `rgba(0,0,0,${alpha})`;
+  for (let y = 0; y < c.h; y += 3) g.fillRect(0, y, c.w, 1);
+}
+// 打ち上げ花火(k=0→1 で開いて消える)
+function firework(c, x, y, k, col, R) {
+  if (k <= 0 || k >= 1) return;
+  const g = c.g, r = R * ease(k * 1.6);
+  g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = col; g.globalAlpha = 1 - k;
+  for (let i = 0; i < 28; i++) {
+    const a = (i / 28) * TAU, d = r * (0.85 + 0.15 * Math.sin(i * 3));
+    const s = Math.max(1.2, c.h * 0.008 * (1 - k));
+    g.fillRect(x + Math.cos(a) * d - s / 2, y + Math.sin(a) * d + k * k * R * 0.3 - s / 2, s, s);
+  }
+  g.restore();
+}
+
+// ---- Koi Pond: 上から見た池。泳ぐ鯉と、拍ごとの波紋 ----
+const KP = { water: ['#06303a', '#0b4a52', '#0e5a5c'], pad: '#2f8a4a', koi: [['#ff7a3a', '#fff4e6'], ['#fff4e6', '#ff3b3b'], ['#ffb43a', '#fff4e6'], ['#f4f4f4', '#222'], ['#ff5a3a', '#ffd23a'], ['#fff4e6', '#ff7a3a']] };
+const KOI = table(6, 3101, (r) => ({ cx: 0.3 + r() * 0.4, cy: 0.35 + r() * 0.3, rx: 0.2 + r() * 0.14, ry: 0.18 + r() * 0.12, sp: (0.12 + r() * 0.1) * (r() < 0.5 ? -1 : 1), ph: r() * TAU, s: 0.8 + r() * 0.4 }));
+const PADS = table(7, 3107, (r) => ({ x: r(), y: r(), r: 0.05 + r() * 0.05, a: r() * TAU }));
+function koiFish(c, path, u, s, cols, alpha = 1) {
+  const g = c.g, N = 10, pts = [];
+  for (let i = 0; i < N; i++) pts.push(path(u - i * 0.011 * Math.sign(s.dir || 1)));
+  g.save(); g.globalAlpha = alpha;
+  // 尾びれ
+  const [tx, ty] = pts[N - 1], [px, py] = pts[N - 3], ang = Math.atan2(ty - py, tx - px), L = s.r * 2.2;
+  g.fillStyle = cols[0]; g.beginPath(); g.moveTo(tx, ty);
+  g.lineTo(tx + Math.cos(ang + 0.6) * L, ty + Math.sin(ang + 0.6) * L); g.lineTo(tx + Math.cos(ang - 0.6) * L, ty + Math.sin(ang - 0.6) * L); g.fill();
+  for (let i = N - 1; i >= 0; i--) { // 胴(しっぽから頭へ重ねる)
+    const [x, y] = pts[i], rr = s.r * (0.45 + 0.55 * Math.sin(((N - i) / N) * Math.PI * 0.9 + 0.25));
+    g.fillStyle = (i === 2 || i === 5 || i === 6) ? cols[1] : cols[0];
+    g.beginPath(); g.arc(x, y, rr, 0, TAU); g.fill();
+  }
+  g.restore();
+}
+function pondPath(k, c) {
+  const K = KOI[k];
+  return (u) => { const a = K.ph + u * TAU; return [(K.cx + K.rx * Math.cos(a) + 0.03 * Math.sin(a * 3)) * c.w, (K.cy + K.ry * Math.sin(a)) * c.h]; };
+}
+function pond(c, glow = 0) {
+  vgrad(c, KP.water);
+  const g = c.g; // 底の石と光のゆらぎ
+  for (let i = 0; i < 18; i++) { g.fillStyle = `rgba(150,220,210,${0.05 + 0.04 * Math.sin(c.t * 0.8 + i)})`; g.beginPath(); g.ellipse(hash1(i) * c.w, hash1(i + 50) * c.h, c.h * (0.05 + hash1(i + 9) * 0.08), c.h * 0.03, hash1(i + 3) * 3, 0, TAU); g.fill(); }
+  if (glow) { g.fillStyle = `rgba(255,220,160,${glow})`; g.fillRect(0, 0, c.w, c.h); }
+}
+function lilyPads(c, alpha = 1) {
+  const g = c.g; g.save(); g.globalAlpha = alpha;
+  PADS.forEach((p, i) => {
+    const x = p.x * c.w + Math.sin(c.t * 0.3 + i) * 3, y = p.y * c.h, R = p.r * c.h;
+    g.fillStyle = KP.pad; g.beginPath(); g.moveTo(x, y); g.arc(x, y, R, p.a + 0.35, p.a + TAU - 0.35); g.closePath(); g.fill();
+    if (i % 3 === 0) { g.fillStyle = '#ffb3d1'; g.beginPath(); g.arc(x + R * 0.2, y - R * 0.1, R * 0.28, 0, TAU); g.fill(); }
+  });
+  g.restore();
+}
+function swimKoi(c, n, speed, alpha = 1) {
+  for (let k = 0; k < n; k++) {
+    const K = KOI[k];
+    koiFish(c, pondPath(k, c), c.t * K.sp * speed, { r: c.h * 0.034 * K.s, dir: Math.sign(K.sp) }, KP.koi[k], alpha);
+  }
+}
+function archBridge(c, alpha = 1) { // 池にかかる赤い太鼓橋
+  const g = c.g, y = c.h * 0.12; g.save(); g.globalAlpha = alpha;
+  g.strokeStyle = '#d8323a'; g.lineWidth = c.h * 0.05;
+  g.beginPath(); g.moveTo(-10, y + c.h * 0.08); g.quadraticCurveTo(c.w / 2, y - c.h * 0.1, c.w + 10, y + c.h * 0.08); g.stroke();
+  g.lineWidth = c.h * 0.012; for (let i = 1; i < 12; i++) { const x = (i / 12) * c.w, yy = y + c.h * 0.08 - Math.sin((i / 12) * Math.PI) * c.h * 0.135; g.beginPath(); g.moveTo(x, yy - c.h * 0.05); g.lineTo(x, yy); g.stroke(); }
+  g.restore();
+}
+const koiRipple = (i) => [0.15 + hash1(i) * 0.7, 0.2 + hash1(i + 99) * 0.65];
+const koiPond = {
+  scenes: [
+    { from: 0, to: 16, draw(c) { // 静かな水面。1小節ごとに波紋
+      pond(c); lilyPads(c, ease(c.lb / 8));
+      beatRipples(c, 3, koiRipple, 'rgba(220,255,250,0.7)', 0.35, 4);
+      text(c, '鯉の池', c.w / 2, c.h * 0.45, c.h * 0.13, '#fff4e6', ease((c.lb - 2) / 4) * (1 - ease((c.lb - 13) / 2.5)), { font: 'Noto Serif JP', weight: 700, spacing: 8, glow: 10 });
+      text(c, 'KOI POND', c.w / 2, c.h * 0.6, c.h * 0.045, '#ffb3a8', ease((c.lb - 4) / 4) * (1 - ease((c.lb - 13) / 2.5)), { spacing: 6 });
+    } },
+    { from: 16, to: 48, draw(c) { // 鯉が3匹ゆったり
+      pond(c); beatRipples(c, 4, koiRipple, 'rgba(220,255,250,0.5)', 0.25, 2);
+      swimKoi(c, 3, 1); lilyPads(c);
+    } },
+    { from: 48, to: 80, draw(c) { // 6匹に。花びらが水面に落ちる
+      pond(c, 0.04); beatRipples(c, 4, koiRipple, 'rgba(255,240,240,0.55)', 0.25);
+      swimKoi(c, 6, 1.2); lilyPads(c); fallingPetals(c, PETALS, '#ffc4d6', 0.5, 0.3);
+    } },
+    { from: 80, to: 96, draw(c) { // 鯉が中央に集まってうずを巻く
+      pond(c); const k = ease(c.p * 1.5);
+      for (let i = 0; i < 6; i++) {
+        const path = (u) => { const a = u * TAU + i * TAU / 6, r = 0.32 - 0.16 * k; return [c.w / 2 + Math.cos(a) * r * c.h * 1.2, c.h / 2 + Math.sin(a) * r * c.h]; };
+        koiFish(c, path, c.t * 0.35, { r: c.h * 0.034, dir: 1 }, KP.koi[i]);
+      }
+      beatRipples(c, 4, () => [0.5, 0.5], 'rgba(255,255,255,0.7)', 0.5);
+    } },
+    { from: 96, to: 160, draw(c) { // サビ: 橋の下を鯉がはやく泳ぎ、拍ごとに大きな波紋
+      pond(c, 0.05 + 0.05 * c.pulse);
+      beatRipples(c, 3, koiRipple, 'rgba(255,255,255,0.75)', 0.4);
+      swimKoi(c, 6, 1.9); lilyPads(c); fallingPetals(c, PETALS, '#ffc4d6', 0.8, 0.5); archBridge(c);
+    } },
+    { from: 160, to: 1e9, draw(c) { // ラスト: 一匹だけ残って、水面が暗くなる
+      pond(c); lilyPads(c, 1 - c.p * 0.5); swimKoi(c, 1, 0.6, 1 - c.p * 0.7);
+      beatRipples(c, 2, () => [0.5, 0.5], 'rgba(255,255,255,0.6)', 0.6, 4);
+      c.g.fillStyle = `rgba(0,0,0,${0.55 * c.p})`; c.g.fillRect(0, 0, c.w, c.h);
+    } },
+  ],
+};
+
+// ---- Desert Wind: 月夜の砂漠を渡るキャラバンと、吹き抜ける砂 ----
+const DW = { night: ['#060a24', '#1a1b48', '#3b2a4a'], dusk: ['#2a1238', '#a2405a', '#ffb05e'], dune: ['#3a2440', '#5a3448', '#8a5040'], sand: '#ffd29a' };
+const SAND = table(80, 4211, (r) => ({ x: r(), y: 0.45 + r() * 0.55, sp: 0.4 + r() * 0.8, l: 0.02 + r() * 0.05 }));
+function crescent(c, x, y, r, col) { // 三日月: 月の円から、ずらした円の部分を除いた形
+  const g = c.g; g.save();
+  g.beginPath(); g.arc(x, y, r * 1.02, 0, TAU); g.clip(); // 月の円の外にははみ出さない
+  g.beginPath(); g.arc(x, y, r, 0, TAU); g.arc(x + r * 0.45, y - r * 0.2, r * 0.9, 0, TAU, true);
+  g.shadowColor = col; g.shadowBlur = r * 0.6; g.fillStyle = col; g.fill('evenodd');
+  g.restore();
+}
+function camel(c, x, base, s, ph, col) {
+  const g = c.g, step = Math.sin(ph) * s * 0.18; g.fillStyle = col; g.strokeStyle = col; g.lineCap = 'round';
+  g.lineWidth = s * 0.09; // 脚
+  for (const [lx, d] of [[-0.35, 1], [-0.2, -1], [0.25, -1], [0.4, 1]]) { g.beginPath(); g.moveTo(x + lx * s, base - s * 0.75); g.lineTo(x + lx * s + step * d, base); g.stroke(); }
+  g.beginPath(); g.ellipse(x, base - s * 0.85, s * 0.5, s * 0.22, 0, 0, TAU); g.fill(); // 胴
+  g.beginPath(); g.ellipse(x - s * 0.05, base - s * 1.05, s * 0.22, s * 0.2, 0, Math.PI, TAU); g.fill(); // こぶ
+  g.lineWidth = s * 0.12; g.beginPath(); g.moveTo(x + s * 0.42, base - s * 0.9); g.quadraticCurveTo(x + s * 0.62, base - s * 1.0, x + s * 0.62, base - s * 1.35); g.stroke(); // 首
+  g.beginPath(); g.ellipse(x + s * 0.72, base - s * 1.38, s * 0.14, s * 0.07, 0.2, 0, TAU); g.fill(); // 頭
+}
+function caravan(c, base, s, col, speed = 1) {
+  const x0 = frac(c.t * 0.025 * speed) * (c.w + s * 8) - s * 4;
+  for (let i = 0; i < 4; i++) camel(c, x0 - i * s * 1.9, base, s * (i === 3 ? 0.7 : 1), c.t * 3 * speed + i * 1.3, col);
+}
+function dunes(c, cols, speed, hi = 0.62) {
+  hills(c, c.h * hi, cols[0], c.h * 0.05, 0.012, speed * 0.1);
+  hills(c, c.h * (hi + 0.12), cols[1], c.h * 0.04, 0.018, speed * 0.2);
+  hills(c, c.h * (hi + 0.24), cols[2], c.h * 0.03, 0.024, speed * 0.35);
+}
+function sandWind(c, speed, alpha = 0.5) {
+  const g = c.g; g.strokeStyle = DW.sand; g.lineWidth = 1;
+  for (const p of SAND) { const x = (1.1 - frac(p.x + c.t * 0.25 * speed * p.sp)) * c.w, y = p.y * c.h + Math.sin(c.t * 2 + p.x * 9) * 4; g.globalAlpha = alpha * (0.5 + 0.5 * Math.sin(p.x * 30 + c.t)); g.beginPath(); g.moveTo(x, y); g.lineTo(x + p.l * c.w, y); g.stroke(); }
+  g.globalAlpha = 1;
+}
+const desertWind = {
+  scenes: [
+    { from: 0, to: 16, draw(c) { // 星空に三日月がのぼる
+      vgrad(c, DW.night); twinkle(c, SKY, '#fff');
+      crescent(c, c.w * 0.72, c.h * (0.6 - 0.35 * ease(c.lb / 12)), c.h * 0.1, '#ffe9b8');
+      dunes(c, DW.dune, 0);
+      text(c, 'DESERT WIND', c.w / 2, c.h * 0.42, c.h * 0.085, '#ffd29a', ease((c.lb - 3) / 4) * (1 - ease((c.lb - 13) / 2.5)), { font: 'Cinzel, serif', weight: 700, spacing: 8, glow: 10 });
+    } },
+    { from: 16, to: 48, draw(c) { // 月の前をキャラバンが行く
+      vgrad(c, DW.night); twinkle(c, SKY, '#fff');
+      moon(c, c.w * 0.62, c.h * 0.32, c.h * 0.16, '#ffe9b8');
+      dunes(c, DW.dune, 1); caravan(c, c.h * 0.66, c.h * 0.09, '#120a1c');
+      sandWind(c, 0.8, 0.25);
+    } },
+    { from: 48, to: 80, draw(c) { // 夕焼けの砂嵐
+      vgrad(c, DW.dusk);
+      retroSun(c, c.w * 0.5, c.h * 0.55, c.h * 0.22, '#ffe08a', '#ff6a3a', 'rgba(0,0,0,0)');
+      dunes(c, ['#6a2a3a', '#8a3a3a', '#b0583a'], 2.5);
+      caravan(c, c.h * 0.74, c.h * 0.07, '#2a0e1a', 1.4);
+      sandWind(c, 2.2, 0.6 + 0.3 * c.pulse);
+    } },
+    { from: 80, to: 96, draw(c) { // ブレイク: 八角星の文様が回る
+      vgrad(c, ['#0a0820', '#22123a']);
+      arabesque(c, c.t * 0.3, 0.8 + 0.25 * c.pulse, 0.6);
+      text(c, '✦', c.w / 2, c.h / 2, c.h * 0.16, '#ffd29a', 0.6 + 0.4 * c.pulse, { glow: 20 });
+    } },
+    { from: 96, to: 128, draw(c) { // ラストサビ: 夜空に文様、キャラバンが急ぐ
+      vgrad(c, DW.night); twinkle(c, SKY, '#fff', 1);
+      arabesque(c, -c.t * 0.15, 1.2, 0.12);
+      crescent(c, c.w * 0.3, c.h * 0.28, c.h * 0.12, '#ffe9b8');
+      dunes(c, DW.dune, 2); caravan(c, c.h * 0.66, c.h * 0.09, '#120a1c', 1.8);
+      sandWind(c, 2.6, 0.5);
+    } },
+    { from: 128, to: 1e9, draw(c) { // 締め: 風がやんで月だけ
+      vgrad(c, DW.night); twinkle(c, SKY, '#fff');
+      crescent(c, c.w * 0.5, c.h * 0.35, c.h * 0.14, '#ffe9b8'); dunes(c, DW.dune, 0);
+      c.g.fillStyle = `rgba(0,0,0,${0.6 * c.p})`; c.g.fillRect(0, 0, c.w, c.h);
+    } },
+  ],
+};
+
+// ---- Dragon Gate: 赤い提灯と金の龍。サビでは花火 ----
+const DG = { bg: ['#1a0204', '#4a0608', '#7a0e0e'], red: '#ff3030', gold: '#ffcf4a', deep: '#8a0a0a' };
+function lantern(c, x, y, s, sway, lit = 1) {
+  const g = c.g; g.save(); g.translate(x, y); g.rotate(sway);
+  g.strokeStyle = DG.gold; g.lineWidth = 1; g.beginPath(); g.moveTo(0, -s * 1.2); g.lineTo(0, -s * 0.6); g.stroke();
+  g.shadowColor = DG.red; g.shadowBlur = s * 1.2 * lit;
+  const gr = g.createRadialGradient(0, 0, s * 0.1, 0, 0, s * 0.8); gr.addColorStop(0, lit > 0.5 ? '#ffb07a' : '#a01818'); gr.addColorStop(1, DG.red);
+  g.fillStyle = gr; g.globalAlpha = 0.35 + 0.65 * lit; g.beginPath(); g.ellipse(0, 0, s * 0.75, s * 0.62, 0, 0, TAU); g.fill();
+  g.shadowBlur = 0; g.fillStyle = DG.gold; g.fillRect(-s * 0.4, -s * 0.68, s * 0.8, s * 0.14); g.fillRect(-s * 0.4, s * 0.54, s * 0.8, s * 0.14);
+  g.strokeStyle = DG.gold; g.beginPath(); g.moveTo(0, s * 0.68); g.lineTo(0, s * 1.05); g.stroke();
+  g.restore();
+}
+function lanternRow(c, y, n, s, litN = n, phase = 0) {
+  for (let i = 0; i < n; i++) lantern(c, c.w * (i + 0.5) / n, y + Math.sin(i * 1.3) * c.h * 0.02, s, Math.sin(c.t * 1.5 + i + phase) * 0.12, i < litN ? 1 : 0.15);
+}
+function paifang(c, base, s, col) { // 中華風の門
+  const g = c.g, cx = c.w / 2; g.fillStyle = col;
+  for (const dx of [-0.42, -0.16, 0.16, 0.42]) g.fillRect(cx + dx * s - s * 0.025, base - s * 0.62, s * 0.05, s * 0.62);
+  for (const [w, y, hh] of [[1.0, 0.62, 0.05], [0.6, 0.78, 0.04]]) {
+    g.beginPath(); g.moveTo(cx - w * 0.55 * s, base - y * s); g.quadraticCurveTo(cx, base - (y - 0.04) * s, cx + w * 0.55 * s, base - y * s);
+    g.lineTo(cx + w * 0.5 * s, base - (y - hh) * s); g.lineTo(cx - w * 0.5 * s, base - (y - hh) * s); g.fill();
+  }
+  g.fillRect(cx - s * 0.46, base - s * 0.5, s * 0.92, s * 0.035);
+}
+function dragon(c, path, u, s, alpha = 1) {
+  const g = c.g, N = 26; g.save(); g.globalAlpha = alpha;
+  for (let i = N - 1; i >= 0; i--) {
+    const [x, y] = path(u - i * 0.014), r = s * (0.35 + 0.65 * Math.sin(((N - i) / N) * Math.PI * 0.85 + 0.15));
+    g.fillStyle = i % 2 ? DG.gold : '#ff6a2a'; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+    if (i % 3 === 0) { g.fillStyle = DG.deep; g.beginPath(); g.moveTo(x - r * 0.4, y - r * 0.8); g.lineTo(x, y - r * 1.6); g.lineTo(x + r * 0.4, y - r * 0.8); g.fill(); }
+  }
+  const [hx, hy] = path(u), [nx, ny] = path(u - 0.012), a = Math.atan2(hy - ny, hx - nx); // 頭
+  g.translate(hx, hy); g.rotate(a);
+  g.fillStyle = DG.gold; g.beginPath(); g.ellipse(s * 0.5, 0, s * 1.1, s * 0.7, 0, 0, TAU); g.fill();
+  g.fillStyle = DG.red; g.beginPath(); g.moveTo(-s * 0.2, -s * 0.5); g.lineTo(-s * 1.0, -s * 1.3); g.lineTo(s * 0.1, -s * 0.6); g.fill();
+  g.beginPath(); g.moveTo(-s * 0.2, s * 0.5); g.lineTo(-s * 1.0, s * 1.3); g.lineTo(s * 0.1, s * 0.6); g.fill();
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(s * 0.8, -s * 0.25, s * 0.18, 0, TAU); g.fill();
+  g.fillStyle = '#000'; g.beginPath(); g.arc(s * 0.86, -s * 0.25, s * 0.08, 0, TAU); g.fill();
+  g.strokeStyle = DG.gold; g.lineWidth = Math.max(1, s * 0.08); g.beginPath(); g.moveTo(s * 1.4, s * 0.2); g.quadraticCurveTo(s * 2.2, s * 0.9, s * 2.6, s * 0.3); g.stroke();
+  g.restore();
+}
+const dragonPath = (c, cy, amp, wl) => (u) => [(frac(u * 0.6) * 1.8 - 0.4) * c.w, c.h * cy + Math.sin(u * wl) * c.h * amp];
+const dragonGate = {
+  scenes: [
+    { from: 0, to: 16, draw(c) { // 銅鑼の一打で提灯が順に灯る
+      vgrad(c, DG.bg); lanternRow(c, c.h * 0.2, 7, c.h * 0.07, Math.floor(c.lb / 2));
+      text(c, '龍門', c.w / 2, c.h * 0.58, c.h * 0.22, DG.gold, ease((c.lb - 1) / 4) * (1 - ease((c.lb - 13) / 2.5)), { font: 'Noto Serif JP', weight: 900, glow: 18 });
+      text(c, 'DRAGON GATE', c.w / 2, c.h * 0.78, c.h * 0.045, '#ffb0a0', ease((c.lb - 4) / 4) * (1 - ease((c.lb - 13) / 2.5)), { spacing: 6 });
+    } },
+    { from: 16, to: 48, draw(c) { // 門と、ゆれる提灯
+      vgrad(c, DG.bg); bokeh(c, ['#ff6a3a', '#ffcf4a', '#ff3030'], 0.2);
+      paifang(c, c.h * 0.95, c.h * 0.8, '#2a0204');
+      lanternRow(c, c.h * 0.18, 7, c.h * 0.065); lanternRow(c, c.h * 0.42, 5, c.h * 0.05, 5, 2);
+    } },
+    { from: 48, to: 80, draw(c) { // 金の龍が横切る
+      vgrad(c, DG.bg); lanternRow(c, c.h * 0.16, 7, c.h * 0.055);
+      paifang(c, c.h * 1.02, c.h * 0.7, '#2a0204');
+      dragon(c, dragonPath(c, 0.55, 0.12, 9), c.t * 0.12, c.h * 0.065);
+      sparks(c, DG.gold, 0.8);
+    } },
+    { from: 80, to: 96, draw(c) { // 揚琴の連打: 金の光が放射し「福」が回る
+      vgrad(c, ['#2a0204', '#6a0808']);
+      radialLines(c, 32, DG.gold, 0.25 + 0.3 * c.pulse, c.t * 0.8);
+      const g = c.g; g.save(); g.translate(c.w / 2, c.h / 2); g.rotate(Math.PI / 4 + Math.sin(c.t * 2) * 0.1);
+      g.fillStyle = DG.red; g.shadowColor = DG.gold; g.shadowBlur = 20; g.fillRect(-c.h * 0.2, -c.h * 0.2, c.h * 0.4, c.h * 0.4); g.restore();
+      text(c, '福', c.w / 2, c.h / 2, c.h * 0.26 * (1 + 0.1 * c.pulse), DG.gold, 1, { font: 'Noto Serif JP', weight: 900 });
+    } },
+    { from: 96, to: 160, draw(c) { // クライマックス: 龍が舞い、小節ごとに花火
+      vgrad(c, ['#120104', '#3a0408', '#6a0a0a']);
+      const bar = Math.floor(c.beat / 4);
+      for (let k = 0; k < 2; k++) { const b = bar - k; firework(c, (0.2 + hash1(b) * 0.6) * c.w, (0.15 + hash1(b + 7) * 0.25) * c.h, (c.beat / 4 - b) / 2, [DG.gold, '#ff6a3a', '#ffe0a0'][b % 3], c.h * 0.22); }
+      lanternRow(c, c.h * 0.12, 8, c.h * 0.05);
+      dragon(c, dragonPath(c, 0.5, 0.16, 7), c.t * 0.16, c.h * 0.07);
+      paifang(c, c.h * 1.05, c.h * 0.6, '#1a0104'); sparks(c, DG.gold, 1.4);
+    } },
+    { from: 160, to: 1e9, draw(c) { // 締め: 門だけが残る
+      vgrad(c, DG.bg); paifang(c, c.h * 0.95, c.h * 0.8, '#2a0204'); lanternRow(c, c.h * 0.2, 7, c.h * 0.07, 7 - Math.floor(c.lb));
+      c.g.fillStyle = `rgba(0,0,0,${0.6 * c.p})`; c.g.fillRect(0, 0, c.w, c.h);
+    } },
+  ],
+};
+
+// ---- Plaza 1995: VHS で再生される、パステルのショッピングプラザ ----
+const VP = { sky: ['#2a1a5e', '#b04a9a', '#ff9ac8'], teal: '#5ef0e0', pink: '#ff7ad9', cream: '#fff0f6' };
+const WINDOWS = table(6, 5101, (r) => ({ x: r() * 0.7 + 0.05, y: r() * 0.55 + 0.08, w: 0.22 + r() * 0.12, sp: 0.02 + r() * 0.03, t: ['plaza.exe', 'welcome.txt', 'mall_95.bmp', 'music.mid', 'dream.wav', 'shop.htm'][Math.floor(r() * 6)] }));
+function vhsHud(c, label = 'PLAY ▶') {
+  text(c, label, c.w * 0.14, c.h * 0.1, c.h * 0.05, '#fff', 0.85, { font: 'monospace', weight: 700 });
+  text(c, 'NOV. 17 1995', c.w * 0.82, c.h * 0.9, c.h * 0.04, '#fff', 0.8, { font: 'monospace', weight: 700 });
+  text(c, `SP  ${String(Math.floor(c.t / 60)).padStart(2, '0')}:${String(Math.floor(c.t % 60)).padStart(2, '0')}`, c.w * 0.16, c.h * 0.9, c.h * 0.04, '#fff', 0.8, { font: 'monospace', weight: 700 });
+}
+function retroWindow(c, x, y, w, title, alpha = 1) {
+  const g = c.g, h = w * 0.62; g.save(); g.globalAlpha = alpha;
+  g.fillStyle = '#c0c0c0'; g.fillRect(x, y, w, h);
+  g.fillStyle = '#000080'; g.fillRect(x + 2, y + 2, w - 4, h * 0.16);
+  g.fillStyle = '#fff'; g.font = `700 ${Math.max(7, h * 0.11)}px monospace`; g.textBaseline = 'middle'; g.fillText(title, x + 5, y + 2 + h * 0.08);
+  g.fillStyle = VP.cream; g.fillRect(x + 4, y + h * 0.22, w - 8, h * 0.72);
+  g.fillStyle = VP.pink; g.globalAlpha = alpha * 0.6; g.fillRect(x + 8, y + h * 0.3, (w - 16) * 0.6, h * 0.08); g.fillRect(x + 8, y + h * 0.45, (w - 16) * 0.8, h * 0.08);
+  g.restore();
+}
+function wireCube(c, x, y, s, rx, ry, col) {
+  const g = c.g, V = [];
+  for (const a of [-1, 1]) for (const b of [-1, 1]) for (const d of [-1, 1]) {
+    let X = a, Y = b, Z = d;
+    [Y, Z] = [Y * Math.cos(rx) - Z * Math.sin(rx), Y * Math.sin(rx) + Z * Math.cos(rx)];
+    [X, Z] = [X * Math.cos(ry) + Z * Math.sin(ry), -X * Math.sin(ry) + Z * Math.cos(ry)];
+    const k = 3 / (4 + Z); V.push([x + X * s * k, y + Y * s * k]);
+  }
+  g.strokeStyle = col; g.lineWidth = 1.5; g.shadowColor = col; g.shadowBlur = 8; g.beginPath();
+  for (let i = 0; i < 8; i++) for (const bit of [1, 2, 4]) { const j = i ^ bit; if (j > i) { g.moveTo(...V[i]); g.lineTo(...V[j]); } }
+  g.stroke(); g.shadowBlur = 0;
+}
+function vaporScene(c, sunY = 0.5) {
+  vgrad(c, VP.sky);
+  retroSun(c, c.w / 2, c.h * sunY, c.h * 0.2, '#ffe88a', '#ff5ac8', VP.sky[2]);
+  c.g.fillStyle = '#1a0a3a'; c.g.fillRect(0, c.h * 0.62, c.w, c.h);
+  grid(c, 0.62, VP.teal, 0.25, 0.8);
+  palm(c, c.w * 0.12, c.h * 0.95, c.h * 0.5, '#1a0a3a', 0.15); palm(c, c.w * 0.88, c.h * 0.95, c.h * 0.45, '#1a0a3a', -0.2);
+}
+const plaza1995 = {
+  scenes: [
+    { from: 0, to: 16, draw(c) { // 砂嵐から再生が始まる
+      const k = ease(c.lb / 6);
+      vaporScene(c);
+      const g = c.g; for (let i = 0; i < 260 * (1 - k); i++) { g.fillStyle = Math.random() < 0.5 ? '#fff' : '#000'; g.fillRect(Math.random() * c.w, Math.random() * c.h, 2, 2); }
+      const a = ease((c.lb - 4) / 3) * (1 - ease((c.lb - 13.5) / 2));
+      text(c, 'PLAZA 1995', c.w / 2 - 3, c.h * 0.32, c.h * 0.11, '#ff3ad0', a * 0.8, { font: 'Noto Sans JP', weight: 900, spacing: 4 });
+      text(c, 'PLAZA 1995', c.w / 2 + 3, c.h * 0.32, c.h * 0.11, '#3af0ff', a * 0.8, { font: 'Noto Sans JP', weight: 900, spacing: 4 });
+      text(c, 'PLAZA 1995', c.w / 2, c.h * 0.32, c.h * 0.11, '#fff', a, { font: 'Noto Sans JP', weight: 900, spacing: 4 });
+      text(c, 'プラザ１９９５', c.w / 2, c.h * 0.44, c.h * 0.05, VP.cream, a, { font: 'Noto Sans JP', weight: 700, spacing: 6 });
+      scanlines(c); vhsHud(c);
+    } },
+    { from: 16, to: 48, draw(c) { // 夕日とグリッドとヤシの木
+      vaporScene(c); scanlines(c, 0.12); vhsHud(c);
+    } },
+    { from: 48, to: 64, draw(c) { // パッドだけの所: 古いパソコンの窓がただよう
+      vgrad(c, ['#3a2a7a', '#9a6ad0', '#ffc4e8']);
+      WINDOWS.forEach((w, i) => retroWindow(c, w.x * c.w, (frac(w.y - c.t * w.sp) * 1.3 - 0.2) * c.h, w.w * c.w, w.t, 0.9));
+      wireCube(c, c.w / 2, c.h / 2, c.h * 0.16, c.t * 0.5, c.t * 0.7, '#fff');
+      scanlines(c, 0.1); vhsHud(c);
+    } },
+    { from: 64, to: 96, draw(c) { // A': 夕日の前でキューブが回る
+      vaporScene(c, 0.5 + 0.03 * Math.sin(c.t * 0.5));
+      bokeh(c, [VP.pink, VP.teal, '#ffe88a'], 0.2);
+      wireCube(c, c.w / 2, c.h * 0.3, c.h * 0.11 * (1 + 0.08 * c.pulse), c.t * 0.4, c.t * 0.6, VP.cream);
+      retroWindow(c, c.w * 0.62, c.h * 0.08, c.w * 0.3, 'plaza.exe', 0.85);
+      scanlines(c, 0.12); vhsHud(c);
+    } },
+    { from: 96, to: 1e9, draw(c) { // おしまい: ブラウン管が消えるように細くなる
+      const k = ease(c.p * 1.6);
+      vaporScene(c);
+      const g = c.g; g.fillStyle = '#000';
+      g.fillRect(0, 0, c.w, c.h * 0.5 * k); g.fillRect(0, c.h * (1 - 0.5 * k), c.w, c.h * 0.5 * k);
+      if (k > 0.95) { g.fillStyle = '#fff'; g.fillRect(c.w * 0.5 * (k - 0.95) * 20 * 0.5, c.h / 2 - 1, c.w * (1 - (k - 0.95) * 20), 2); }
+      scanlines(c); vhsHud(c, 'STOP ■');
+    } },
+  ],
+};
+
+// ---- Disco Mirrorball: 回るミラーボールと、光る床 ----
+const DS = { bg: ['#0a0418', '#1a0a30'], cols: ['#ff5ad8', '#5ae0ff', '#ffe05a', '#7aff8a', '#b07aff'] };
+const SPOTS = table(22, 6101, (r) => ({ a: r() * TAU, d: 0.2 + r() * 0.8, sp: 0.2 + r() * 0.4, c: Math.floor(r() * 5) }));
+const DANCERS = table(9, 6107, (r) => ({ x: 0.08 + r() * 0.84, s: 0.8 + r() * 0.4, ph: r() * TAU, pose: Math.floor(r() * 3) }));
+function mirrorball(c, x, y, R, rot) {
+  const g = c.g;
+  g.strokeStyle = '#888'; g.lineWidth = 1; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, y - R); g.stroke();
+  g.fillStyle = '#2a2a3a'; g.beginPath(); g.arc(x, y, R, 0, TAU); g.fill();
+  for (let la = -5; la <= 5; la++) {
+    const phi = (la / 6) * (Math.PI / 2), cy = y + Math.sin(phi) * R, rr = Math.cos(phi) * R, n = Math.max(4, Math.round(16 * Math.cos(phi)));
+    for (let lo = 0; lo < n; lo++) {
+      const th = rot + (lo / n) * TAU, z = Math.cos(th);
+      if (z < 0.05) continue;
+      const tx = x + Math.sin(th) * rr, s = R * 0.13 * Math.max(0.3, z);
+      const b = 0.35 + 0.65 * hash1(la * 31 + lo + Math.floor(rot * 4));
+      g.fillStyle = `rgba(${200 + 55 * b},${200 + 55 * b},255,${0.4 + 0.6 * b * z})`; g.fillRect(tx - s / 2, cy - s * 0.45, s * 0.9, s * 0.8);
+    }
+  }
+}
+function lightSpots(c, alpha = 0.5) {
+  const g = c.g; g.save(); g.globalCompositeOperation = 'lighter';
+  for (const s of SPOTS) {
+    const a = s.a + c.t * s.sp, x = c.w / 2 + Math.cos(a) * s.d * c.w * 0.6, y = c.h * 0.45 + Math.sin(a * 1.3) * s.d * c.h * 0.45;
+    const gr = g.createRadialGradient(x, y, 0, x, y, c.h * 0.05); gr.addColorStop(0, DS.cols[s.c]); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.globalAlpha = alpha; g.fillStyle = gr; g.fillRect(x - c.h * 0.05, y - c.h * 0.05, c.h * 0.1, c.h * 0.1);
+  }
+  g.restore();
+}
+function discoFloor(c, top = 0.66, beatAmt = 1) {
+  const g = c.g, rows = 5, bt = Math.floor(c.beat);
+  for (let j = 0; j < rows; j++) {
+    const y0 = c.h * (top + (1 - top) * (j / rows) ** 1.2), y1 = c.h * (top + (1 - top) * ((j + 1) / rows) ** 1.2), n = 8 + j * 2;
+    for (let i = 0; i < n; i++) {
+      const on = hash1(i * 7 + j * 13 + bt * 3) > 0.55;
+      const k0 = 0.5 + (i / n - 0.5) * (0.6 + j * 0.25), k1 = 0.5 + ((i + 1) / n - 0.5) * (0.6 + j * 0.25);
+      const k2 = 0.5 + (i / n - 0.5) * (0.6 + (j + 1) * 0.25), k3 = 0.5 + ((i + 1) / n - 0.5) * (0.6 + (j + 1) * 0.25);
+      g.fillStyle = on ? DS.cols[(i + j + bt) % 5] : '#1a1030'; g.globalAlpha = on ? 0.55 + 0.45 * c.pulse * beatAmt : 1;
+      g.beginPath(); g.moveTo(k0 * c.w, y0); g.lineTo(k1 * c.w, y0); g.lineTo(k3 * c.w, y1); g.lineTo(k2 * c.w, y1); g.closePath(); g.fill();
+    }
+  }
+  g.globalAlpha = 1;
+}
+function dancers(c, base) {
+  const g = c.g; g.fillStyle = '#05020c'; g.strokeStyle = '#05020c'; g.lineCap = 'round';
+  for (const d of DANCERS) {
+    const s = c.h * 0.12 * d.s, x = d.x * c.w, bob = Math.abs(Math.sin(c.beat * Math.PI + d.ph)) * s * 0.12, y = base - bob;
+    g.lineWidth = s * 0.14;
+    g.beginPath(); g.arc(x, y - s * 1.05, s * 0.16, 0, TAU); g.fill(); // 頭
+    g.beginPath(); g.moveTo(x, y - s * 0.9); g.lineTo(x, y - s * 0.4); g.stroke(); // 胴
+    const up = Math.floor(c.beat + d.ph) % 2 === 0; // 腕: 拍ごとに上下(ディスコのポーズ)
+    g.beginPath(); g.moveTo(x, y - s * 0.8); g.lineTo(x + s * 0.4, y - s * (up ? 1.3 : 0.5)); g.stroke();
+    g.beginPath(); g.moveTo(x, y - s * 0.8); g.lineTo(x - s * 0.35, y - s * (up ? 0.55 : 0.75)); g.stroke();
+    g.beginPath(); g.moveTo(x, y - s * 0.4); g.lineTo(x - s * 0.22, y); g.moveTo(x, y - s * 0.4); g.lineTo(x + s * 0.22, y); g.stroke();
+  }
+}
+function confetti(c) {
+  const g = c.g;
+  for (let i = 0; i < 50; i++) { const y = frac(hash1(i) + c.t * (0.08 + hash1(i + 3) * 0.08)) * c.h, x = (hash1(i + 5) + Math.sin(c.t + i) * 0.02) * c.w; g.fillStyle = DS.cols[i % 5]; g.save(); g.translate(x, y); g.rotate(c.t * 3 + i); g.fillRect(-3, -1.5, 6, 3); g.restore(); }
+}
+const discoMirrorball = {
+  scenes: [
+    { from: 0, to: 16, draw(c) { // ミラーボールが降りてきて光が回り始める
+      vgrad(c, DS.bg);
+      mirrorball(c, c.w / 2, c.h * (0.05 + 0.2 * ease(c.lb / 10)), c.h * 0.11, c.t * 0.8);
+      lightSpots(c, 0.5 * ease((c.lb - 6) / 6));
+      text(c, 'DISCO', c.w / 2, c.h * 0.62, c.h * 0.12, '#ff9de2', ease((c.lb - 6) / 4) * (1 - ease((c.lb - 13.5) / 2)), { font: 'Pacifico, cursive', weight: 400, glow: 16 });
+    } },
+    { from: 16, to: 48, draw(c) { // 床が拍ごとに光る
+      vgrad(c, DS.bg); lightSpots(c, 0.45);
+      mirrorball(c, c.w / 2, c.h * 0.25, c.h * 0.11, c.t * 0.8); discoFloor(c);
+    } },
+    { from: 48, to: 80, draw(c) { // 踊る人とビーム
+      vgrad(c, DS.bg); stageBeams(c, 5, DS.cols, 0.3, 0.8); lightSpots(c, 0.4);
+      mirrorball(c, c.w / 2, c.h * 0.22, c.h * 0.1, c.t * 0.9); discoFloor(c); dancers(c, c.h * 0.86);
+    } },
+    { from: 80, to: 96, draw(c) { // ブレイク: ボールと光の粒だけ。2・4拍目のクラップで光る
+      vgrad(c, ['#05020c', '#0e0620']); lightSpots(c, 0.7);
+      mirrorball(c, c.w / 2, c.h * 0.45, c.h * 0.2, c.t * 0.5);
+      if (Math.floor(c.beat) % 2 === 1) { c.g.fillStyle = `rgba(255,157,226,${0.25 * c.pulse})`; c.g.fillRect(0, 0, c.w, c.h); }
+    } },
+    { from: 96, to: 128, draw(c) { // 全部入り
+      vgrad(c, DS.bg); stageBeams(c, 6, DS.cols, 0.35, 1); lightSpots(c, 0.5);
+      mirrorball(c, c.w / 2, c.h * 0.22, c.h * 0.11, c.t); discoFloor(c); dancers(c, c.h * 0.86);
+    } },
+    { from: 128, to: 144, draw(c) { // ブリッジ: 光のタイルが万華鏡のように回る
+      vgrad(c, DS.bg); const g = c.g;
+      for (let k = 0; k < 12; k++) { g.save(); g.translate(c.w / 2, c.h / 2); g.rotate(k * TAU / 12 + c.t * 0.4); g.fillStyle = DS.cols[(k + Math.floor(c.beat)) % 5]; g.globalAlpha = 0.5; g.fillRect(c.h * 0.08, -c.h * 0.04, c.h * (0.3 + 0.1 * c.pulse), c.h * 0.08); g.restore(); }
+      mirrorball(c, c.w / 2, c.h / 2, c.h * 0.12, c.t * 1.2);
+      text(c, 'GROOVE', c.w / 2, c.h * 0.85, c.h * 0.08, '#fff', 0.7 + 0.3 * c.pulse, { font: 'Pacifico, cursive', weight: 400, glow: 12 });
+    } },
+    { from: 144, to: 176, draw(c) { // ラスト: 紙ふぶき
+      vgrad(c, DS.bg); stageBeams(c, 6, DS.cols, 0.4, 1.3); lightSpots(c, 0.55);
+      mirrorball(c, c.w / 2, c.h * 0.22, c.h * 0.11, c.t * 1.2); discoFloor(c); dancers(c, c.h * 0.86); confetti(c);
+    } },
+    { from: 176, to: 1e9, draw(c) { // アウトロ: 照明が落ちてボールだけ回る
+      vgrad(c, ['#05020c', '#0a0418']); lightSpots(c, 0.4 * (1 - c.p));
+      mirrorball(c, c.w / 2, c.h * 0.3, c.h * 0.12, c.t * 0.4);
+      c.g.fillStyle = `rgba(0,0,0,${0.5 * c.p})`; c.g.fillRect(0, 0, c.w, c.h);
+    } },
+  ],
+};
+
+// ---- Starlit Camp: 星空の下のたき火。流れ星と星座 ----
+const SC = { sky: ['#030516', '#0a1236', '#1a2350'], mount: '#05070f', fire: ['#ff5a1a', '#ffa03a', '#ffe58a'] };
+const FIREFLY = table(18, 7101, (r) => ({ x: r(), y: 0.55 + r() * 0.35, sp: 0.3 + r() * 0.6, ph: r() * TAU }));
+function milkyWay(c, alpha = 0.35) {
+  const g = c.g; g.save(); g.translate(c.w / 2, c.h * 0.3); g.rotate(-0.35);
+  const gr = g.createLinearGradient(0, -c.h * 0.12, 0, c.h * 0.12); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(0.5, `rgba(180,190,255,${alpha})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(-c.w, -c.h * 0.12, c.w * 2, c.h * 0.24);
+  g.fillStyle = '#fff'; for (let i = 0; i < 90; i++) { g.globalAlpha = 0.3 + 0.5 * hash1(i + 400); g.fillRect((hash1(i) - 0.5) * c.w * 1.6, (hash1(i + 200) - 0.5) * c.h * 0.18, 1.2, 1.2); }
+  g.restore();
+}
+function campGround(c) {
+  const g = c.g;
+  hills(c, c.h * 0.68, '#0a0f22', c.h * 0.08, 0.008, 0);
+  g.fillStyle = SC.mount; g.fillRect(0, c.h * 0.8, c.w, c.h);
+  for (const [x, h] of [[0.06, 0.28], [0.13, 0.22], [0.9, 0.3], [0.96, 0.24]]) { // 針葉樹
+    g.beginPath(); g.moveTo(x * c.w, c.h * (0.82 - h)); g.lineTo((x - 0.035) * c.w, c.h * 0.82); g.lineTo((x + 0.035) * c.w, c.h * 0.82); g.fill();
+  }
+  g.fillStyle = '#1a2440'; g.beginPath(); g.moveTo(c.w * 0.28, c.h * 0.84); g.lineTo(c.w * 0.36, c.h * 0.66); g.lineTo(c.w * 0.44, c.h * 0.84); g.fill(); // テント
+  g.fillStyle = '#05070f'; g.beginPath(); g.moveTo(c.w * 0.345, c.h * 0.84); g.lineTo(c.w * 0.36, c.h * 0.74); g.lineTo(c.w * 0.375, c.h * 0.84); g.fill();
+}
+function campfire(c, x, base, s, power = 1) {
+  const g = c.g;
+  const gl = g.createRadialGradient(x, base, 0, x, base, s * 5); gl.addColorStop(0, `rgba(255,150,60,${0.35 * power})`); gl.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gl; g.fillRect(x - s * 5, base - s * 5, s * 10, s * 10);
+  g.strokeStyle = '#3a2010'; g.lineWidth = s * 0.25; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(x - s, base); g.lineTo(x + s, base - s * 0.3); g.moveTo(x + s, base); g.lineTo(x - s, base - s * 0.3); g.stroke();
+  g.save(); g.globalCompositeOperation = 'lighter';
+  SC.fire.forEach((col, k) => {
+    const h = s * (2.2 - k * 0.6) * power * (1 + 0.15 * c.pulse), w = s * (0.9 - k * 0.22);
+    g.fillStyle = col; g.globalAlpha = 0.8; g.beginPath(); g.moveTo(x - w, base - s * 0.1);
+    g.quadraticCurveTo(x - w * 0.6 + Math.sin(c.t * 7 + k) * w * 0.3, base - h * 0.6, x + Math.sin(c.t * 5 + k * 2) * w * 0.4, base - h);
+    g.quadraticCurveTo(x + w * 0.6 + Math.sin(c.t * 6 + k) * w * 0.3, base - h * 0.6, x + w, base - s * 0.1); g.fill();
+  });
+  g.restore();
+  g.fillStyle = '#ffd08a'; // 火の粉
+  for (let i = 0; i < 14; i++) { const k = frac(c.t * (0.3 + hash1(i) * 0.3) + hash1(i + 8)); g.globalAlpha = (1 - k) * power; g.fillRect(x + Math.sin(c.t * 2 + i) * s * k * 1.5, base - s * 1.5 - k * s * 6, 1.5, 1.5); }
+  g.globalAlpha = 1;
+}
+function shootingStar(c, i, k) { // i 本目の流れ星(k=0→1)
+  if (k <= 0 || k >= 1) return;
+  const g = c.g, x0 = (0.2 + hash1(i) * 0.7) * c.w, y0 = (0.05 + hash1(i + 3) * 0.25) * c.h, L = c.h * 0.35, x = x0 - k * L, y = y0 + k * L * 0.5;
+  const gr = g.createLinearGradient(x, y, x + L * 0.4, y - L * 0.2); gr.addColorStop(0, `rgba(255,255,255,${1 - k})`); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.strokeStyle = gr; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y); g.lineTo(x + L * 0.4, y - L * 0.2); g.stroke();
+}
+function fireflies(c, alpha = 1) {
+  const g = c.g; g.fillStyle = '#d8ff7a';
+  for (const f of FIREFLY) { g.globalAlpha = alpha * (0.3 + 0.7 * Math.max(0, Math.sin(c.t * f.sp * 3 + f.ph))); g.beginPath(); g.arc((f.x + Math.sin(c.t * f.sp + f.ph) * 0.03) * c.w, (f.y + Math.cos(c.t * f.sp * 0.8 + f.ph) * 0.03) * c.h, 1.8, 0, TAU); g.fill(); }
+  g.globalAlpha = 1;
+}
+function campNight(c, starsAmt = 1) {
+  vgrad(c, SC.sky); c.g.save(); c.g.globalAlpha = starsAmt; twinkle(c, SKY, '#fff', 0.6); c.g.restore();
+}
+const starlitCamp = {
+  scenes: [
+    { from: 0, to: 16, draw(c) { // 夕暮れから夜へ。星がひとつずつ出る
+      const k = ease(c.lb / 12);
+      vgrad(c, [`rgb(${Math.round(40 - 37 * k)},${Math.round(30 - 25 * k)},${Math.round(80 - 58 * k)})`, '#2a2a5a', `rgb(${Math.round(200 - 174 * k)},${Math.round(110 - 75 * k)},${Math.round(90 - 10 * k)})`]);
+      c.g.save(); c.g.globalAlpha = k; twinkle(c, SKY, '#fff'); c.g.restore();
+      campGround(c); campfire(c, c.w * 0.58, c.h * 0.86, c.h * 0.055, ease(c.lb / 4));
+      text(c, 'Starlit Camp', c.w / 2, c.h * 0.35, c.h * 0.09, '#ffe6a0', ease((c.lb - 3) / 4) * (1 - ease((c.lb - 13) / 2.5)), { font: 'Pacifico, cursive', weight: 400, glow: 12 });
+    } },
+    { from: 16, to: 80, draw(c) { // たき火を囲む夜。8拍ごとに流れ星
+      campNight(c); milkyWay(c, 0.2);
+      const i = Math.floor(c.beat / 8); shootingStar(c, i, (c.beat / 8 - i) * 3);
+      campGround(c); campfire(c, c.w * 0.58, c.h * 0.86, c.h * 0.055); fireflies(c, 0.6);
+    } },
+    { from: 80, to: 96, draw(c) { // ベルの所: 空を見上げると星座が線で結ばれていく
+      campNight(c, 1); milkyWay(c, 0.4);
+      const g = c.g, n = Math.min(CONST.length, Math.floor(c.lb / 16 * CONST.length) + 1);
+      g.strokeStyle = 'rgba(160,200,255,0.7)'; g.lineWidth = 1.5; g.beginPath();
+      CONST.slice(0, n).forEach((p, j) => (j ? g.lineTo(p.x * c.w, p.y * c.h) : g.moveTo(p.x * c.w, p.y * c.h))); g.stroke();
+      CONST.slice(0, n).forEach((p) => text(c, '✦', p.x * c.w, p.y * c.h, c.h * 0.05, '#fff', 0.9, { glow: 10 }));
+    } },
+    { from: 96, to: 128, draw(c) { // ラスト: 天の川と流れ星がたくさん
+      campNight(c); milkyWay(c, 0.45);
+      for (let k = 0; k < 2; k++) { const i = Math.floor(c.beat / 4) - k; shootingStar(c, i + 50, (c.beat / 4 - i) * 1.5); }
+      campGround(c); campfire(c, c.w * 0.58, c.h * 0.86, c.h * 0.06, 1.2); fireflies(c, 1);
+    } },
+    { from: 128, to: 1e9, draw(c) { // 締め: 火が小さくなり、星だけが残る
+      campNight(c); milkyWay(c, 0.3); campGround(c); campfire(c, c.w * 0.58, c.h * 0.86, c.h * 0.055, 1 - c.p * 0.8);
+      c.g.fillStyle = `rgba(0,0,0,${0.4 * c.p})`; c.g.fillRect(0, 0, c.w, c.h);
+    } },
+  ],
+};
+
 const MVS = {
   'lidar-rush': lidarRush,
   'neon-highway': neonHighway,
@@ -1891,6 +2432,12 @@ const MVS = {
   'jazz-cafe': jazzCafe,
   'rainy-window': rainyWindow,
   'neon-samurai': neonSamurai,
+  'koi-pond': koiPond,
+  'desert-wind': desertWind,
+  'dragon-gate': dragonGate,
+  'plaza-1995': plaza1995,
+  'disco-mirrorball': discoMirrorball,
+  'starlit-camp': starlitCamp,
 };
 // 動画のMV(配布されている映像素材を使う曲)。動画は曲の頭(0秒)にそろえて切り出してある
 //  INMU KING: YAJU-MC(やじゅまん)が個別に配布している映像素材

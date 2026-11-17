@@ -1312,3 +1312,103 @@ body.xmas .h-tile.h-event-on { border-color: rgba(255, 90, 110, 0.6); }
 .adm-rq .rq-edit { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
 .adm-rq .rq-edit input { flex: 1; min-width: 160px; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--panel-line); color: var(--text); border-radius: 6px; padding: 5px 8px; font: inherit; font-size: 13px; }
 .adm-rq .rq-edit select { background: rgba(0, 0, 0, 0.4); color: var(--text); border: 1px solid var(--panel-line); border-radius: 6px; padding: 4px 6px; }
+
+/* =========================================================================
+   動きとイージング(motion.js と組み合わせて使う)
+   ========================================================================= */
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);      /* すっと止まる */
+  --ease-spring: cubic-bezier(0.2, 1.3, 0.35, 1);  /* 少し行き過ぎて戻る */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* --- モーダル: 開くとき(背景がふわっと暗くなり、箱が少し下からポンと出る)・閉じるとき --- */
+.overlay.on { animation: ovIn 0.24s var(--ease-out) both; }
+.overlay.on > .modal-box, .overlay.on > .ld-card { animation: boxIn 0.38s var(--ease-spring) both; }
+.overlay.closing { display: flex; pointer-events: none; animation: ovOut 0.2s var(--ease-in-out) both; }
+.overlay.closing > .modal-box, .overlay.closing > .ld-card { animation: boxOut 0.2s var(--ease-in-out) both; }
+@keyframes ovIn { from { opacity: 0; backdrop-filter: blur(0); } }
+@keyframes ovOut { to { opacity: 0; } }
+@keyframes boxIn { from { opacity: 0; transform: translateY(14px) scale(0.96); } }
+@keyframes boxOut { to { opacity: 0; transform: translateY(6px) scale(0.97); } }
+/* モーダルの中身は少しずつ遅れて入る */
+.overlay.on .modal-box > * { animation: fadeUp 0.36s var(--ease-out) both; }
+.overlay.on .modal-box > *:nth-child(2) { animation-delay: 0.03s; }
+.overlay.on .modal-box > *:nth-child(3) { animation-delay: 0.06s; }
+.overlay.on .modal-box > *:nth-child(4) { animation-delay: 0.09s; }
+.overlay.on .modal-box > *:nth-child(n+5) { animation-delay: 0.12s; }
+/* 更新履歴・リクエスト一覧は1行ずつ */
+.overlay.on .cl-list > li, .overlay.on .rq-list > li { animation: fadeUp 0.4s var(--ease-out) both; }
+.overlay.on .cl-list > li:nth-child(2), .overlay.on .rq-list > li:nth-child(2) { animation-delay: 0.05s; }
+.overlay.on .cl-list > li:nth-child(3), .overlay.on .rq-list > li:nth-child(3) { animation-delay: 0.1s; }
+.overlay.on .cl-list > li:nth-child(4), .overlay.on .rq-list > li:nth-child(4) { animation-delay: 0.15s; }
+.overlay.on .cl-list > li:nth-child(n+5), .overlay.on .rq-list > li:nth-child(n+5) { animation-delay: 0.2s; }
+
+/* --- トースト: ばねのように下から出る --- */
+.toast { transition: opacity 0.22s var(--ease-out), transform 0.42s var(--ease-spring); transform: translate(-50%, 24px) scale(0.96); }
+.toast.on { transform: translate(-50%, 0) scale(1); }
+
+/* --- ボタン: なめらかに反応し、押すと少し沈む --- */
+.btn-glow, .btn-line, .btn-play, .chip, .f-chip, .diff-btn, .h-tile, .song-card, .cr-btn, .mini, .acc-tab {
+  transition: transform 0.22s var(--ease-out), box-shadow 0.25s var(--ease-out), border-color 0.2s var(--ease-out), background 0.25s var(--ease-out), color 0.2s var(--ease-out), opacity 0.2s;
+}
+.btn-glow:active, .btn-line:active, .chip:active, .f-chip:active, .cr-btn:active, .mini:active, .acc-tab:active { transform: scale(0.96); transition-duration: 0.08s; }
+.btn-play:active { transform: scale(0.985); transition-duration: 0.08s; }
+.h-tile:active { transform: translateY(-1px) scale(0.985); transition-duration: 0.08s; }
+.chip:hover { transform: translateY(-1px); }
+.f-chip:hover { transform: translateY(-1px); }
+.f-chip.sel { animation: chipSel 0.32s var(--ease-spring); }
+@keyframes chipSel { 40% { transform: scale(1.08); } }
+.diff-btn:hover { transform: translateY(-2px); }
+.diff-btn.sel { animation: diffSel 0.4s var(--ease-spring); }
+@keyframes diffSel { 0% { transform: scale(0.94); } 55% { transform: scale(1.05); } 100% { transform: none; } }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; transition: outline-offset 0.15s var(--ease-out); }
+
+/* 押した所から広がる波紋 */
+.has-ripple { overflow: hidden; isolation: isolate; }
+.ripple { position: absolute; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, color-mix(in srgb, var(--accent) 45%, transparent) 0%, transparent 60%);
+  transform: scale(0); opacity: 0.9; animation: ripple 0.65s var(--ease-out) forwards; z-index: 0; }
+@keyframes ripple { to { transform: scale(1); opacity: 0; } }
+
+/* --- 選曲: 曲リストは上から順に流れ込む。選んだ曲は横にすべる --- */
+.song-list.stagger > .song-card { animation: cardIn 0.42s var(--ease-out) both; animation-delay: calc(var(--k, 0) * 22ms); }
+@keyframes cardIn { from { opacity: 0; transform: translateX(-14px); } }
+.song-card { transition-duration: 0.28s; }
+.song-card.sel { transition: transform 0.38s var(--ease-spring), background 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out), border-color 0.3s; }
+.song-card:hover:not(.sel) { transform: translateX(3px); }
+/* 曲を変えたら、ジャケットと曲名が入れ替わる */
+.d-jacket.swap { animation: jacketSwap 0.45s var(--ease-spring); }
+@keyframes jacketSwap { 0% { opacity: 0.2; transform: perspective(500px) rotateY(-28deg) scale(0.9); filter: blur(3px); } 100% { opacity: 1; transform: none; filter: none; } }
+.d-title.swap, .d-genre.swap, .d-meta.swap { animation: titleSwap 0.4s var(--ease-out); }
+.d-meta.swap { animation-delay: 0.04s; }
+@keyframes titleSwap { from { opacity: 0; transform: translateY(8px); clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+.diffs.swap .diff-btn { animation: fadeUp 0.35s var(--ease-out) both; }
+.diffs.swap .diff-btn:nth-child(2) { animation-delay: 0.04s; }
+.diffs.swap .diff-btn:nth-child(3) { animation-delay: 0.08s; }
+
+/* --- 数字のカウント(コイン): 増えたら金色、減ったら赤っぽく一瞬光る --- */
+.num-up { animation: numUp 0.7s var(--ease-out); }
+.num-down { animation: numDown 0.7s var(--ease-out); }
+@keyframes numUp { 0% { color: #ffd25e; text-shadow: 0 0 12px #ffd25e; transform: translateY(-2px); } }
+@keyframes numDown { 0% { color: #ff8a9a; text-shadow: 0 0 10px #ff5a6e; } }
+.coin-val { display: inline-block; }
+
+/* --- 曲の読み込み画面: ジャケットと文字が順に入る --- */
+#loading.on .ld-jacket { animation: ldJacket 0.6s var(--ease-spring) both; }
+#loading.on .ld-info > * { animation: fadeUp 0.45s var(--ease-out) both; }
+#loading.on .ld-info > *:nth-child(2) { animation-delay: 0.06s; }
+#loading.on .ld-info > *:nth-child(3) { animation-delay: 0.12s; }
+#loading.on .ld-bar { animation: ldBar 0.6s var(--ease-out) both 0.15s; transform-origin: left; }
+@keyframes ldJacket { from { opacity: 0; transform: perspective(600px) rotateY(-40deg) translateX(-20px) scale(0.85); } }
+@keyframes ldBar { from { transform: scaleX(0); } }
+.ld-bar i { transition: width 0.3s var(--ease-out); }
+
+/* --- 画面の切り替え: 上の帯と見出しも少し遅れてすべり込む --- */
+.screen.active .topbar { animation: topIn 0.42s var(--ease-out) both; }
+@keyframes topIn { from { opacity: 0; transform: translateY(-10px); } }
+.screen.active .meta-body > *, .screen.active .select-body > * { animation-timing-function: var(--ease-out); animation-duration: 0.48s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay.on, .overlay.on *, .overlay.closing, .song-list.stagger > *, .swap, .diffs.swap *, .num-up, .num-down, .screen.active .topbar, #loading.on * { animation: none !important; }
+  .ripple { display: none; }
+}

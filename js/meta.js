@@ -1,5 +1,6 @@
 // クエスト・ガチャ・編成・アカウント画面
 import * as acc from './account.js';
+import { tweenNumber } from './motion.js';
 import { PREVIEW } from './event.js';
 import { unitIcon, skillText, skillValue, fxText, stars, KIND_LABEL, KIND_COLOR, KIND_DESC, RARITY_COLOR } from './units.js';
 import { load, save } from './storage.js';
@@ -61,7 +62,7 @@ export function openScreen(name) {
 export function renderHeader() {
   const s = acc.getState();
   $('name-label').textContent = s ? s.name : (load('name', '') || 'ゲスト') + ' (未ログイン)';
-  for (const el of document.querySelectorAll('.coin-val')) el.textContent = s ? s.coins.toLocaleString() : '-';
+  for (const el of document.querySelectorAll('.coin-val')) { if (s) tweenNumber(el, s.coins); else el.textContent = '-'; } // 増減はカウントで見せる
   const n = acc.claimableCount();
   for (const el of document.querySelectorAll('.q-badge')) { el.textContent = n; el.hidden = !n; }
   const fx = acc.teamFx();

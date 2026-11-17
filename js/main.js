@@ -22,6 +22,7 @@ import { initPlayer, openPlayer, playerKeydown, stop as stopPlayer } from './pla
 import { TUTORIAL_DEF, TUT_NOTES, tutCaptions } from './tutorial.js';
 import { initAdmin, openAdmin, stopAdmin } from './admin.js';
 import { initRequest, closeRequest } from './request.js';
+import { initMotion, replay } from './motion.js';
 import { initDan, openDan, bestDan, danName } from './dan.js';
 import { initEvent, eventActive } from './event.js';
 import { initExtras, renderDaily, dailyResult, drawJudgeGraph, setShareResult, courseFromUrl } from './extras.js';
@@ -433,10 +434,12 @@ function renderList() {
     p.textContent = songView.status === 'fav' && !favs.size ? '曲の ☆ を押すとお気に入りに入ります' : '条件に合う曲がありません';
     list.appendChild(p);
   }
-  view.forEach((i) => {
+  list.classList.add('stagger'); // 上から順に流れ込む(motion)
+  view.forEach((i, k) => {
     const e = entries[i];
     const b = document.createElement('button');
     b.className = 'song-card' + (i === sel ? ' sel' : '');
+    b.style.setProperty('--k', Math.min(k, 16));
     b.dataset.i = i;
     b.style.setProperty('--c', e.color);
     const lv = DIFFS.map((d) => {
@@ -499,8 +502,11 @@ $('song-filters').addEventListener('click', (ev) => {
   renderList();
 });
 
+let detailId = null;
 function renderDetail() {
   const e = entries[sel];
+  // 曲が変わったときだけ、ジャケットと曲名を入れ替える動きを出す(難易度を変えただけでは動かさない)
+  if (detailId !== e.id) { detailId = e.id; requestAnimationFrame(() => { for (const id of ['d-jacket', 'd-title', 'd-genre', 'd-meta', 'diffs']) replay($(id), 'swap'); }); }
   document.documentElement.style.setProperty('--accent', e.color);
   $('d-genre').innerHTML = esc(e.genre) + mvTag(e.id);
   $('d-jacket').src = jacketURL(e, 256);
@@ -1047,6 +1053,7 @@ initPlayer({ entries, show: (n) => { stopPreview(); show(n); }, back: () => goHo
 $('btn-player').addEventListener('click', () => openPlayer());
 initAdmin({ entries, show: (n) => { stopPreview(); show(n); }, back: () => goHome(), current: () => state, esc, toast });
 $('btn-admin').addEventListener('click', () => openAdmin());
+initMotion();
 initRequest({ esc, toast });
 initDan({ entries, show: (n) => { stopPreview(); show(n); }, back: () => goHome(true), current: () => state, esc, jacketURL, toast, overlay,
   play: (entry, d, custom) => startGame(entry, d, custom) });
@@ -1206,6 +1213,9 @@ for (const m of document.querySelectorAll('.overlay.modal')) {
 // 想定外のエラーは画面に出す(不具合報告用)
 window.addEventListener('error', (ev) => toast('エラー: ' + (ev.message || ev.error), 6000));
 window.addEventListener('unhandledrejection', (ev) => toast('エラー: ' + (ev.reason?.message || ev.reason), 6000));
+
+// 起動時のロード画面を閉じる(フォントの読み込みを少しだけ待つ)
+Promise.race([document.fonts?.ready, new Promise((r) => setTimeout(r, 1200))]).then(() => window.__bootDone?.());
 
 // デバッグ用
 window.MLIDAR = { entries, get game() { return game; } };

@@ -28,6 +28,7 @@ const listeners = new Set();
 export const onChange = (fn) => listeners.add(fn);
 const emit = () => listeners.forEach((fn) => fn(state));
 
+export const getToken = () => token;
 export const isLoggedIn = () => !!token && !!state;
 export const getState = () => state;
 export const getCatalog = () => catalog || [];

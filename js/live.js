@@ -2,6 +2,8 @@
 // 通信は WebRTC(ブラウザどうしの直接通信)。ルームを作った人(ホスト)のブラウザがルームの状態を持ち、
 // 参加した人はホストとだけつながる。最初につながるための仲介(シグナリング)だけ PeerJS の公開サーバーを使う。
 // (対戦のデータはサーバーに置かないので、ルームはホストがいる間だけ。ホストが抜けると解散)
+// 人数が多いとき(SFU_AT 人以上)は Daily.co の SFU に切り替える。ホストが全員へ配る負担をサーバーに任せる
+// (最初のつながり=あいさつは PeerJS のまま。ルームの状態に Daily の部屋が書かれたら、各自そちらへ移る)
 // Supabase には「公開中のルーム一覧」(コード・曲・人数・状態)だけを載せる。ホストが20秒ごとに更新し、来なくなれば消える
 import { jacketImg } from './jacket.js';
 import { mvTag } from './mv.js';
@@ -10,7 +12,11 @@ import * as acc from './account.js';
 
 const $ = (id) => document.getElementById(id);
 const LEAD_MS = 4000; // スタートの合図から曲の頭までの時間(全員この時刻に曲が始まる)
-const MAX_MEMBERS = 8;
+const MAX_MEMBERS = 16; // SFU を使うときの上限
+const P2P_MAX = 8; // SFU が使えないとき(ブラウザどうしだけ)の上限
+const SFU_AT = 5; // この人数以上になったら SFU(Daily.co)へ切り替える
+const DAILY_SRC = 'https://unpkg.com/@daily-co/daily-js';
+const DAILY_FN = 'https://kifnzvktwbomxthzvvgy.supabase.co/functions/v1/mlidar-daily';
 const COMBO_MS = 500; // プレイ中にコンボを送る間隔
 const ALIVE_MS = 5000; // 生存確認(ping)の間隔
 const DEAD_MS = 16000; // これだけ何も届かなければ切れたとみなす
@@ -21,7 +27,7 @@ const ID_PREFIX = 'mlidar-live-'; // ホストの接続ID = これ + ルーム�
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // 見間違えやすい 0/O・1/I/L は使わない
 const PEER_OPTS = { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] } };
 const ERR = {
-  NO_ROOM: 'ルームが見つかりません(解散したか、コードが違います)', ROOM_FULL: 'ルームが満員です(8人まで)',
+  NO_ROOM: 'ルームが見つかりません(解散したか、コードが違います)', ROOM_FULL: 'ルームが満員です',
   NET: 'つながりませんでした。通信環境を確かめて、もう一度試してください', CLOSED: 'ホストとの接続が切れました(ルームが解散しました)',
 };
 const errText = (e) => ERR[e?.message] || String(e?.message || e);
@@ -37,6 +43,8 @@ let busy = false;
 let net = null; // { peer, host, conns: Map(相手ID → 接続)(ホスト), conn(参加者) }
 let comboTimer = 0, pingTimer = 0, castTimer = 0, cbTimer = 0, aliveTimer = 0;
 let lastHeard = 0;
+let sfu = null; // SFU(Daily.co)の通話 { call, peers: Map(Daily のID → メンバーID)(ホスト) }
+let sfuTrying = false, sfuFailed = false;
 let lobbyTimer = 0, listTimer = 0, lobbyKey = ''; // 部屋一覧(Supabase)の掲示・読み込み // 参加者: 最後にホストから何か届いた時刻
 
 const hostNow = () => Date.now() + clockOff;
@@ -102,12 +110,14 @@ async function openPeer(id) {
 function closeNet() {
   clearInterval(comboTimer); clearInterval(pingTimer); clearTimeout(castTimer); clearTimeout(cbTimer); clearInterval(aliveTimer);
   comboTimer = pingTimer = castTimer = cbTimer = aliveTimer = 0;
-  if (!net) return;
+  const s = sfu;
+  sfu = null; sfuFailed = false;
+  if (!net) { endCall(s?.call); return; }
   const n = net;
   if (n.host) unpublish();
   net = null;
   try { if (!n.host) n.conn?.send({ t: 'leave' }); } catch { /* noop */ }
-  setTimeout(() => n.peer.destroy(), 100); // 「抜けます」を送り切ってから閉じる
+  setTimeout(() => { n.peer.destroy(); endCall(s?.call); }, 100); // 「抜けます」を送り切ってから閉じる
 }
 
 // 自分の操作をホストへ(ホスト自身は直接処理する)
@@ -136,10 +146,10 @@ function broadcast() {
     castTimer = 0;
     if (!net?.host || !room) return;
     clearTimeout(cbTimer); cbTimer = 0; // 全体の状態にコンボも入っているので別送はいらない
-    const data = { t: 'state', room: { ...room, me: undefined } };
-    for (const c of net.conns.values()) if (c.open) c.send(data);
+    toAll({ t: 'state', room: pack(room) });
     onRoomUpdate();
     publish();
+    if (room.members.length >= SFU_AT) upgradeSfu();
   }, 60);
 }
 
@@ -149,8 +159,7 @@ function castCombos() {
   cbTimer = setTimeout(() => {
     cbTimer = 0;
     if (!net?.host || !room) return;
-    const data = { t: 'cb', c: Object.fromEntries(room.members.filter((m) => m.in && !m.done).map((m) => [m.id, m.combo])) };
-    for (const c of net.conns.values()) if (c.open) c.send(data);
+    toAll({ t: 'cb', c: Object.fromEntries(room.members.filter((m) => m.in && !m.done).map((m) => [m.id, m.combo])) });
     onCombos();
   }, COMBO_MS / 2);
 }
@@ -160,7 +169,7 @@ function hostAccept(conn) {
     if (!msg || typeof msg !== 'object') return;
     conn.seen = Date.now();
     if (msg.t === 'hello') {
-      if (room.members.length >= MAX_MEMBERS) { conn.send({ t: 'err', e: 'ROOM_FULL' }); setTimeout(() => conn.close(), 300); return; }
+      if (room.members.length >= (room.sfu ? MAX_MEMBERS : P2P_MAX)) { conn.send({ t: 'err', e: 'ROOM_FULL' }); setTimeout(() => conn.close(), 300); return; }
       net.conns.set(conn.peer, conn);
       if (!room.members.some((m) => m.id === conn.peer)) room.members.push(newMember(conn.peer, msg.name, msg.diff));
       conn.send({ t: 'welcome', id: conn.peer });
@@ -210,6 +219,118 @@ function hostHandle(id, msg, conn = null) {
   broadcast();
 }
 
+// 全員へ送る。SFU に移った人の分は Daily で1回だけ('*' = 全員)、まだの人には直接
+function toAll(data) {
+  let viaSfu = false;
+  for (const c of net.conns.values()) { if (c.sfu) viaSfu = true; else if (c.open) c.send(data); }
+  if (viaSfu && sfu) sfu.call.sendAppMessage(data, '*');
+}
+
+// 送る量を減らす(Daily の1通は 4KB まで): 初期値(null・false・0)の項目は省き、受け取った側で補う
+const pack = (r) => ({ ...r, me: undefined, members: r.members.map((m) => Object.fromEntries(Object.entries(m).filter(([, v]) => v !== null && v !== false && v !== 0))) });
+const unpack = (r, meId) => ({ ...r, me: meId, members: r.members.map((m) => ({ ...newMember(m.id, m.name, m.diff), ...m })) });
+
+// ---------------------------------------------------------------------------
+// SFU(Daily.co)。映像・音声は使わず、データ(app message)だけ
+// ---------------------------------------------------------------------------
+function loadDaily() {
+  if (window.DailyIframe) return Promise.resolve();
+  return (loadDaily.p ||= new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = DAILY_SRC; s.async = true; s.crossOrigin = 'anonymous';
+    s.onload = () => res();
+    s.onerror = () => { loadDaily.p = null; s.remove(); rej(new Error('NET')); };
+    document.head.appendChild(s);
+  }));
+}
+
+// Daily の部屋を作る(create)/入るためのトークンをもらう(join)。APIキーはサーバー側(Edge Function)にだけある
+async function sfuTicket(action, roomName) {
+  const res = await fetch(DAILY_FN, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: acc.getToken(), action, room: roomName }) });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok || !j.url) throw new Error(j.error || 'SFU');
+  return j;
+}
+
+async function joinDaily(ticket) {
+  await loadDaily();
+  const call = window.DailyIframe.createCallObject({ videoSource: false, audioSource: false, subscribeToTracksAutomatically: false });
+  try { await call.join({ url: ticket.url, token: ticket.token, startVideoOff: true, startAudioOff: true }); }
+  catch (e) { endCall(call); throw e; }
+  return call;
+}
+
+function endCall(call) {
+  if (!call) return;
+  Promise.resolve().then(() => call.leave()).catch(() => {}).finally(() => { try { call.destroy(); } catch { /* noop */ } });
+}
+
+// ホスト: 人数が増えたら Daily の部屋を作って移る。失敗したらブラウザどうしのまま(上限 8人)
+async function upgradeSfu() {
+  if (!net?.host || !room || room.sfu || sfuTrying || sfuFailed) return;
+  sfuTrying = true;
+  const myNet = net;
+  try {
+    const ticket = await sfuTicket('create');
+    const call = await joinDaily(ticket);
+    if (net !== myNet || !room) { endCall(call); return; }
+    sfu = { call, peers: new Map() };
+    call.on('app-message', (ev) => hostSfuMsg(ev.fromId, ev.data));
+    call.on('participant-left', (ev) => {
+      const id = sfu?.peers.get(ev.participant.session_id);
+      if (id && net?.host) hostDrop(id, net.conns.get(id));
+    });
+    room.sfu = { room: ticket.room, host: call.participants().local.session_id };
+    broadcast();
+  } catch (e) {
+    console.warn('SFU に切り替えられませんでした', e);
+    if (net === myNet && room) { sfuFailed = true; room.cap = P2P_MAX; broadcast(); }
+  } finally { sfuTrying = false; }
+}
+
+// ホスト: Daily で届いたメッセージ。最初の 'hi' で「どのメンバーか」を覚え、以後はその人の接続を Daily に差し替える
+function hostSfuMsg(from, msg) {
+  if (!net?.host || !sfu || !msg || typeof msg !== 'object') return;
+  if (msg.t === 'hi') {
+    const id = String(msg.id || '');
+    if (!room.members.some((m) => m.id === id)) return;
+    sfu.peers.set(from, id);
+    const call = sfu.call;
+    const conn = { peer: id, open: true, sfu: true, seen: Date.now(), send: (m) => call.sendAppMessage(m, from), close() {} };
+    const old = net.conns.get(id);
+    net.conns.set(id, conn);
+    try { old?.close(); } catch { /* noop */ } // 直接の接続はもう使わない(差し替え済みなので抜けた扱いにはならない)
+    broadcast(); // 移る間に届かなかったかもしれないので、最新の状態を送り直す
+    return;
+  }
+  const id = sfu.peers.get(from);
+  const conn = id && net.conns.get(id);
+  if (!conn?.sfu) return;
+  conn.seen = Date.now();
+  hostHandle(id, msg, conn);
+}
+
+// 参加者: ルームの状態に Daily の部屋が書かれたら移る。失敗したら直接つながったまま続ける
+async function clientSfu(info) {
+  if (!net || net.host || sfu || sfuTrying || sfuFailed) return;
+  sfuTrying = true;
+  const myNet = net;
+  try {
+    const call = await joinDaily(await sfuTicket('join', info.room));
+    if (net !== myNet || room?.sfu?.room !== info.room) { endCall(call); return; }
+    sfu = { call };
+    const conn = { open: true, sfu: true, send: (m) => call.sendAppMessage(m, info.host), close() {} };
+    call.on('app-message', (ev) => { if (ev.fromId === info.host) clientMsg(conn, ev.data); });
+    call.on('participant-left', (ev) => { if (ev.participant.session_id === info.host && net?.conn === conn) lostHost(); });
+    call.on('left-meeting', () => { if (net?.conn === conn) lostHost(); });
+    call.sendAppMessage({ t: 'hi', id: net.id }, info.host);
+    net.conn = conn; // 直接の接続はホストが閉じる
+  } catch (e) {
+    console.warn('SFU に移れませんでした(直接つながったまま続けます)', e);
+    if (net === myNet) sfuFailed = true;
+  } finally { sfuTrying = false; }
+}
+
 // --- 部屋一覧への掲示(ホストだけ)。人数・曲・状態が変わったときと、20秒ごとの生存報告 ---
 function publish(force = false) {
   if (!net?.host || !room) return;
@@ -228,11 +349,17 @@ function unpublish() {
 
 // --- 参加者側 ---
 function clientListen(conn) {
-  conn.on('data', (msg) => {
+  conn.on('data', (msg) => clientMsg(conn, msg));
+  conn.on('close', () => { if (net?.conn === conn) lostHost(); });
+}
+
+// ホストから届いたメッセージ(直接でも Daily でも同じ)
+function clientMsg(conn, msg) {
+  {
     if (!msg || typeof msg !== 'object' || !net || net.conn !== conn) return;
     lastHeard = Date.now();
     if (msg.t === 'state') {
-      room = { ...msg.room, me: net.id };
+      room = unpack(msg.room, net.id);
       onRoomUpdate();
     } else if (msg.t === 'cb') {
       for (const m of room?.members || []) if (m.id in msg.c && m.id !== room.me) m.combo = msg.c[m.id] | 0;
@@ -242,8 +369,7 @@ function clientListen(conn) {
       const now = Date.now(), rtt = now - msg.c;
       if (rtt <= bestRtt * 1.2) { bestRtt = Math.min(bestRtt, rtt); clockOff = msg.h - (msg.c + now) / 2; }
     }
-  });
-  conn.on('close', () => { if (net?.conn === conn) lostHost(); });
+  }
 }
 
 // ホストとの接続が切れた(閉じた・黙って消えた)
@@ -280,6 +406,7 @@ function onRoomUpdate() {
   // 音源の準備ができたかどうかをホストに知らせる
   const m = me();
   if (m && m.ready !== isReady()) send({ t: 'ready', v: isReady() });
+  if (room.sfu && !isHost()) clientSfu(room.sfu);
   if (mode === 'room') {
     if (ui.current() === 'live') { prepare(); renderRoom(); }
     checkStart();
@@ -374,7 +501,7 @@ async function joinRoom(code) {
       const onOpen = () => conn.send({ t: 'hello', name: myName(), diff: ui.diff() });
       const onData = (msg) => {
         if (msg?.t === 'err') end(new Error(msg.e));
-        if (msg?.t === 'state') { room = { ...msg.room, me: peer.id }; end(); }
+        if (msg?.t === 'state') { room = unpack(msg.room, peer.id); end(); }
       };
       const to = setTimeout(() => end(new Error('NO_ROOM')), 12000);
       // 待ち受け用のリスナーは終わったら外す(残すと同じ状態を二重に処理してしまう)
@@ -445,7 +572,7 @@ function renderRoom() {
     else st = m.ready ? '<span class="lm-st ok">READY</span>' : '<span class="lm-st wait">準備中…</span>';
     return `<li class="${m.id === room.me ? 'me' : ''}"><span class="lm-name">${m.id === room.host ? '<i class="lm-host">HOST</i>' : ''}${ui.esc(m.name)}</span>${diffTag(m.diff)}${st}</li>`;
   }).join('');
-  $('live-count').textContent = `${room.members.length}/${MAX_MEMBERS}`;
+  $('live-count').textContent = `${room.members.length}/${room.cap || MAX_MEMBERS}${room.sfu ? ' ・ SFU' : ''}`;
   // スタート
   const btn = $('live-start');
   const anyPlaying = playing && room.members.some((m) => m.in && !m.done);

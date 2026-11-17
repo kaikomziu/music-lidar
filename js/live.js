@@ -2,7 +2,7 @@
 // 通信は WebRTC(ブラウザどうしの直接通信)。ルームを作った人(ホスト)のブラウザがルームの状態を持ち、
 // 参加した人はホストとだけつながる。最初につながるための仲介(シグナリング)だけ PeerJS の公開サーバーを使う。
 // (対戦のデータはサーバーに置かないので、ルームはホストがいる間だけ。ホストが抜けると解散)
-// 人数が多いとき(SFU_AT 人以上)は Daily.co の SFU に切り替える。ホストが全員へ配る負担をサーバーに任せる
+// 人数が多いとき(SFU_AT 人以上)は Daily.co の SFU に切り替えられる(今は無効。8人までブラウザどうし)。ホストが全員へ配る負担をサーバーに任せる
 // (最初のつながり=あいさつは PeerJS のまま。ルームの状態に Daily の部屋が書かれたら、各自そちらへ移る)
 // Supabase には「公開中のルーム一覧」(コード・曲・人数・状態)だけを載せる。ホストが20秒ごとに更新し、来なくなれば消える
 import { jacketImg } from './jacket.js';
@@ -12,9 +12,9 @@ import * as acc from './account.js';
 
 const $ = (id) => document.getElementById(id);
 const LEAD_MS = 4000; // スタートの合図から曲の頭までの時間(全員この時刻に曲が始まる)
-const MAX_MEMBERS = 16; // SFU を使うときの上限
+const MAX_MEMBERS = 8; // 1ルームの上限(SFU を使う場合は 16 などに上げる)
 const P2P_MAX = 8; // SFU が使えないとき(ブラウザどうしだけ)の上限
-const SFU_AT = 5; // この人数以上になったら SFU(Daily.co)へ切り替える
+const SFU_AT = Infinity; // この人数以上で SFU(Daily.co)へ切り替える。今は使わない(Daily は支払い方法の登録が必要)。使うなら 5 などに
 const DAILY_SRC = 'https://unpkg.com/@daily-co/daily-js';
 const DAILY_FN = 'https://kifnzvktwbomxthzvvgy.supabase.co/functions/v1/mlidar-daily';
 const COMBO_MS = 500; // プレイ中にコンボを送る間隔

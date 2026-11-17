@@ -1327,7 +1327,7 @@ body.xmas .h-tile.h-event-on { border-color: rgba(255, 90, 110, 0.6); }
 .overlay.on > .modal-box, .overlay.on > .ld-card { animation: boxIn 0.38s var(--ease-spring) both; }
 .overlay.closing { display: flex; pointer-events: none; animation: ovOut 0.2s var(--ease-in-out) both; }
 .overlay.closing > .modal-box, .overlay.closing > .ld-card { animation: boxOut 0.2s var(--ease-in-out) both; }
-@keyframes ovIn { from { opacity: 0; backdrop-filter: blur(0); } }
+@keyframes ovIn { from { opacity: 0; } }
 @keyframes ovOut { to { opacity: 0; } }
 @keyframes boxIn { from { opacity: 0; transform: translateY(14px) scale(0.96); } }
 @keyframes boxOut { to { opacity: 0; transform: translateY(6px) scale(0.97); } }
@@ -1352,16 +1352,15 @@ body.xmas .h-tile.h-event-on { border-color: rgba(255, 90, 110, 0.6); }
 .btn-glow, .btn-line, .btn-play, .chip, .f-chip, .diff-btn, .h-tile, .song-card, .cr-btn, .mini, .acc-tab {
   transition: transform 0.22s var(--ease-out), box-shadow 0.25s var(--ease-out), border-color 0.2s var(--ease-out), background 0.25s var(--ease-out), color 0.2s var(--ease-out), opacity 0.2s;
 }
-.btn-glow:active, .btn-line:active, .chip:active, .f-chip:active, .cr-btn:active, .mini:active, .acc-tab:active { transform: scale(0.96); transition-duration: 0.08s; }
-.btn-play:active { transform: scale(0.985); transition-duration: 0.08s; }
-.h-tile:active { transform: translateY(-1px) scale(0.985); transition-duration: 0.08s; }
-.chip:hover { transform: translateY(-1px); }
-.f-chip:hover { transform: translateY(-1px); }
+/* 押したときは形を変えずに(縮めると端を押したときにクリックが外れるので)、少し暗く沈んだ見た目にする */
+.btn-glow:active, .btn-line:active, .btn-play:active, .chip:active, .f-chip:active, .cr-btn:active, .mini:active, .acc-tab:active, .h-tile:active, .diff-btn:active, .song-card:active {
+  filter: brightness(0.82); box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.45); transition-duration: 0.06s; }
+.chip:hover, .f-chip:hover { box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 30%, transparent); }
 .f-chip.sel { animation: chipSel 0.32s var(--ease-spring); }
-@keyframes chipSel { 40% { transform: scale(1.08); } }
-.diff-btn:hover { transform: translateY(-2px); }
+@keyframes chipSel { 40% { filter: brightness(1.4); } }
+.diff-btn:hover { box-shadow: 0 0 12px color-mix(in srgb, currentColor 30%, transparent); }
 .diff-btn.sel { animation: diffSel 0.4s var(--ease-spring); }
-@keyframes diffSel { 0% { transform: scale(0.94); } 55% { transform: scale(1.05); } 100% { transform: none; } }
+@keyframes diffSel { 0% { filter: brightness(1.8); } 100% { filter: none; } }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; transition: outline-offset 0.15s var(--ease-out); }
 
 /* 押した所から広がる波紋 */
@@ -1371,11 +1370,11 @@ body.xmas .h-tile.h-event-on { border-color: rgba(255, 90, 110, 0.6); }
 @keyframes ripple { to { transform: scale(1); opacity: 0; } }
 
 /* --- 選曲: 曲リストは上から順に流れ込む。選んだ曲は横にすべる --- */
-.song-list.stagger > .song-card { animation: cardIn 0.42s var(--ease-out) both; animation-delay: calc(var(--k, 0) * 22ms); }
+.song-list.stagger > .song-card.anim { animation: cardIn 0.42s var(--ease-out) both; animation-delay: calc(var(--k, 0) * 22ms); }
 @keyframes cardIn { from { opacity: 0; transform: translateX(-14px); } }
 .song-card { transition-duration: 0.28s; }
 .song-card.sel { transition: transform 0.38s var(--ease-spring), background 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out), border-color 0.3s; }
-.song-card:hover:not(.sel) { transform: translateX(3px); }
+.song-card:hover:not(.sel) { background: rgba(14, 20, 50, 0.8); }
 /* 曲を変えたら、ジャケットと曲名が入れ替わる */
 .d-jacket.swap { animation: jacketSwap 0.45s var(--ease-spring); }
 @keyframes jacketSwap { 0% { opacity: 0.2; transform: perspective(500px) rotateY(-28deg) scale(0.9); filter: blur(3px); } 100% { opacity: 1; transform: none; filter: none; } }

@@ -439,7 +439,7 @@ function renderList() {
     const e = entries[i];
     const b = document.createElement('button');
     b.className = 'song-card' + (i === sel ? ' sel' : '');
-    b.style.setProperty('--k', Math.min(k, 16));
+    if (k < 16) { b.classList.add('anim'); b.style.setProperty('--k', k); } // 流れ込むのは画面に見える最初の16枚だけ(全部動かすと重い)
     b.dataset.i = i;
     b.style.setProperty('--c', e.color);
     const lv = DIFFS.map((d) => {

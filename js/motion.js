@@ -16,7 +16,10 @@ function watchOverlays() {
         el.classList.add('closing');
         clearTimeout(el._closeT);
         el._closeT = setTimeout(() => el.classList.remove('closing'), 220);
-      } else if (el.classList.contains('on')) el.classList.remove('closing');
+      } else if (el.classList.contains('on') && el.classList.contains('closing')) {
+        // 付いているときだけ外す(付いていない class を remove しても「変わった」と通知が来て、無限にくり返してしまう)
+        el.classList.remove('closing');
+      }
     }
   });
   for (const el of document.querySelectorAll('.overlay')) mo.observe(el, { attributes: true, attributeFilter: ['class'], attributeOldValue: true });

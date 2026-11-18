@@ -23,7 +23,7 @@
 // 注意: 大きな Blob を fetch で送ると失敗する環境があるので、送るのは Uint8Array にする。
 import { composeSong } from '../js/composer.js';
 import { renderEvents, loudnessGain } from '../js/audio.js';
-import { hasMV, createMV, analyzeSections } from '../js/mv.js';
+import { hasMV, createMV, analyzeSections, prepareMV } from '../js/mv.js';
 import SONGS from '../js/songs/index.js';
 
 const $ = (id) => document.getElementById(id);
@@ -89,6 +89,7 @@ function encode(buf) {
 async function exportVideo(def, name, duration, events) {
   await post('/x/vstart?' + qs({ name, fps: FPS, title: def.title, artist: 'MUSIC LiDAR', album: 'MUSIC LiDAR', genre: def.genre }));
   const g = new OffscreenCanvas(W, H).getContext('2d', { willReadFrequently: true });
+  await prepareMV(def.id); // 特製MV(js/mv/*.js)を読み込んでおく
   const mv = createMV(def.id, def.bpm, 0, { scale: 0.75, maxW: 960 },
     { title: def.title, genre: def.genre, color: def.color, sections: analyzeSections(events, def.bpm, duration) });
   const N = Math.ceil(duration * FPS);

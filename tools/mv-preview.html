@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>MV プレビュー(開発用)</title>
+<style>
+  body { margin: 0; background: #05060c; color: #cfe; font: 12px system-ui, sans-serif; }
+  h2 { margin: 10px 8px 4px; font-size: 13px; }
+  .row { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 8px 8px; }
+  figure { margin: 0; }
+  figcaption { font-size: 10px; color: #8ab; }
+  canvas { display: block; width: 192px; height: 108px; border: 1px solid #234; }
+  .err { color: #f66; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script type="module">
+// MV の確認用ページ(開発用)。曲ごとに、区間ごとのコマを並べて表示する
+// 使い方: tools/mv-preview.html?ids=曲ID,曲ID  (ids を省くと全曲)  &check=1 で描画エラーの確認だけ(全区間を細かく描く)
+import SONGS from '../js/songs/index.js';
+import { composeSong } from '../js/composer.js';
+import { createMV, analyzeSections, chartSections, prepareMV, hasMV } from '../js/mv.js';
+
+const q = new URLSearchParams(location.search);
+const ids = q.get('ids') ? q.get('ids').split(',') : SONGS.map((s) => s.id);
+const check = q.has('check');
+const out = document.getElementById('out');
+const errors = [];
+for (const id of ids) {
+  const def = SONGS.find((s) => s.id === id);
+  if (!def) { errors.push(id + ': 曲がない'); continue; }
+  let sections, duration;
+  if (def.audio) {
+    duration = def.duration;
+    const notes = def.fixedCharts.normal.map(([t, lane]) => ({ t: t / 1000, lane }));
+    sections = chartSections(notes, def.bpm, def.offset || 0, duration);
+  } else {
+    const r = composeSong(def); duration = r.duration;
+    sections = analyzeSections(r.events, def.bpm, duration);
+  }
+  await prepareMV(id);
+  const info = { title: def.title, artist: def.artist, genre: def.genre, color: def.color, sections };
+  const mv = createMV(id, def.bpm, def.offset || 0, { scale: 1, maxW: 384 }, info);
+  const spb = 60 / def.bpm;
+  const times = check
+    ? Array.from({ length: Math.ceil(duration * 4) }, (_, i) => i / 4)
+    : sections.map((s) => (def.offset || 0) + (Math.min(s.to, s.from + 40) + s.from) / 2 * spb).concat([(def.offset || 0) + 4 * spb]);
+  const h = document.createElement('h2');
+  h.textContent = `${def.title} (${id}) ${def.genre} BPM ${def.bpm} — 区間 ${sections.length} ${hasMV(id) ? '' : '[MVなし]'}`;
+  out.appendChild(h);
+  const row = document.createElement('div'); row.className = 'row'; out.appendChild(row);
+  const cv = document.createElement('canvas'); cv.width = 384; cv.height = 216;
+  const g = cv.getContext('2d');
+  for (const t of times) {
+    try { g.fillStyle = '#000'; g.fillRect(0, 0, 384, 216); mv.draw(g, 384, 216, t); }
+    catch (e) { errors.push(`${id} t=${t.toFixed(2)}: ${e.message}`); if (check) break; }
+    if (check) continue;
+    const f = document.createElement('figure');
+    const c2 = document.createElement('canvas'); c2.width = 384; c2.height = 216; c2.getContext('2d').drawImage(cv, 0, 0);
+    const sec = sections.find((s) => (t - (def.offset || 0)) / spb < s.to);
+    const cap = document.createElement('figcaption'); cap.textContent = `${t.toFixed(1)}s lvl${sec?.lvl}`;
+    f.append(c2, cap); row.appendChild(f);
+  }
+}
+const e = document.createElement('pre'); e.className = 'err'; e.textContent = errors.length ? errors.join('\n') : 'エラーなし'; out.prepend(e);
+window.__mvDone = { errors, n: ids.length };
+</script>
+</body>
+</html>

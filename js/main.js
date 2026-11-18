@@ -8,7 +8,7 @@ import { showLoading, hideLoading } from './loading.js';
 import { analyzeFile, hashFile } from './analyzer.js';
 import { buildScroll, dropNotesInStops, gimmickLabel } from './gimmick.js';
 import { jacketURL, jacketImg, clearJackets } from './jacket.js';
-import { mvTag, createMV, analyzeSections } from './mv.js';
+import { mvTag, createMV, analyzeSections, prepareMV, chartSections } from './mv.js';
 import { CHANGELOG, VERSION } from './changelog.js';
 import { Game, PointCloud, laneOf, DIFF_COLOR, visibleTime, IS_TOUCH, FX_LEVELS } from './game.js';
 import { load, save, getSettings, setSettings, DEFAULT_SETTINGS, clientId, getBest, recordBest } from './storage.js';
@@ -82,6 +82,8 @@ function fileSongEntry(def) {
     id: def.id, urlId: def.urlId, title: def.title, artist: def.artist, genre: def.genre, bpm: def.bpm, offset: def.offset || 0, color: def.color,
     event: def.event || null, levels: def.levels, charts, stats, local: false, duration: def.duration, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [],
     previewAt: def.previewAt ?? def.duration * 0.3, credit: def.credit, creditUrl: def.creditUrl, onsets,
+    // MV用の情報(区間は譜面の密度から)
+    mvAuto() { return (this._mv ||= { title: def.title, artist: def.artist, genre: def.genre, color: def.color, sections: chartSections(charts.normal, def.bpm, def.offset || 0, def.duration) }); },
     buffer: null, rendering: null,
     load() {
       if (this.buffer) { touchBuffer(this); return Promise.resolve(this.buffer); }
@@ -736,9 +738,11 @@ async function startGameInner(entry, d, custom, live, extra) {
     status: entry.buffer ? 'READY' : '音源を準備中…(初回のみ少しかかります)',
     getProgress: () => (entry.buffer ? 1 : entry.progress || 0),
   });
+  const mvReady = entry.local ? null : prepareMV(entry.id); // 特製MVは音源と並行して読み込む
   if (!entry.buffer) {
     try { await entry.load(); } catch (err) { console.error(err); toast('音源の読み込みに失敗しました。通信を確認して、もう一度プレイを押してください'); hideLoading(); if (state === 'select') renderDetail(); return; }
   }
+  await mvReady;
   await hideLoading(isRetry ? 500 : 1400);
   playing = { entry, diff: d, custom, live, extra, label };
   document.body.classList.toggle('live', !!live || custom?.kind === 'dan');

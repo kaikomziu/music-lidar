@@ -13,6 +13,19 @@ from datetime import datetime, timedelta, timezone
 root = pathlib.Path(__file__).resolve().parent.parent
 v = datetime.now(timezone(timedelta(hours=9))).strftime('%Y%m%d%H%M%S')
 
+# 特製MV(js/mv/*.js)の一覧を js/mv.js の MV_INDEX に書き込む(曲を遊ぶときに、どのファイルを読むか)
+mv_index = {}
+for f in sorted((root / 'js' / 'mv').glob('*.js')):
+    src = f.read_text(encoding='utf-8')
+    body = src[src.rfind('export default {'):]
+    for sid in re.findall(r"^\s*'([a-z0-9-]+)'\s*:", body, flags=re.M):
+        mv_index[sid] = f.stem
+mv_path = root / 'js' / 'mv.js'
+mv_src = mv_path.read_text(encoding='utf-8')
+mv_src, n_mv = re.subn(r'const MV_INDEX = \{[^}]*\};', 'const MV_INDEX = ' + json.dumps(mv_index, ensure_ascii=False) + ';', mv_src)
+assert n_mv == 1, n_mv
+mv_path.write_text(mv_src, encoding='utf-8', newline='\n')
+
 js = sorted(p.relative_to(root).as_posix() for p in (root / 'js').rglob('*.js'))
 imports = {f'./{f}': f'./{f}?v={v}' for f in js}
 importmap = '<script type="importmap">' + json.dumps({'imports': imports}, ensure_ascii=False) + '</script>'

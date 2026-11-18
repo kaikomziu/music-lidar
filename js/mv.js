@@ -2445,7 +2445,17 @@ const VIDEO_MVS = {
   // そのままでは再生できないよう並べ替えてある(音源と同じ方式。tools/scramble_audio.py)。key で元に戻してから再生する
   'inmu-king': { src: 'video/inmu-king.bin', key: 'Z32YC2kVndAwj09w2NckrXS9fg8aqhde' },
 };
-export const hasMV = (id) => !!(MVS[id] || VIDEO_MVS[id]); // MVがあるか(曲リストの MV マーク用)
+// 特製MV(js/mv/*.js): 曲を遊ぶときにだけ読み込む(全部を最初に読むと起動が重くなるため)。曲ID → ファイル名
+// tools/release.py が js/mv/*.js から自動で作る(手で書かない)。中身の書き方は js/mv/README.md
+const MV_INDEX = {"first-light": "s01-gentle", "hello-lane": "s01-gentle", "firefly-path": "s01-gentle", "cotton-candy": "s01-gentle", "cherry-picnic": "s01-gentle", "lemon-soda": "s01-gentle", "snow-globe": "s01-gentle", "bubble-bath": "s01-gentle", "sunny-parade": "s01-gentle", "toy-box-march": "s01-gentle", "morning-coffee": "s02-chill", "puddle-jump": "s02-chill", "piano-rain": "s02-chill", "polar-night": "s02-chill", "gospel-light": "s02-chill", "lofi-library": "s02-chill", "island-signal": "s02-chill", "tropical-mango": "s02-chill", "dub-station": "s02-chill", "dembow-lights": "s02-chill", "afro-sunrise": "s03-soul", "space-waltz": "s03-soul", "blues-highway": "s03-soul", "polka-party": "s03-soul", "harvest-moon": "s03-soul", "velvet-rnb": "s03-soul", "velvet-lounge": "s03-soul", "boom-bap-days": "s03-soul", "sunset-bossa": "s03-soul", "deep-blue-current": "s03-soul", "tango-noir": "s04-dance", "samba-carnival": "s04-dance", "moombah-heat": "s04-dance", "paper-planes": "s04-dance", "seoul-signal": "s04-dance", "retro-arcade": "s04-dance", "midnight-avenue": "s04-dance", "funky-station": "s04-dance", "mariachi-sun": "s04-dance", "bollywood-beat": "s04-dance"};
+const LOADED = {}; // 読み込み済みの特製MV(曲ID → 定義)
+// 特製MVを読み込んでおく。createMV の前に await する(なければ何もしない)
+export async function prepareMV(id) {
+  const file = MV_INDEX[id];
+  if (!file || LOADED[id]) return;
+  try { Object.assign(LOADED, (await import(`./mv/${file}.js`)).default); } catch (e) { console.warn('mv', id, e); }
+}
+export const hasMV = (id) => !!(MVS[id] || VIDEO_MVS[id] || MV_INDEX[id]); // MVがあるか(曲リストの MV マーク用)
 // 曲名やジャンルの横に付ける「MV」マーク(特製MV・動画MVのある曲だけ)。どの画面でもこれを使う
 export const mvTag = (id) => (hasMV(id) ? ' <span class="mv-tag" title="MVつき">MV</span>' : '');
 
@@ -2509,7 +2519,7 @@ function createVideoMV(v, fallback) {
 // auto: 手作りのMVがない曲用の情報 { title, genre, color, sections }(あれば自動MVを作る)
 export function createMV(id, bpm, offset = 0, { scale = 0.5, maxW = 800 } = {}, auto = null) {
   if (VIDEO_MVS[id]) return createVideoMV(VIDEO_MVS[id], auto ? createMV(null, bpm, offset, { scale, maxW }, auto) : null);
-  const def = MVS[id] || (auto ? autoDef(auto) : null);
+  const def = MVS[id] || (LOADED[id] ? customDef(LOADED[id], auto, bpm) : null) || (auto ? autoDef(auto) : null);
   if (!def) return null;
   const cv = document.createElement('canvas');
   const og = cv.getContext('2d');
@@ -2801,6 +2811,75 @@ const THEME_RULES = [
 ];
 export const themeOf = (genre) => (THEME_RULES.find(([, re]) => re.test(genre || '')) || ['club'])[0];
 
+// 曲の色から作る配色(自動MV・特製MVで共通)
+function paletteOf(color) {
+  const { h } = hexHsl(color || '#5ef2ff');
+  return {
+    h, main: color || '#5ef2ff', sub: hsl(h + 150, 90, 65), light: hsl(h, 90, 82),
+    dk: hsl(h, 55, 7), dk2: hsl(h, 50, 10), mid: hsl(h, 55, 18), hot: hsl(h + 20, 60, 34),
+    pa: hsl(h, 90, 90), pb: hsl(h + 40, 80, 88),
+  };
+}
+
+// 特製MV(js/mv/*.js)の定義 → { scenes }。曲の区間(analyzeSections。音源曲は譜面の密度から)ごとに、
+// 盛り上がり(lvl 0=静か 1=ふつう 2=サビ)に合う場面(looks)を順番に割り当てる。
+//  spec = { looks: [[lvl, (c, P, k) => 描く], ...], intro?: (c, P) => 描く, outro?: (c, P) => 描く, titleCol?: '#fff', titleFont?: 'Orbitron' }
+//  k: その場面が何回目か(0,1,2…)。同じ looks が2回目に出たときに少し変化をつけるのに使う
+function customDef(spec, info, bpm) {
+  const P = paletteOf(info?.color);
+  const secs = info?.sections?.length ? info.sections : [{ from: 0, to: 1e9, lvl: 1 }];
+  const last = secs[secs.length - 1].to;
+  const used = [0, 0, 0], times = new Map();
+  let prev = null;
+  const pick = (lv) => { const pool = spec.looks.filter(([l]) => l === lv); return pool.length ? pool[used[lv]++ % pool.length][1] : null; };
+  // 最初の区間(intro)と同じ場面は、その盛り上がりの順番の最後に回す
+  for (let lv = 0; lv < 3; lv++) { const pool = spec.looks.filter(([l]) => l === lv); if (pool.length > 1 && pool[0][1] === spec.intro) used[lv] = 1; }
+  const scenes = secs.map((s, i) => {
+    let fn;
+    if (i === 0 && spec.intro) fn = spec.intro;
+    else if (i === secs.length - 1 && spec.outro && secs.length > 2) fn = spec.outro;
+    else {
+      fn = pick(s.lvl);
+      // 同じ場面が続くときは、となりの盛り上がりの場面を借りる(場面の少ない曲で同じ絵が続かないように)
+      if (!fn || fn === prev) {
+        for (const lv of s.lvl === 2 ? [1, 0] : s.lvl === 0 ? [1, 2] : [2, 0]) { const alt = pick(lv); if (alt && alt !== prev) { fn = alt; break; } }
+      }
+      fn ||= spec.looks[0][1];
+    }
+    prev = fn;
+    const k = times.get(fn) || 0;
+    times.set(fn, k + 1);
+    return {
+      from: s.from, to: i === secs.length - 1 ? 1e9 : s.to,
+      draw(c) {
+        fn(c, P, k);
+        if (i === 0 && c.lb < 12 && info?.title) { // はじめに曲名
+          const a = ease((c.lb - 1) / 2) * (1 - ease((c.lb - 9) / 2));
+          // 明るい背景でも読めるように、曲名の後ろに薄い帯を敷く
+          const gb = c.g.createLinearGradient(0, c.h * 0.33, 0, c.h * 0.6);
+          gb.addColorStop(0, 'rgba(0,0,0,0)'); gb.addColorStop(0.5, `rgba(0,0,0,${0.4 * a})`); gb.addColorStop(1, 'rgba(0,0,0,0)');
+          c.g.fillStyle = gb; c.g.fillRect(0, c.h * 0.33, c.w, c.h * 0.27);
+          text(c, info.title, c.w / 2, c.h * 0.42, c.h * 0.09, spec.titleCol || '#ffffff', a, { glow: 16, spacing: 3, font: spec.titleFont || 'Orbitron' });
+          text(c, info.artist && info.artist !== 'MUSIC LiDAR' ? info.artist : info.genre, c.w / 2, c.h * 0.53, c.h * 0.035, spec.titleCol || '#ffffff', a * 0.75, { weight: 600, spacing: 5 });
+        }
+        if (c.beat > last - 8) { c.g.fillStyle = `rgba(0,0,0,${ease((c.beat - (last - 8)) / 8)})`; c.g.fillRect(0, 0, c.w, c.h); } // おわりは暗く
+      },
+    };
+  });
+  return { scenes };
+}
+
+// 音源ファイルの曲(イベントがない)の区間: 32拍ごとに区切り、譜面の密度で盛り上がりを決める
+export function chartSections(notes, bpm, offset, duration) {
+  const spb = 60 / bpm, end = Math.ceil((duration - offset) / spb);
+  const out = [];
+  for (let a = 0; a < end; a += 32) out.push([a, Math.min(end, a + 32)]);
+  if (out.length > 1 && out[out.length - 1][1] - out[out.length - 1][0] < 12) { const l = out.pop(); out[out.length - 1][1] = l[1]; }
+  const den = out.map(([a, b]) => notes.filter((n) => { const bt = (n.t - offset) / spb; return bt >= a && bt < b; }).length / Math.max(1, b - a));
+  const mx = Math.max(...den, 1e-6);
+  return out.map(([from, to], i) => ({ from, to, lvl: den[i] < mx * 0.55 ? 0 : den[i] < mx * 0.85 ? 1 : 2 }));
+}
+
 // 自動MVの定義({ scenes })を作る。info = { title, genre, color, sections }
 function autoDef(info) {
   const { h } = hexHsl(info.color || '#5ef2ff');
@@ -2832,3 +2911,8 @@ function autoDef(info) {
   });
   return { scenes };
 }
+
+// 特製MV(js/mv/*.js)から使う部品
+export {
+  TAU, frac, clamp01, ease, rng, table, vgrad, text, starfield, twinkle, grid, retroSun, skyline, tunnel, pointTerrain, dotSphere, sakura, petal, fallingPetals, torii, moon, hazard, glitch, radialLines, STARS, SKY, BLDS, PETALS, LANTERNS, CONST, cloudBand, bossEye, ringSegments, hexGrid, BUBBLES, bubble, pop, risingBubbles, heart, sparkle, blob, candySwirl, fluffyClouds, SPARKS, lunares, fan, rosette, candle, arcade, rose, fallingRose, flames, sparks, star8, arabesque, SNOW, XSTARS, snowfall, stringLights, pointTree, star5, snowTown, sleigh, giftBox, bellShape, snowCrystal, aurora, snowMountains, roseWindow, church, gear, clockHand, sprite, dungeonFloor, torch, jazzNote, jazzRoom, neonSign, rainyCity, windowDrops, neonMoon, samuraiFigure, slash, beatRipples, scanlines, firework, koiFish, pond, lilyPads, swimKoi, archBridge, crescent, camel, caravan, dunes, sandWind, lantern, lanternRow, paifang, dragon, vhsHud, retroWindow, wireCube, vaporScene, mirrorball, lightSpots, discoFloor, dancers, confetti, milkyWay, campGround, campfire, shootingStar, fireflies, campNight, hexHsl, hsl, BOKEH, RAIN, CROWD, eqBars, stageBeams, crowd, rain, bokeh, waves, palm, hills, birds, lightning, vinyl, pixelScape, hash1,
+};

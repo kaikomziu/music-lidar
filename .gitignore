@@ -1,9 +1,13 @@
 _vtmp/
 
-# 平文の音源・動画はコミットしない(並べ替えた .bin だけを置く)
+# 平文の音源・動画はコミットしない(並べ替えた .bin だけを置く)。
+# 例外: CC-BY など、再配布してよく、並べ替え(技術的な制限)をかけてはいけないライセンスの曲は、下の ! で個別に許す
 audio/*.mp3
 audio/*.wav
 audio/*.ogg
 audio/*.m4a
 video/*.mp4
 video/*.webm
+# CC-BY 4.0: 全て蝶々の所為です。「Hydrangea」「蒼」
+!audio/hydrangea.mp3
+!audio/ao.mp3

@@ -137,6 +137,9 @@ export default {
 };
 ```
 - 音源ファイル曲は `audio` / `bpm` / `offset` / `fixedCharts`(または `*.data.js`)を使う
+  - 譜面は `tools/audiochart`(`analyze.py` → `tempo.py [BPMの下限 上限]` → `chart.py <wav> <出力> [T_END] [長さ] [曲名]`)で作る。`tempo.py` は引数なしなら 70〜200 を探す
+  - ライセンスで「取り出しにくくする」必要がある曲は `tools/scramble_audio.py` で並べ替えて `.bin` + `audioKey`。**CC BY の曲は技術的な制限をかけてはいけないので、並べ替えずに mp3 のまま置く**(`audioKey` なし。`.gitignore` の `!audio/<名前>.mp3` で個別に許す)
+  - ほかの作者さんの曲を足したら、`credit`(と `creditUrl`)、タイトル右下のクレジット、`guide.html` のフッター、`streaming.html` の表、README のクレジットにも足す
 - 曲を足す手順: ファイルを作る → `js/songs/index.js` に import を1行 → `python tools/release.py`(曲ページとサイトマップができる)→ `python tools/export.py` で `D:\MUSIC_LiDAR_export` に mp3 / mp4 を書き出す
 - 週替わりスコアアタックとデイリーは、曲一覧から乱数で選ぶ。**曲を足すと、選ばれる曲が変わることがある**
 

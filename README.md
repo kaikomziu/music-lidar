@@ -44,6 +44,7 @@ python -m http.server 8765
 - 「INMU KING」 音楽: YAJU-MC(やじゅまん) [ニコニ・コモンズ nc499430](https://commons.nicovideo.jp/works/nc499430)(非収益での組み込み可。`audio/inmu-king.bin`)
 - 「SUMMER TRIANGLE」 音楽: しゃろう([OpenTracks](https://opentracks.com/) 音源利用ライセンス)。ライセンス上、音源をそのまま取り出せる形で置けないため `tools/scramble_audio.py` で並べ替えた `audio/summer-triangle.bin` を置き、ゲーム内で元に戻して再生する。「きくだけ」モードには入れない
 - 外部音源は `audio/*.bin` に難読化して保存し、曲定義の `audioKey` で再生時に復元する。これは平文MP3への直接リンクを避けるための措置で、鍵は公開JavaScriptから取得できるため、暗号学的なダウンロード防止ではない。過去のコミットにあった平文の音源(`audio/inmu-king.mp3`・`audio/shining-star.mp3`・`video/inmu-king.mp4`)は、2026-11-18 に git filter-repo で履歴から取り除いた。**平文の音源は絶対にコミットしない**(並べ替えた `.bin` だけを置く)。
+- 「Hydrangea」「蒼」 音楽: 全て蝶々の所為です。([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja))。CC BY は技術的な制限をかけてはいけないので、並べ替えずに `audio/hydrangea.mp3`・`audio/ao.mp3` のまま置く
 - そのほかの内蔵曲はブラウザ内でその場で合成しているオリジナル曲です。
 
 音源ファイルを使う曲は `js/songs/shining-star.js` のように `audio` / `bpm` / `offset` / `fixedCharts` を指定して追加できます。

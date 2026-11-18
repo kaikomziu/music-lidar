@@ -1,14 +1,17 @@
-# 水の追憶: 鳴っている音(オンセット)を16分の格子で拾い、メロディの高さでレーンを決めて3難易度の譜面を作る
+# 音源ファイルの曲: 鳴っている音(オンセット)を16分の格子で拾い、メロディの高さでレーンを決めて3難易度の譜面を作る(水の追憶で作り、ほかの曲にも使えるようにした)
+# 使い方: python chart.py <曲.wav> <出力.data.js> [譜面を終える秒 T_END] [曲の長さ(秒)] [曲名]
 import sys, json
 import numpy as np
 from scipy.io import wavfile
 from scipy.signal import stft
 
 SRC, OUT = sys.argv[1], sys.argv[2]
+T_END = float(sys.argv[3]) if len(sys.argv) > 3 else 221.9
+DURATION = float(sys.argv[4]) if len(sys.argv) > 4 else 225.6
+TITLE = sys.argv[5] if len(sys.argv) > 5 else '水の追憶'
 d = np.load('feat.npz'); t = d['t']; dt = t[1] - t[0]
 low, mid, high = d['low'], d['mid'], d['high']
 bpm, ph = np.load('grid.npy'); spb = 60 / bpm; step = spb / 4
-T_END = 221.9
 
 # 音の高さ用のスペクトル(周波数の細かいもの)
 sr, x = wavfile.read(SRC)
@@ -164,7 +167,7 @@ for lv in ('easy', 'normal', 'hard'):
     holds = sum(1 for n in final if len(n) == 3)
     print(lv, len(final), 'notes', f'{nps:.2f} nps', holds, 'holds', 'lanes', np.bincount([n[1] for n in final], minlength=4).tolist())
 
-data = {'bpm': round(float(bpm), 3), 'offset': round(float(ph), 4), 'duration': 225.6, 'charts': charts}
+data = {'bpm': round(float(bpm), 3), 'offset': round(float(ph), 4), 'duration': DURATION, 'charts': charts}
 open(OUT, 'w', encoding='utf-8').write(
-    '// 水の追憶の譜面データ(音源の立ち上がりを低・中・高の帯域ごとに拾い、BPM126.685の16分格子にそろえ、メロディの高さでレーンを決めて生成)。[ms, レーン, 終端ms?]\n'
+    f'// {TITLE}の譜面データ(音源の立ち上がりを低・中・高の帯域ごとに拾い、BPM{round(float(bpm), 3)}の16分格子にそろえ、メロディの高さでレーンを決めて生成)。[ms, レーン, 終端ms?]\n'
     'export default ' + json.dumps(data, separators=(',', ':')) + ';\n')

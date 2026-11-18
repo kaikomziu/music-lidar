@@ -3,7 +3,7 @@ import { getCtx, bgmOut, bgmOutFor, nowAudio, playTap, stopPreview } from './aud
 import { buildScroll } from './gimmick.js';
 import { load, save } from './storage.js';
 import * as acc from './account.js';
-import { LANE_COLORS, KEYS } from './game.js';
+import { LANE_COLORS, laneOf } from './game.js';
 import * as api from './maker-api.js';
 import { openAccount } from './meta.js';
 import { jacketImg } from './jacket.js';
@@ -383,7 +383,7 @@ function recPress(lane, ev) {
   changed();
 }
 function recRelease(ev) {
-  const lane = KEYS.indexOf(ev.code);
+  const lane = laneOf(ev.code);
   if (lane < 0 || !ed.held[lane]) return;
   const h = ed.held[lane];
   ed.held[lane] = null;
@@ -766,7 +766,7 @@ export function makerKeydown(ev) {
   }
   if ((ev.key === 'Delete' || ev.key === 'Backspace') && ed.sel) { ev.preventDefault(); deleteSel(); return; }
   if (ev.key === 'Escape' && ed.sel && !ed.playing) { ed.sel = null; syncSel(); return; }
-  const lane = mod ? -1 : KEYS.indexOf(ev.code);
+  const lane = mod ? -1 : laneOf(ev.code);
   if (lane >= 0) {
     ev.preventDefault();
     if (ev.repeat) return;

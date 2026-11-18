@@ -5,6 +5,9 @@ import { NO_SCROLL } from './gimmick.js';
 export const LANE_COLORS = ['#5ef2ff', '#ff4fd8', '#ff4fd8', '#5ef2ff'];
 export const KEYS = ['KeyD', 'KeyF', 'KeyJ', 'KeyK'];
 export const KEY_LABELS = ['D', 'F', 'J', 'K'];
+// 連打用の2つ目のキー(すぐ隣のキー)。2本の指で交互に押せば、1つのキーより速く叩ける
+export const ALT_KEYS = ['KeyS', 'KeyG', 'KeyH', 'KeyL'];
+export const laneOf = (code) => { const i = KEYS.indexOf(code); return i >= 0 ? i : ALT_KEYS.indexOf(code); };
 
 const W_PERFECT = 0.045, W_GREAT = 0.09, W_GOOD = 0.135;
 const SCORE_W = { PERFECT: 1, GREAT: 0.75, GOOD: 0.4, MISS: 0 };
@@ -266,8 +269,10 @@ export class Game {
   }
 
   // --- 入力 ---------------------------------------------------------------
-  press(lane, perfTime) {
-    if (this.paused || this.ended || this.pressed[lane]) return;
+  // again: 同じレーンのもう1つのキーがまだ押されたまま、別のキーで押した(連打の交互押し)
+  press(lane, perfTime, again = false) {
+    if (this.paused || this.ended) return;
+    if (this.pressed[lane] && (!again || this.byLane[lane].some((n) => n.holding))) return;
     this.pressed[lane] = true;
     const t = this.songTime(perfTime) - this.inOffset;
     this.jt = t;
@@ -615,7 +620,12 @@ export class Game {
         g.font = `700 ${Math.round(G.laneW * 0.15)}px "Orbitron", sans-serif`;
         g.textAlign = 'center'; g.textBaseline = 'middle';
         g.fillStyle = on ? '#fff' : 'rgba(170,190,255,0.5)';
-        g.fillText(KEY_LABELS[l], (kx0 + kx1) / 2, (ky0 + ky1) / 2);
+        const cx = (kx0 + kx1) / 2, cy = (ky0 + ky1) / 2;
+        g.fillText(KEY_LABELS[l], cx, cy);
+        // 連打用の2つ目のキーを、キーボードで並んでいる側に小さく出す(S D / F G / H J / K L)
+        g.font = `700 ${Math.round(G.laneW * 0.085)}px "Orbitron", sans-serif`;
+        g.fillStyle = on ? 'rgba(255,255,255,0.8)' : 'rgba(170,190,255,0.3)';
+        g.fillText(ALT_KEYS[l].slice(3), cx + (l % 2 ? 1 : -1) * (kx1 - kx0) * 0.3, cy);
       }
     }
     // 判定ライン(光が左右に走る)

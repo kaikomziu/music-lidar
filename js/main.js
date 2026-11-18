@@ -9,7 +9,7 @@ import { buildScroll, dropNotesInStops, gimmickLabel } from './gimmick.js';
 import { jacketURL, jacketImg, clearJackets } from './jacket.js';
 import { mvTag, createMV, analyzeSections } from './mv.js';
 import { CHANGELOG, VERSION } from './changelog.js';
-import { Game, PointCloud, KEYS, DIFF_COLOR, visibleTime, IS_TOUCH, FX_LEVELS } from './game.js';
+import { Game, PointCloud, laneOf, DIFF_COLOR, visibleTime, IS_TOUCH, FX_LEVELS } from './game.js';
 import { load, save, getSettings, setSettings, DEFAULT_SETTINGS, clientId, getBest, recordBest } from './storage.js';
 import { fetchRanking, submitScore } from './ranking.js';
 import * as acc from './account.js';
@@ -848,8 +848,16 @@ window.addEventListener('keydown', (ev) => {
   if (modalOpen()) { if (ev.key === 'Escape') closeModals(); return; }
 
   if (state === 'game' && game) {
-    const lane = KEYS.indexOf(ev.code);
-    if (lane >= 0) { ev.preventDefault(); if (!ev.repeat) game.press(lane, ev.timeStamp); return; }
+    const lane = laneOf(ev.code);
+    if (lane >= 0) {
+      ev.preventDefault();
+      if (ev.repeat) return;
+      const set = laneDown[lane];
+      if (!game.pressed[lane]) set.clear(); // 一時停止などで離した通知を取りこぼしていても、ここで元に戻す
+      set.add(ev.code);
+      game.press(lane, ev.timeStamp, set.size > 1);
+      return;
+    }
     if (ev.key === 'Escape') {
       // みんなでライブは止めない(全員同時に進むため)。メニューだけ出す
       if (playing?.live) overlay('pause', !$('pause').classList.contains('on'));
@@ -897,10 +905,14 @@ window.addEventListener('keydown', (ev) => {
     else if (ev.code === 'KeyR') { ev.preventDefault(); retry(); }
   }
 });
+// レーンごとに、いま押しているキー(D と S のように2つある)。全部離したときだけ「離した」にする
+const laneDown = [new Set(), new Set(), new Set(), new Set()];
 window.addEventListener('keyup', (ev) => {
   if (state !== 'game' || !game) return;
-  const lane = KEYS.indexOf(ev.code);
-  if (lane >= 0) game.release(lane, ev.timeStamp);
+  const lane = laneOf(ev.code);
+  if (lane < 0) return;
+  laneDown[lane].delete(ev.code);
+  if (!laneDown[lane].size) game.release(lane, ev.timeStamp);
 });
 function pauseGame() {
   if (state === 'game' && game && !game.paused) { game.pause(); overlay('pause', true); }

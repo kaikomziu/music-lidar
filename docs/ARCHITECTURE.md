@@ -139,6 +139,7 @@ export default {
 - 音源ファイル曲は `audio` / `bpm` / `offset` / `fixedCharts`(または `*.data.js`)を使う
   - 譜面は `tools/audiochart`(`analyze.py` → `tempo.py [BPMの下限 上限]` → `chart.py <wav> <出力> [T_END] [長さ] [曲名]`)で作る。`tempo.py` は引数なしなら 70〜200 を探す
   - ライセンスで「取り出しにくくする」必要がある曲は `tools/scramble_audio.py` で並べ替えて `.bin` + `audioKey`。**CC BY の曲は技術的な制限をかけてはいけないので、並べ替えずに mp3 のまま置く**(`audioKey` なし。`.gitignore` の `!audio/<名前>.mp3` で個別に許す)
+  - **OpenTracks の曲(SUMMER TRIANGLE)**: OpenTracks は、音楽ゲーム・リズムゲームでの利用を通常ライセンスの範囲外としている(2026-11-11 のお知らせ。範囲内に含めるかは検討中)。2026-11-11 より前に公開したゲームに入っている音源は、そこから3年をめどに使ってよい猶予がある。SUMMER TRIANGLE は 2026-10-23 に入れたので猶予の対象。**OpenTracks の曲を新しく足すのは不可**。2029-11 ごろまでに、OpenTracks の方針を確かめて、使い続けてよいか(または外すか)を決める。並べ替えて「通常の操作で取り出せない」形にしておくこと、「きくだけ」に入れないことも続ける
   - ほかの作者さんの曲を足したら、`credit`(と `creditUrl`)、タイトル右下のクレジット、`guide.html` のフッター、`streaming.html` の表、README のクレジットにも足す
 - 曲を足す手順: ファイルを作る → `js/songs/index.js` に import を1行 → `python tools/release.py`(曲ページとサイトマップができる)→ `python tools/export.py` で `D:\MUSIC_LiDAR_export` に mp3 / mp4 を書き出す
 - 週替わりスコアアタックとデイリーは、曲一覧から乱数で選ぶ。**曲を足すと、選ばれる曲が変わることがある**

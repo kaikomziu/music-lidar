@@ -3,11 +3,32 @@ import { getCtx, bgmOut, bgmOutFor, nowAudio, playTap } from './audio.js';
 import { NO_SCROLL } from './gimmick.js';
 
 export const LANE_COLORS = ['#5ef2ff', '#ff4fd8', '#ff4fd8', '#5ef2ff'];
-export const KEYS = ['KeyD', 'KeyF', 'KeyJ', 'KeyK'];
-export const KEY_LABELS = ['D', 'F', 'J', 'K'];
-// 連打用の2つ目のキー(すぐ隣のキー)。2本の指で交互に押せば、1つのキーより速く叩ける
-export const ALT_KEYS = ['KeyS', 'KeyG', 'KeyH', 'KeyL'];
-export const laneOf = (code) => { const i = KEYS.indexOf(code); return i >= 0 ? i : ALT_KEYS.indexOf(code); };
+// 初期のキー配置 [メイン, 連打用の2つ目]。2つ目は2本の指で交互に押して速い連打をするためのキー
+// 設定の「キー配置」で変えられる(keyconfig.js が setKeymap で差し替える)
+export const DEFAULT_KEYS = [['KeyD', 'KeyS'], ['KeyF', 'KeyG'], ['KeyJ', 'KeyH'], ['KeyK', 'KeyL']];
+let KEYMAP = DEFAULT_KEYS;
+export function setKeymap(km) { KEYMAP = km; }
+export const laneOf = (code) => (code ? KEYMAP.findIndex((k) => k[0] === code || k[1] === code) : -1);
+// KeyboardEvent.code を画面に出す短い名前にする
+const KEY_NAME = {
+  Space: 'SPC', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/', Backslash: '\\', BracketLeft: '[', BracketRight: ']',
+  Minus: '-', Equal: '=', Backquote: '`', IntlRo: '\\', IntlYen: '¥', Enter: 'ENTER', Backspace: 'BS', CapsLock: 'CAPS',
+  ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓', ShiftLeft: 'LSHIFT', ShiftRight: 'RSHIFT',
+  ControlLeft: 'LCTRL', ControlRight: 'RCTRL', AltLeft: 'LALT', AltRight: 'RALT',
+  Convert: '変換', NonConvert: '無変換', KanaMode: 'かな', Lang1: 'かな', Lang2: '英数',
+};
+export function keyLabel(code) {
+  if (!code) return '';
+  if (KEY_NAME[code]) return KEY_NAME[code];
+  let m = code.match(/^(?:Key|Digit)(.)$/);
+  if (m) return m[1];
+  m = code.match(/^Numpad(.+)$/);
+  if (m) return 'N' + ({ Decimal: '.', Add: '+', Subtract: '-', Multiply: '*', Divide: '/', Enter: '⏎' }[m[1]] || m[1]);
+  return code.slice(0, 6).toUpperCase();
+}
+// いまのメインキーの名前(説明文用)。例: 'D・F・J・K'
+export const keyNames = (sep = '・') => KEYMAP.map((k) => keyLabel(k[0])).join(sep);
+export const altKeyNames = (sep = '・') => KEYMAP.map((k) => keyLabel(k[1])).filter(Boolean).join(sep);
 
 const W_PERFECT = 0.045, W_GREAT = 0.09, W_GOOD = 0.135;
 const SCORE_W = { PERFECT: 1, GREAT: 0.75, GOOD: 0.4, MISS: 0 };
@@ -617,15 +638,19 @@ export class Game {
       if (flash > 0) { g.fillStyle = `rgba(255,255,255,${flash * 0.7})`; g.fill(); }
       if (!IS_TOUCH) {
         const [kx0] = this.proj(G, l - 2, Z_J * 0.95), [kx1] = this.proj(G, l - 1, Z_J * 0.95);
-        g.font = `700 ${Math.round(G.laneW * 0.15)}px "Orbitron", sans-serif`;
+        const main = keyLabel(KEYMAP[l][0]), alt = keyLabel(KEYMAP[l][1]);
+        // 「LSHIFT」のような長い名前は小さくする
+        g.font = `700 ${Math.round(G.laneW * (main.length > 2 ? 0.09 : 0.15))}px "Orbitron", sans-serif`;
         g.textAlign = 'center'; g.textBaseline = 'middle';
         g.fillStyle = on ? '#fff' : 'rgba(170,190,255,0.5)';
         const cx = (kx0 + kx1) / 2, cy = (ky0 + ky1) / 2;
-        g.fillText(KEY_LABELS[l], cx, cy);
-        // 連打用の2つ目のキーを、キーボードで並んでいる側に小さく出す(S D / F G / H J / K L)
-        g.font = `700 ${Math.round(G.laneW * 0.085)}px "Orbitron", sans-serif`;
-        g.fillStyle = on ? 'rgba(255,255,255,0.8)' : 'rgba(170,190,255,0.3)';
-        g.fillText(ALT_KEYS[l].slice(3), cx + (l % 2 ? 1 : -1) * (kx1 - kx0) * 0.3, cy);
+        g.fillText(main, cx, cy);
+        // 連打用の2つ目のキーを小さく出す(左右のレーンは外側、中の2つは内側)
+        if (alt) {
+          g.font = `700 ${Math.round(G.laneW * (alt.length > 2 ? 0.06 : 0.085))}px "Orbitron", sans-serif`;
+          g.fillStyle = on ? 'rgba(255,255,255,0.8)' : 'rgba(170,190,255,0.3)';
+          g.fillText(alt, cx + (l % 2 ? 1 : -1) * (kx1 - kx0) * 0.3, cy);
+        }
       }
     }
     // 判定ライン(光が左右に走る)

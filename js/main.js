@@ -23,6 +23,7 @@ import { TUTORIAL_DEF, TUT_NOTES, tutCaptions } from './tutorial.js';
 import { initAdmin, openAdmin, stopAdmin } from './admin.js';
 import { initRequest, closeRequest } from './request.js';
 import { initMotion, replay } from './motion.js';
+import { initKeyConfig, render as renderKeys, apply as applyKeys } from './keyconfig.js';
 import { initDan, openDan, bestDan, danName } from './dan.js';
 import { initEvent, eventActive } from './event.js';
 import { initExtras, renderDaily, dailyResult, drawJudgeGraph, setShareResult, courseFromUrl } from './extras.js';
@@ -1067,6 +1068,7 @@ initAdmin({ entries, show: (n) => { stopPreview(); show(n); }, back: () => goHom
 $('btn-admin').addEventListener('click', () => openAdmin());
 initMotion();
 initRequest({ esc, toast });
+initKeyConfig({ settings: () => settings, saveSettings: (s) => { settings = s; setSettings(s); }, toast });
 initDan({ entries, show: (n) => { stopPreview(); show(n); }, back: () => goHome(true), current: () => state, esc, jacketURL, toast, overlay,
   play: (entry, d, custom) => startGame(entry, d, custom) });
 initExtras({
@@ -1153,6 +1155,7 @@ function syncSettingsUI() {
   $('o-ghost').textContent = settings.ghost !== false ? 'ON' : 'OFF';
   $('s-mv').checked = settings.mv !== false;
   $('o-mv').textContent = settings.mv !== false ? 'ON' : 'OFF';
+  applyKeys(); renderKeys();
 }
 $('s-laneopt').addEventListener('change', () => { settings.lane = $('s-laneopt').value; setSettings(settings); });
 $('s-vis').addEventListener('change', () => { settings.vis = $('s-vis').value; setSettings(settings); });
@@ -1213,7 +1216,8 @@ function closeSettings() {
 for (const b of document.querySelectorAll('[data-settings]')) b.addEventListener('click', openSettings);
 $('btn-s-close').addEventListener('click', closeSettings);
 $('btn-s-reset').addEventListener('click', () => {
-  settings = { ...DEFAULT_SETTINGS };
+  // キー配置は「キー配置」の初期値ボタンで戻す(ここでは消さない)
+  settings = { ...DEFAULT_SETTINGS, keys: settings.keys };
   setSettings(settings);
   setVolumes(settings.bgm, settings.se);
   syncSettingsUI();

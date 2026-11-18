@@ -1226,6 +1226,23 @@ body.live #btn-p-retry { display: none; }
 @keyframes calib-hit { from { background: rgba(94, 242, 255, 0.4); } to { background: rgba(94, 242, 255, 0.06); } }
 .calib-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .pad-help { margin: 4px 0 8px; }
+/* キーコンフィグ */
+.kc-wrap { margin: 10px 0 4px; padding: 10px 0 2px; border-top: 1px solid var(--panel-line); }
+.kc-head { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.kc-head > span { flex: 1; }
+.kc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0 6px; }
+.kc-lane { display: grid; gap: 5px; text-align: center; }
+.kc-name { font-size: 11px; color: var(--muted); }
+.kc-key { font-family: var(--font-d); font-weight: 700; font-size: 18px; min-height: 46px; padding: 4px; border-radius: 8px; cursor: pointer;
+  color: var(--text); background: rgba(20, 28, 62, 0.85); border: 1px solid rgba(94, 242, 255, 0.45);
+  transition: background 0.15s var(--ease-out, ease), border-color 0.15s, box-shadow 0.15s; }
+.kc-lane:nth-child(2) .kc-key, .kc-lane:nth-child(3) .kc-key { border-color: rgba(255, 79, 216, 0.45); }
+.kc-key.alt { font-size: 13px; min-height: 34px; color: var(--muted); background: rgba(10, 14, 34, 0.8); }
+.kc-key.empty { color: rgba(138, 151, 192, 0.5); border-style: dashed; }
+.kc-key:hover { box-shadow: 0 0 0 2px rgba(94, 242, 255, 0.25); }
+.kc-key.wait { color: #02030a; background: var(--cyan); border-color: var(--cyan); animation: kc-wait 0.9s ease-in-out infinite; }
+@keyframes kc-wait { 50% { box-shadow: 0 0 0 4px rgba(94, 242, 255, 0.35); } }
+body.touch .kc-wrap { display: none; }
 .modal-box select { background: rgba(0, 0, 0, 0.45); color: var(--text); border: 1px solid var(--panel-line); border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 13px; }
 
 /* コースの曲選び中の選曲画面 */

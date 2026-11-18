@@ -1,4 +1,5 @@
 // チュートリアル: ゆっくりの専用曲で、説明を見ながら順番に練習する
+import { keyNames, altKeyNames } from './game.js';
 // 譜面は手作り。曲の音(ベル)はノーツと同じ場所で鳴るので、音に合わせて押せばよい
 export const TUT_BPM = 96;
 const B = 60 / TUT_BPM; // 1拍の秒数
@@ -23,10 +24,11 @@ export const TUT_NOTES = STEPS.map(([b, lane, e]) => (e ? { t: b * B, lane, end:
 
 // 画面に出す説明 [始まる拍, 終わる拍, 大きい文字, 小さい文字]
 export function tutCaptions(touch) {
-  const key = touch ? 'レーンをタップ' : 'D・F・J・K キー';
+  const key = touch ? 'レーンをタップ' : `${keyNames()} キー`;
+  const alt = altKeyNames();
   const raw = [
     [0, 7.5, 'MUSIC LiDAR へようこそ!', 'ここで遊び方を練習しよう(約1分)'],
-    [4, 23.5, 'ノーツが光る線に重なったら押す', touch ? '左から4つのレーンを指でタップ' : '左から D・F・J・K キー(隣の S・G・H・L でもOK)'],
+    [4, 23.5, 'ノーツが光る線に重なったら押す', touch ? '左から4つのレーンを指でタップ' : `左から ${keyNames()} キー${alt ? `(${alt} でもOK)` : ''}`],
     [24, 43.5, '流れてくる順に押そう', `${key}。ベルの音と同じタイミングです`],
     [44, 61.5, '2つ並んだら「同時押し」', touch ? '2本の指で同時にタップ' : '2つのキーを同時に押そう'],
     [62, 81.5, '長いノーツは「押しっぱなし」', '終わりまで押し続けて、終わったら離す'],

@@ -3,7 +3,7 @@ import { getCtx, bgmOut, bgmOutFor, nowAudio, playTap, stopPreview } from './aud
 import { buildScroll } from './gimmick.js';
 import { load, save } from './storage.js';
 import * as acc from './account.js';
-import { LANE_COLORS, laneOf } from './game.js';
+import { LANE_COLORS, laneOf, keyNames } from './game.js';
 import * as api from './maker-api.js';
 import { openAccount } from './meta.js';
 import { jacketImg } from './jacket.js';
@@ -367,7 +367,7 @@ function toggleRec(on = !ed.rec) {
   if (on) {
     if (!ed.playing) { ed.cur = Math.max(0, ed.cur - 2 * spb()); startPlay(); }
     pushUndo();
-    ui.toast('録音中: 曲に合わせて D F J K を叩くとノーツが入ります(長く押すとロング)');
+    ui.toast(`録音中: 曲に合わせて ${keyNames(' ')} を叩くとノーツが入ります(長く押すとロング)`);
   }
 }
 const playTime = (perf = performance.now()) => ed.playStartCur + Math.max(0, nowAudio(perf) - ed.playStartCtx);

@@ -62,7 +62,7 @@ export async function init() {
 }
 
 // ---- かるわかGAMESアカウントでのログイン ----
-// 共通部品(game-links の karuwaka-account.js)を読み込んで使う。ログイン状態は kaikomziu.github.io の全ゲームで共通。
+// 共通部品(game-links の karuwaka-account.js)を読み込んで使う。ログイン状態は同じアドレス(サイト)のゲームどうしで共通(music-lidar.com では、旧アドレスから引き継いだ ka_session を使う)。
 const KA_SRC = 'https://kaikomziu.github.io/game-links/js/karuwaka-account.js';
 let kaPromise = null;
 function loadKa() {

@@ -193,7 +193,7 @@ async function buildShareImage({ entry, label, r }) {
   g.font = '700 22px "Orbitron", sans-serif';
   for (const [k, v] of Object.entries(r.counts)) { g.fillStyle = C[k]; const s = `${k} ${v}`; g.fillText(s, cx, 545); cx += g.measureText(s).width + 26; }
   g.fillStyle = 'rgba(200,215,255,0.6)'; g.font = '500 20px "Noto Sans JP", sans-serif';
-  g.fillText('kaikomziu.github.io/music-lidar', 64, H - 40);
+  g.fillText('music-lidar.com', 64, H - 40);
   return new Promise((res) => cv.toBlob(res, 'image/png'));
 }
 
@@ -206,7 +206,7 @@ async function shareResult() {
     const file = new File([blob], `music-lidar-${shareCtx.entry.id}.png`, { type: 'image/png' });
     const text = `MUSIC LiDAR で「${shareCtx.entry.title}」${shareCtx.label} をプレイ! スコア ${shareCtx.r.score.toLocaleString()}(${shareCtx.r.rank})`;
     if (navigator.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file], text: text + ' https://kaikomziu.github.io/music-lidar/' }).catch(() => {});
+      await navigator.share({ files: [file], text: text + ' https://music-lidar.com/' }).catch(() => {});
     } else {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob); a.download = file.name;

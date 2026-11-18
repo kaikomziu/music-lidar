@@ -7,7 +7,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 import { songJsonLd, songLinksHtml, writeCollections, collectionsOf } from './collections.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SITE = 'https://kaikomziu.github.io/music-lidar/';
+const SITE = 'https://music-lidar.com/';
 const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 
 const songs = (await import(pathToFileURL(path.join(root, 'js/songs/index.js')).href)).default;

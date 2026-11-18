@@ -66,6 +66,7 @@ function render() {
   const online = data.accounts.filter((a) => a.last_seen && now - a.last_seen < ONLINE_MS);
   const today = data.accounts.filter((a) => a.last_seen && now - a.last_seen < 86400000);
   const t = data.totals;
+  const invites = data.invites || [];
   const card = (label, val, sub = '') => `<div class="adm-card"><small>${label}</small><b>${val}</b>${sub ? `<span>${sub}</span>` : ''}</div>`;
   const sorted = [...data.accounts].sort((a, b) => sortKey === 'name' ? a.name.localeCompare(b.name, 'ja') : (b[sortKey] || 0) - (a[sortKey] || 0));
   const th = (key, label) => `<th data-sort="${key}" class="${sortKey === key ? 'on' : ''}">${label}</th>`;
@@ -79,6 +80,7 @@ function render() {
       ${card('累計プレイ', t.plays.toLocaleString(), 'ログイン中のみ')}
       ${card('累計ガチャ', t.gacha.toLocaleString(), '回')}
       ${card('ランキング記録', t.records, `投稿譜面 ${t.charts}`)}
+      ${card('招待で始めた人', t.invited ?? 0, '友だち招待')}
     </div>
 
     <h3 class="adm-h">リクエスト・お問い合わせ(未対応 ${requests.filter((r) => r.status === 'new').length}件 / 全${requests.length}件)</h3>
@@ -88,6 +90,13 @@ function render() {
       <div class="rq-edit"><select data-rq-status>${Object.entries(STATUS).map(([k, v]) => `<option value="${k}" ${k === r.status ? 'selected' : ''}>${v}</option>`).join('')}</select>
         <input data-rq-reply maxlength="500" placeholder="返信(本人の画面に出ます)" value="${esc(r.reply || '')}"><button class="chip" data-rq-save>保存</button></div></li>`).join('')}</ul>`
       : '<p class="muted small">まだリクエストはありません</p>'}
+
+    <h3 class="adm-h">友だち招待(招待で始めた人 ${t.invited ?? 0}人)</h3>
+    ${invites.length ? `<div class="adm-table-wrap"><table class="adm-table adm-inv">
+      <thead><tr><th>招待した人</th><th>招待コード</th><th>人数</th><th>招待された人(新しい順)</th></tr></thead>
+      <tbody>${invites.map((i) => `<tr><td>${esc(i.name)}</td><td><code>${esc(i.code || '-')}</code></td><td class="n"><b>${i.count}</b>${i.count > 20 ? '<small>コインは20人まで</small>' : ''}</td>
+        <td>${i.list.length ? i.list.map((x) => `<span class="adm-invitee" title="登録 ${jst(x.joined)} ・ ${x.plays}プレイ">${esc(x.name)}<small>${x.at ? jst(x.at) : jst(x.joined)} ・ ${x.plays}プレイ</small></span>`).join('') : '<span class="muted">まだいません</span>'}</td></tr>`).join('')}</tbody></table></div>`
+      : '<p class="muted small">まだ誰も招待コードを作っていません(プロフィールを開くと作られます)</p>'}
 
     <h3 class="adm-h">いまオンライン</h3>
     ${online.length ? `<ul class="adm-online">${online.map((a) => `<li><i class="dot"></i><b>${esc(a.name)}</b><span>${esc(PLACE[a.place] || a.place || '-')}</span><small>${ago(a.last_seen, now)}</small></li>`).join('')}</ul>`

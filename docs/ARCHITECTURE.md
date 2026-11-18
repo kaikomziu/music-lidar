@@ -304,10 +304,17 @@ export default {
 - `release.py` の最後に動く。`index.html` をもとに、曲ページ(タイトル・説明・共有画像・JSON-LD・似た曲とまとめへのリンク)、画面ページ、まとめページ12種類と一覧、`sitemap.xml` を作る
 - サイトのURLは `build-pages.mjs` の `SITE`(`https://music-lidar.com/`)
 
-### MV(`mv.js`)
-- 特製MV: `MVS` に曲IDとシーン(`{ from, to, draw(c) }`。拍の範囲ごとの描き方)を登録する
-- 動画MV: `VIDEO_MVS`(並べ替えた `.bin` を元に戻して再生)
-- どちらもない曲は、ジャンルに合わせた自動MV(`themeOf`)
+### MV(`mv.js` と `js/mv/*.js`)
+- **全曲に特製MVがある**(2026-11-19)。どの曲にも、曲に合わせた絵の場面がある
+- 古い20曲の特製MV: `mv.js` の `MVS`(曲ごとにシーン `{ from, to, draw(c) }` を拍で並べたもの)
+- 動画MV: `VIDEO_MVS`(INMU KING。並べ替えた `.bin` を元に戻して再生)
+- それ以外の112曲: `js/mv/s01-gentle.js` 〜 `s11-extreme.js`。**曲を遊ぶときにだけ読み込む**(`prepareMV(id)` を `createMV` の前に await。`main.js` の `startGame` と `tools/export.html` で呼んでいる)。書き方は `js/mv/README.md`
+  - 形は `{ intro, outro, looks: [[lvl, (c, P, k) => 描く], ...] }`。`customDef` が、曲の区間(内蔵曲は `analyzeSections`、音源の曲は譜面の密度から `chartSections`)の盛り上がり(lvl 0〜2)に合う場面を割り当てる。同じ場面が続かないように、となりの盛り上がりの場面を借りる。曲名の表示(後ろに薄い帯)・場面の切り替わりの光・最後のフェードアウトは共通
+  - どのファイルに入っているか(`MV_INDEX`)は、`tools/release.py` が `js/mv/*.js` の `export default` から自動で作る
+  - 部品(`vgrad` `text` `tunnel` など)は `mv.js` の最後でまとめて export している
+  - 確かめ方: `tools/mv-preview.html?ids=曲ID`(区間ごとのコマを並べる)、`?check=1`(全曲を0.25秒ごとに描いて、エラーがないか)
+  - 白い点滅は 0.5 秒以上の間隔・控えめの明るさにする(光に敏感な人への配慮)。乱数(`Math.random`)は使わない(書き出しの動画が毎回同じになるように)
+- どれもない曲(読み込んだ曲など)は、ジャンルに合わせた自動MV(`themeOf` / `autoDef`)
 
 ---
 

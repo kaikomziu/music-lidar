@@ -127,7 +127,7 @@ ${body}
   <footer>
     <p><a class="play" href="./">▶ MUSIC LiDAR で遊ぶ</a></p>
     <p><a href="guide.html">遊び方・全曲リスト</a> ・ <a href="collections/">曲のまとめ一覧</a> ・ 更新 ${today}</p>
-    <p>制作:kaikomziu ・ <a href="https://kaikomziu.github.io/game-links/">ほかの自作ゲーム一覧</a></p>
+    <p>制作:かるわか ・ <a href="https://kaikomziu.github.io/game-links/">ほかの自作ゲーム一覧</a></p>
   </footer>
 </div>
 </body>

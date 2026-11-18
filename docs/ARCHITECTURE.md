@@ -13,6 +13,7 @@
 | 項目 | 内容 |
 |---|---|
 | 何か | ブラウザで遊ぶ4キー音ゲー。奥から来るノーツを D F J K(スマホはタップ)で叩く |
+| 制作者の表記 | **かるわか**(ページの「制作:」・JSON-LD の author など)。kaikomziu は GitHub のアカウント名なので、制作者名としては使わない |
 | 公開URL | https://music-lidar.com/(GitHub Pages。リポジトリ kaikomziu/music-lidar の main ブランチ直下をそのまま配信) |
 | 旧URL | https://kaikomziu.github.io/music-lidar/ → GitHub が新URLへ301で転送する(パスとクエリはそのまま) |
 | フロント | 素の HTML / CSS / ES Modules。ビルドなし(`tools/release.py` がバージョン付けとページ生成だけ行う) |

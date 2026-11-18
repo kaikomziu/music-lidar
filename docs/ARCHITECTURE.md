@@ -46,7 +46,7 @@
 | `collections/` | 曲のまとめページ(自動生成。定義は `tools/collections.mjs`) |
 | `guide.html` | 遊び方と全曲一覧(曲の行は自動で更新される) |
 | `streaming.html` | 実況・配信ガイドライン(日本語と英語)。外部の曲4曲の収益化の扱いもここに書いてある。外部の曲を足したら表に足す |
-| `audio/` `video/` | 音源ファイル曲の音・動画MV。ライセンスの都合で並べ替えた `.bin`(`tools/scramble_audio.py`) |
+| `audio/` `video/` | 音源ファイル曲の音・動画MV。ライセンスの都合で並べ替えた `.bin`(`tools/scramble_audio.py`)。**平文の mp3 / mp4 は絶対にコミットしない**(2026-11-18 に履歴から取り除き、強制 push 済み。鍵は公開JSにあるので完全な防止ではない) |
 | `sw.js` | Service Worker(オフライン対応)。ページはネット優先、`?v=` 付きの JS・CSS・画像はキャッシュ優先 |
 | `version.json` | 今のバージョン。ページが起動時に読み、HTMLが古ければ `?v=` を付けて読み直す |
 | `sitemap.xml` | 自動生成 |

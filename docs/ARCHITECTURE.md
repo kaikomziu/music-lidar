@@ -4,7 +4,7 @@
 
 - **書いていないことが必要になったら、コードを読んでこのファイルに追記する。** 仕組みを変えたら、同じコミットでここも直す
 - コードと食い違っていたら、コードが正しい。気づいたらここを直す
-- 最終更新: 2026-11-18(1.59.0 時点)
+- 最終更新: 2026-11-19(1.62.0 時点)
 
 ---
 
@@ -42,16 +42,19 @@
 | `js/` | ES Modules。役割は「4. モジュール一覧」 |
 | `js/songs/` | 内蔵曲。`index.js` が曲の並び順。`kit.js` は曲づくりの部品。`*.data.js` は音源ファイル曲の譜面データ |
 | `home/` `live/` `gacha/` など | 画面ごとのURL用のページ。中身は `index.html` のコピー(`tools/build-pages.mjs` が作る。直接編集しない) |
-| `music/<urlId>/` | 曲ごとのページ(SEO用)。これも自動生成。`og.png` を置くと共有画像になる |
+| `music/<urlId>/` | 曲ごとのページ(SEO用)。これも自動生成。`og.png`(前に作った16曲ぶん)か `og.jpg`(`tools/og.html` で作る)があれば og:image になる(og.png が優先)。**曲を足したら og.jpg も作る** |
 | `collections/` | 曲のまとめページ(自動生成。定義は `tools/collections.mjs`) |
 | `guide.html` | 遊び方と全曲一覧(曲の行は自動で更新される) |
+| `submit-music.html` | 作曲者さん向けの楽曲募集ページ(日本語・英語)。フォームは `mlidar_request_send`(種類 `song`、本文の頭に【楽曲の応募】)で、管理者ページのお問い合わせに届く |
+| `card.html` | ブログに貼る軽い「曲カード」(`?s=<urlId>`、`&theme=light`)。ゲーム本体は読まず、`data/cards.json` と曲の共有画像だけを使う |
+| `data/cards.json` | 曲カード用の曲の一覧(自動生成。`build-pages.mjs`) |
 | `streaming.html` | 実況・配信ガイドライン(日本語と英語)。外部の曲4曲の収益化の扱いもここに書いてある。外部の曲を足したら表に足す |
 | `audio/` `video/` | 音源ファイル曲の音・動画MV。ライセンスの都合で並べ替えた `.bin`(`tools/scramble_audio.py`)。**平文の mp3 / mp4 は絶対にコミットしない**(2026-11-18 に履歴から取り除き、強制 push 済み。鍵は公開JSにあるので完全な防止ではない) |
 | `sw.js` | Service Worker(オフライン対応)。ページはネット優先、`?v=` 付きの JS・CSS・画像はキャッシュ優先 |
 | `version.json` | 今のバージョン。ページが起動時に読み、HTMLが古ければ `?v=` を付けて読み直す |
 | `sitemap.xml` | 自動生成 |
 | `supabase/functions/mlidar-daily/` | Edge Function(Daily.co の SFU 部屋を発行。今は使っていない) |
-| `tools/` | `release.py`(公開前に必ず実行)、`build-pages.mjs`、`collections.mjs`、`export.py` / `export.html`(mp3・mp4 書き出し)、`scramble_audio.py` |
+| `tools/` | `release.py`(公開前に必ず実行)、`build-pages.mjs`、`collections.mjs`、`export.py` / `export.html`(mp3・mp4 書き出し)、`scramble_audio.py`、`og.html`(曲ごとの共有画像。受け取って保存するローカルサーバー `og_save_server.py` と一緒に使う。手順はファイルの先頭)、`make_zh_hant.py`(繁体字の辞書を簡体字から作る) |
 | `AI_GUIDE.md` | ほかの仕組みが自動で作るメモ。**コミットしない** |
 
 ---
@@ -111,7 +114,11 @@
 | `install.js` | 「ホーム画面に追加」の案内 |
 | `friends.js` | フレンド(申請・承認・一覧・オンライン表示・フレンドランキング) |
 | `badges.js` | 実績バッジ(記録から計算する。保存はしない) |
-| `i18n.js` | 英語表示(辞書で画面の文字を置き換える)。main.js の最初に読む |
+| `i18n.js` | 多言語表示(英語・韓国語・中国語。辞書で画面の文字を置き換える)。main.js の最初に読む。辞書は `EN`(この中)・`i18n-ko.js`・`i18n-zh-hans.js`・`i18n-zh-hant.js`(自動生成) |
+| `social.js` | すぐ遊べる導線(いますぐ1曲)・次のおすすめ・X に投稿・デイリーの絵文字シェアと連続日数・オンラインのゴースト |
+| `recorder.js` | 縦型のプレイ動画(1080×1920)の録画 |
+| `season.js` | 季節イベント(春・夏・ハロウィン・クリスマス)のスコアアタック・限定の着せ替えとバッジ・季節の粒 |
+| `poll.js` | 配信者モードの視聴者リクエスト投票 |
 | `request.js` | お問い合わせ(リクエスト箱) |
 | `admin.js` | 管理者ページ |
 | `tutorial.js` | チュートリアル(専用のゆっくりの曲と手作りの譜面) |
@@ -141,7 +148,7 @@ export default {
   - ライセンスで「取り出しにくくする」必要がある曲は `tools/scramble_audio.py` で並べ替えて `.bin` + `audioKey`。**CC BY の曲は技術的な制限をかけてはいけないので、並べ替えずに mp3 のまま置く**(`audioKey` なし。`.gitignore` の `!audio/<名前>.mp3` で個別に許す)
   - **OpenTracks の曲(SUMMER TRIANGLE)**: OpenTracks は、音楽ゲーム・リズムゲームでの利用を通常ライセンスの範囲外としている(2026-11-11 のお知らせ。範囲内に含めるかは検討中)。2026-11-11 より前に公開したゲームに入っている音源は、そこから3年をめどに使ってよい猶予がある。SUMMER TRIANGLE は 2026-10-23 に入れたので猶予の対象。**OpenTracks の曲を新しく足すのは不可**。2029-11 ごろまでに、OpenTracks の方針を確かめて、使い続けてよいか(または外すか)を決める。並べ替えて「通常の操作で取り出せない」形にしておくこと、「きくだけ」に入れないことも続ける
   - ほかの作者さんの曲を足したら、`credit`(と `creditUrl`)、タイトル右下のクレジット、`guide.html` のフッター、`streaming.html` の表、README のクレジットにも足す
-- 曲を足す手順: ファイルを作る → `js/songs/index.js` に import を1行 → `python tools/release.py`(曲ページとサイトマップができる)→ `python tools/export.py` で `D:\MUSIC_LiDAR_export` に mp3 / mp4 を書き出す
+- 曲を足す手順: ファイルを作る → `js/songs/index.js` に import を1行 → `tools/og.html?ids=曲ID` で共有画像 `og.jpg` を作る → `python tools/release.py`(曲ページとサイトマップができる)→ `python tools/export.py` で `D:\MUSIC_LiDAR_export` に mp3 / mp4 を書き出す
 - 週替わりスコアアタックとデイリーは、曲一覧から乱数で選ぶ。**曲を足すと、選ばれる曲が変わることがある**
 
 ### 譜面ギミック(`gimmick.js`)
@@ -190,8 +197,11 @@ export default {
 | `inviteCode` | 招待リンク(`?invite=`)のコード。ログインしたら自動で使う |
 | `playCount` / `installSnooze` / `installDone` | ホーム画面に追加の案内 |
 | `moved` | 旧URLからの引っ越しが済んだか |
-| `lang` | 表示の言語(`auto` / `ja` / `en`) |
+| `lang` | 表示の言語(`auto` / `ja` / `en` / `ko` / `zh-Hans` / `zh-Hant`) |
 | `rankMode` | 選曲画面のランキングの表示(`all` / `friend`) |
+| `dailyStreak` | デイリーに挑戦した連続日数 `{ last: 'YYYYMMDD', n }`(シェアの文に出す) |
+| `quickPlayed` | 「いますぐ1曲」を使ったか |
+| `ghost:<曲ID>:<難易度>` | 自己ベストのゴースト(判定の記録) |
 | `badges:<アカウントID>` | 前に見たときに持っていたバッジ(増えたらお知らせするため) |
 
 `ka_session`(頭に `mlidar:` が付かない)は、かるわかGAMESアカウントの共通ログイン。
@@ -267,6 +277,7 @@ export default {
 - 見た目は `LOOK`。値段と入手方法はサーバーの `mlidar_skins`。購入 `mlidar_skin_buy`、装備 `mlidar_skin_equip`。タップ音を変えたら `audio.js` が音を作り直す
 
 ### 招待
+- 段階報酬: 1人目で着せ替え「フレンド」、3人で判定ライン「アンバサダー」(`line_invite`)、10人でノーツ「クラウン」(`note_crown`)。プロフィールに進み具合と「𝕏 で誘う」
 - コードは `mlidar_invite_code`(6文字。0/O/1/I/L などまぎらわしい字は使わない)。リンクは `https://music-lidar.com/?invite=CODE`
 - `?invite=` を開くとコードを保存。ログインしていなければ、`mlidar_invite_lookup` で招待した人の名前と称号を調べて「〇〇さんから招待されました」の帯を出す。ログインしたら `mlidar_invite_redeem` で自動で使う
 - 管理者ページの「友だち招待」は `mlidar_admin_invites`
@@ -279,15 +290,17 @@ export default {
 - 入口: ホームの「フレンド」(届いた申請の数のバッジつき)、プロフィールの「＋ フレンド申請」、選曲画面のランキングの「みんな / フレンド」
 
 ### 実績バッジ(`badges.js`)
-- `BADGES` に23種類。サーバーの記録(`best` / `stats` / `meta`)から、その場で計算する。自分の state(`acc.getState()`)でも、他人のプロフィール(`mlidar_profile`)でも同じ関数で計算できる
+- `BADGES` に27種類。サーバーの記録(`best` / `stats` / `meta`)から、その場で計算する。自分の state(`acc.getState()`)でも、他人のプロフィール(`mlidar_profile`)でも同じ関数で計算できる
 - プロフィールでは、自分のときはまだのバッジも薄く(進み具合のバーつき)、他人のときは持っているものだけ出す
 - ホームを出すたびに、前に覚えた一覧(`mlidar:badges:<ID>`)と比べ、増えていればお知らせを出す
 - バッジを足すときは `BADGES` に `{ id, icon, name, desc, n: (c) => 数, goal }` を足す。必要な数は `ctx()` に足す
 
-### 英語表示(`i18n.js`)
-- 言語の決め方: `?lang=en` / `?lang=ja` > 設定の「言語 / Language」(`mlidar:lang`)> ブラウザの言語(日本語以外なら英語)
+### 多言語表示(`i18n.js`)
+- 言語の決め方: `?lang=en` などの `?lang=`(`ja` `en` `ko` `zh-Hans` `zh-Hant`)> 設定の「言語 / Language」(`mlidar:lang`)> ブラウザの言語(日本語→ja、韓国語→ko、中国語→台湾・香港は zh-Hant、ほかは zh-Hans、それ以外は英語)
+- 韓国語・中国語は、その言語の辞書を `await import` で読み、ない文は英語にする(`DICT = { ...EN, ...その言語 }`)。`body` には `lang-en`(日本語以外の共通)と `lang-<言語>` が付く
+- **新しいボタンや見出しを足したら、`EN`・`i18n-ko.js`・`i18n-zh-hans.js` に足し、`python tools/make_zh_hant.py` で繁体字を作り直す**(要 `pip install opencc-python-reimplemented`)
 - 画面の文字(テキストと `title` / `placeholder` / `aria-label`)が辞書 `EN` の日本語と**まるごと同じ**なら英語に置き換える。あとから JS が出した文字も MutationObserver で置き換える。タブの題名も `｜` で区切った部分ごとに置き換える
-- 辞書にない文(トーストやリザルトの細かい文など)は日本語のまま。**新しいボタンや見出しを足したら、`EN` にも英語を足す**
+- 辞書にない文(トーストやリザルトの細かい文など)は日本語のまま
 - 言語を変えたらページを読み直す(`setLang`)
 
 ### 埋め込み(`?embed=1`)
@@ -296,6 +309,38 @@ export default {
 
 ### 配信者モード(`settings.stream`)
 - `'on'`: スコアとコンボを大きく、ライブの参加コードを画面の上に出す。`'green'`: さらに背景を #00ff00 にして、MVと点群を描かない
+- 配信者モードのときだけ、選曲画面に「📊 視聴者投票」(`poll.js`)。候補4曲で投票を作り(`mlidar_poll_create`、作った人は端末ID)、リンク `?vote=CODE` をチャットに貼ってもらう。途中経過は3秒ごとに `mlidar_poll_get` で読み、画面の左上(`#poll-mini`)にも出す。締め切ると1位の曲を選曲画面で選ぶ
+- 視聴者は `?vote=CODE` を開くとすぐ投票画面(ログイン不要。端末IDで1人1票、変更可)。投票は3時間で締め切り、1日で消える
+
+### すぐ遊べる導線・おすすめ(`social.js`)
+- 記録もチュートリアルもない人には、タイトルに「▶ いますぐ1曲遊ぶ」。内蔵曲で EASY がいちばん低く BPM が110に近い曲を、短い字幕(`extra.captions`)つきで始める
+- リザルトの「次はこれがおすすめ」(`recommend`): 精度から目標レベルを決め(96%以上 +2、90%以上 +1、80%以上 同じ、それ未満 −2)、レベルの近さ・まだ遊んでいない・同じジャンルで点数をつけて3曲
+
+### X に投稿・デイリーのシェア
+- リザルトの「𝕏 に投稿」は `twitter.com/intent/tweet` を開くだけ(曲ページのURLとハッシュタグ #MUSICLiDAR)
+- デイリーのリザルトには、曲を10区間に分けた精度の絵文字(🟪 全部PERFECT / 🟦 90% / 🟩 75% / 🟨 50% / 🟥)と連続日数のシェア文。リンク `?daily=1` を開くと、その日のデイリーがすぐ始まる
+
+### 縦型のプレイ動画(`recorder.js`)
+- リザルトの「🎬 縦動画で録る」→ もう一度遊ぶあいだ録画。`#stage` の真ん中を切り抜き、上に曲名・下にスコアを足した 1080×1920 の canvas を 30fps で描き、音は `audio.js` の `recordTap()`(BGM とタップ音の出口を MediaStreamDestination にもつなぐ)
+- mp4 が録れるブラウザは mp4、ほかは webm。途中でやめたら捨てる。ライブ・譜面メーカーでは録らない
+
+### オンラインのゴースト
+- 設定の「ゴースト」(`settings.ghostMode`: `self` / `rival` / `top` / `off`。古い `settings.ghost` は true/false)
+- 自己ベストを出すと、ランキングへ送ったあとに判定の記録を `mlidar_ghost_put` で送る(ランキングにそれ以上のスコアがあるときだけ受け付ける)。形は端末のゴーストと同じで、頭文字を小文字(p/g/o/m)に
+- 遊ぶ前に `mlidar_ghost_get`(rival = 自分のすぐ上、top = 1位。自分より上の人がいなければ null)。1.5秒で返らなければ自己ベスト。画面には「名前 ±差」
+
+### みんなでライブの招待リンク
+- ルームの「🔗 招待リンク」は `https://music-lidar.com/?room=CODE`。開いてタイトルを抜けると、ログイン済みならそのルームへ入る。ログインしていなければログインのあとで入る(`live.js` の `joinFromLink`)
+
+### 季節イベント(`season.js`)
+- 期間(日本時間): 春 3/20〜4/15・夏 7/20〜8/31・ハロウィン 10/15〜10/31・クリスマス 12/1〜1/31。イベントID は「種類+年」(クリスマスの1月は前の年)。`?event=spring` などで期間外でも見られる(`event.js` の PREVIEW と共通)
+- ホームのお知らせから、イベント曲(イベントIDから乱数で選ぶ HARD Lv5以上)を遊ぶ。ランキングは `mlidar_scores` の `song = 'ev-<イベントID>'`
+- ログイン中なら `mlidar_event_join` で `meta.events` にイベントIDが入り、限定の着せ替え(春 ノーツ「さくら」/ 夏 判定ライン「花火」/ ハロウィン ノーツ「パンプキン」/ クリスマス 判定ライン「ホーリーナイト」)。期間はサーバーの `mlidar_event_open` でも確かめる
+- バッジ「イベント参加」「四季めぐり」は `meta.events` から計算する
+- クリスマスの見た目(雪・帽子)は今までどおり `event.js`
+
+### 埋め込みカード
+- 選曲画面の「⧉ 埋め込みコード」で、「カード」(`card.html`)と「ゲームまるごと」(`?embed=1`)の2つのコードを出す
 
 ### ホーム画面に追加(`install.js`)
 - 3曲遊んだ人にホームで案内する。Chrome / Edge はブラウザのインストール画面、iPhone / iPad は手順を出す。閉じたら14日出さない
@@ -334,6 +379,8 @@ export default {
 | `mlidar_match_queue` | ランダムマッチの待ち行列 |
 | `mlidar_requests` | お問い合わせ |
 | `mlidar_friends` | フレンド(`a` → `b` の申請。`status` = `pending` / `ok`) |
+| `mlidar_ghosts` | オンラインのゴースト(曲・難易度・端末/アカウントID ごとに1つ。いちばん良いスコアの判定の記録) |
+| `mlidar_polls` | 配信の視聴者投票(候補 `options`、票 `votes` = 端末ID → 何番目) |
 
 ### ブラウザから呼ぶ関数(主なもの)
 - アカウント: `mlidar_state`, `mlidar_catalog`, `mlidar_ka_*`, `mlidar_login`, `mlidar_register`, `mlidar_logout`, `mlidar_ping`
@@ -342,9 +389,10 @@ export default {
 - 続けたくなる要素: `mlidar_login_bonus`, `mlidar_season_claim`, `mlidar_skin_list` / `_buy` / `_equip`, `mlidar_weekly_submit` / `_claim` / `_hall`, `mlidar_invite_code` / `_lookup` / `_redeem`
 - 対戦: `mlidar_lobby_put` / `_list` / `_close`, `mlidar_match_poll` / `_cancel` / `_done`
 - フレンド: `mlidar_friend_request` / `_respond` / `_remove` / `_list` / `_ranking`
+- ゴースト・投票・イベント: `mlidar_ghost_put` / `_get`, `mlidar_poll_create` / `_vote` / `_get` / `_close`, `mlidar_event_join`
 - 譜面: `mlidar_chart_save` / `_list` / `_get` / `_delete` / `_like` / `_play` / `_ranking` / `_submit`
 - お問い合わせ・管理: `mlidar_request_send` / `_mine` / `_list` / `_set`, `mlidar_admin_overview`
-- 内部用(ブラウザから呼ばない): `mlidar_auth`, `mlidar_friend_ids`, `mlidar_state_of`, `mlidar_play_result_core`, `mlidar_missions`, `mlidar_team_fx`, `mlidar_daily`, `mlidar_today`, `mlidar_week_key`, `mlidar_season_key`, `mlidar_season_reward`, `mlidar_give_skin`
+- 内部用(ブラウザから呼ばない): `mlidar_auth`, `mlidar_friend_ids`, `mlidar_state_of`, `mlidar_play_result_core`, `mlidar_missions`, `mlidar_team_fx`, `mlidar_daily`, `mlidar_today`, `mlidar_week_key`, `mlidar_season_key`, `mlidar_season_reward`, `mlidar_give_skin`, `mlidar_event_open`
 
 新しい関数を足すときは `security definer` と `set search_path = public` を付け、`revoke all … from public` してから、必要なら `grant execute … to anon, authenticated`。
 

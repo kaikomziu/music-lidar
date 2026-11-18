@@ -1,4 +1,4 @@
-import { langPref, setLang } from './i18n.js'; // 英語表示(いちばん先に読んで、画面の文字を置き換える)
+import { langPref, setLang } from './i18n.js'; // 多言語表示(いちばん先に読んで、画面の文字を置き換える)
 import SONGS from './songs/index.js';
 import { composeSong, candidatesFromEvents, generateChart, chartStats, DIFFS, hashStr } from './composer.js';
 import { getCtx, setVolumes, playPreview, stopPreview } from './audio.js';
@@ -18,7 +18,7 @@ import { initMeta, openAccount, renderHeader, gachaResultOpen, closeGacha, openS
 import { initMaker, openCharts, openEditor, makerKeydown } from './maker.js';
 import { fetchChartRanking, submitChartScore } from './maker-api.js';
 import { fxText } from './units.js';
-import { initLive, openLive, backToRoom, roomCode } from './live.js';
+import { initLive, openLive, backToRoom, roomCode, joinFromLink } from './live.js';
 import { initPlayer, openPlayer, playerKeydown, stop as stopPlayer } from './player.js';
 import { TUTORIAL_DEF, TUT_NOTES, tutCaptions } from './tutorial.js';
 import { initAdmin, openAdmin, stopAdmin } from './admin.js';
@@ -32,7 +32,11 @@ import { initInstall, countPlay, maybeShowInstall } from './install.js';
 import { initKeyConfig, render as renderKeys, apply as applyKeys } from './keyconfig.js';
 import { initDan, openDan, bestDan, danName } from './dan.js';
 import { initEvent, eventActive } from './event.js';
-import { initExtras, renderDaily, dailyResult, drawJudgeGraph, setShareResult, courseFromUrl } from './extras.js';
+import { initSeason, seasonResult } from './season.js';
+import { initPoll, syncPollButton } from './poll.js';
+import { initExtras, renderDaily, dailyResult, drawJudgeGraph, setShareResult, courseFromUrl, playDaily } from './extras.js';
+import { initSocial, renderNext, postX, resultText, ghostFor, uploadGhost, SITE } from './social.js';
+import { arm as armRecord, startRecording, stopRecording, saveVideo, recordSupported } from './recorder.js';
 
 const APP_ROOT_URL = new URL('../', import.meta.url);
 
@@ -307,6 +311,8 @@ const modalOpen = () => document.querySelector('.overlay.modal.on');
 // タイトル
 // ---------------------------------------------------------------------------
 let enteredOnce = false;
+let START_DAILY = new URLSearchParams(location.search).has('daily');
+let START_ROOM = new URLSearchParams(location.search).get('room') || '';
 // ---------------------------------------------------------------------------
 // チュートリアル
 // ---------------------------------------------------------------------------
@@ -338,6 +344,10 @@ function enterFromTitle(opts = {}) {
   if (EMBED) { warmup(); return; } // 埋め込みではチュートリアルやログインの案内を出さない
   // コースの共有リンク(?course=…)から来たら、そのコースを開く
   if (courseFromUrl()) { homeLive(true); return; }
+  // みんなでライブの招待リンク(?room=CODE)から来たら、そのルームへ
+  if (START_ROOM && !opts.quiet) { const c = START_ROOM; START_ROOM = ''; warmup(); accReady.then(() => joinFromLink(c)); return; }
+  // デイリーの共有リンク(?daily=1)から来たら、今日のデイリーをすぐ始める
+  if (START_DAILY && !opts.quiet) { START_DAILY = false; warmup(); playDaily(); return; }
   warmup();
   // はじめての人にはチュートリアルをすすめる(アカウントの案内はそのあと)
   if (!opts.quiet && !load('tutorialDone', false) && !load('tutorialSkipped', false)) offerTutorial();
@@ -639,13 +649,23 @@ $('btn-share').addEventListener('click', async () => {
     if (err?.name !== 'AbortError') prompt('この曲のURL', url);
   }
 });
-// よそのサイトに貼るための埋め込みコード
-$('btn-embed').addEventListener('click', async () => {
+// よそのサイトに貼るための埋め込みコード(軽いカード / ゲームまるごと)
+$('btn-embed').addEventListener('click', () => {
   const e = entries[sel];
   if (!e.urlId) { toast('読み込んだ曲は埋め込めません'); return; }
-  const code = `<iframe src="${songUrl(e)}?embed=1" width="800" height="450" style="border:0;max-width:100%;aspect-ratio:16/9;height:auto" allow="autoplay; fullscreen" loading="lazy" title="MUSIC LiDAR「${e.title.replace(/"/g, '')}」"></iframe>`;
-  try { await navigator.clipboard.writeText(code); toast('埋め込みコードをコピーしました。ブログなどの HTML に貼ると、この曲がそのページの中で遊べます', 5000); }
-  catch { prompt('埋め込みコード(ブログなどの HTML に貼る)', code); }
+  const t = e.title.replace(/"/g, '');
+  const card = `<iframe src="https://music-lidar.com/card.html?s=${e.urlId}" width="480" height="140" style="border:0;max-width:100%" loading="lazy" title="MUSIC LiDAR「${t}」"></iframe>`;
+  const full = `<iframe src="${songUrl(e)}?embed=1" width="800" height="450" style="border:0;max-width:100%;aspect-ratio:16/9;height:auto" allow="autoplay; fullscreen" loading="lazy" title="MUSIC LiDAR「${t}」"></iframe>`;
+  $('em-card').value = card; $('em-full').value = full;
+  $('em-preview').src = `${ROOT_PATH}card.html?s=${e.urlId}`;
+  overlay('embed-modal', true);
+});
+$('embed-modal').addEventListener('click', async (ev) => {
+  if (ev.target === $('embed-modal') || ev.target.closest('[data-em-close]')) { overlay('embed-modal', false); return; }
+  const b = ev.target.closest('[data-em]');
+  if (!b) return;
+  const v = $(b.dataset.em).value;
+  try { await navigator.clipboard.writeText(v); toast('埋め込みコードをコピーしました。ブログなどの HTML に貼ってください', 4000); } catch { $(b.dataset.em).select(); }
 });
 // 埋め込みの「フルで遊ぶ」は、いま選んでいる曲のページを新しいタブで開く
 if (EMBED) $('embed-full').addEventListener('click', (ev) => { ev.currentTarget.href = songUrl(entries[sel]); });
@@ -732,7 +752,7 @@ async function startGameInner(entry, d, custom, live, extra) {
   const isRetry = state === 'retry';
   // プレイオプション(デイリーチャレンジは決まった条件。チュートリアルはなし)
   const opts = extra?.daily ? extra.daily.opts : custom?.kind === 'tutorial' ? {} : { lane: settings.lane, vis: settings.vis };
-  const label = (custom ? (custom.label || (custom.kind === 'test' ? 'TEST PLAY' : `CUSTOM Lv${custom.level}`)) : `${extra?.daily ? 'DAILY ' : ''}${d.toUpperCase()} Lv${entry.levels[d]}`) + optTag(opts);
+  const label = (custom ? (custom.label || (custom.kind === 'test' ? 'TEST PLAY' : `CUSTOM Lv${custom.level}`)) : `${extra?.daily ? 'DAILY ' : extra?.season ? 'EVENT ' : ''}${d.toUpperCase()} Lv${entry.levels[d]}`) + optTag(opts);
   showLoading({
     entry, title: custom ? custom.title : entry.title, sub: label,
     status: entry.buffer ? 'READY' : '音源を準備中…(初回のみ少しかかります)',
@@ -743,6 +763,8 @@ async function startGameInner(entry, d, custom, live, extra) {
     try { await entry.load(); } catch (err) { console.error(err); toast('音源の読み込みに失敗しました。通信を確認して、もう一度プレイを押してください'); hideLoading(); if (state === 'select') renderDetail(); return; }
   }
   await mvReady;
+  // ゴースト(自己ベスト・ライバル・1位)。ライブ・譜面メーカーなどでは使わない
+  const ghost = !custom && !live ? await ghostFor(entry, d, loadGhost(entry.id, d)) : null;
   await hideLoading(isRetry ? 500 : 1400);
   playing = { entry, diff: d, custom, live, extra, label };
   document.body.classList.toggle('live', !!live || custom?.kind === 'dan');
@@ -757,21 +779,23 @@ async function startGameInner(entry, d, custom, live, extra) {
     offset: entry.offset || 0,
     jacket: jacketURL(entry, 128),
     label,
-    captions: custom?.captions || null,
+    captions: custom?.captions || extra?.captions || null,
     life: custom?.life || null,
     rivals: live ? () => live.rivals() : null,
     mv: entry.local || custom?.kind === 'tutorial' ? null : createMV(entry.id, entry.bpm, entry.offset || 0, {}, entry.mvAuto?.()),
     opts,
-    ghost: !custom && !live && settings.ghost !== false ? loadGhost(entry.id, d) : null,
+    ghost,
   });
   live?.attach(game);
   $('btn-p-quit').textContent = live ? 'ライブを抜ける' : '選曲へ';
   $('btn-resume').innerHTML = live ? '戻る <small>ESC</small>' : '再開 <small>ESC</small>';
   game.start(custom?.startFrom || 0, live ? live.syncAt : null);
+  if (!custom && !live) startRecording(game, canvas, { entry, label, jacket: jacketURL(entry, 256) });
 }
 
 function quitGame() {
   overlay('pause', false);
+  stopRecording(); // 途中でやめたら録画は捨てる
   if (playing?.live) {
     const live = playing.live, inGame = !!game;
     game?.destroy();
@@ -791,6 +815,7 @@ function quitGame() {
 function retry() {
   if (playing?.live || playing?.custom?.kind === 'dan') return; // ライブ・段位道場はリトライなし
   overlay('pause', false);
+  stopRecording();
   game?.destroy();
   game = null;
   state = 'retry';
@@ -826,6 +851,16 @@ function onGameEnd(r) {
   const isNew = custom ? false : recordBest(entry.id, d, r);
   if (isNew && r.log?.length) saveGhost(entry.id, d, r.log);
   show('result');
+  // 縦動画を録っていたら、保存ボタンを出す
+  const rv = $('r-video');
+  rv.hidden = true;
+  stopRecording().then((v) => {
+    if (!v || state !== 'result' || lastResult !== r) return;
+    rv.hidden = false;
+    rv.innerHTML = `<span>🎬 縦型のプレイ動画ができました(${(v.blob.size / 1048576).toFixed(1)}MB)</span><button class="btn-glow small" id="btn-rv-save">動画を保存・共有</button>`;
+    $('btn-rv-save').addEventListener('click', () => saveVideo(v, toast));
+  });
+  renderNext(custom ? null : entry, d, r);
   document.documentElement.style.setProperty('--accent', entry.color);
   $('r-title').textContent = entry.title;
   const rd = $('r-diff');
@@ -858,6 +893,8 @@ function onGameEnd(r) {
   setShareResult(entry, playing.label, r);
   $('r-daily').hidden = true;
   $('r-weekly').hidden = true;
+  $('r-season').hidden = true;
+  if (playing.extra?.season) seasonResult(playing.extra.season, r, () => state === 'result' && lastResult === r);
   $('r-growth').innerHTML = custom ? '' : resultGrowth(null, r); // ログイン中は記録を送ったあとに XP なども足して出し直す
   if (playing.extra?.daily) dailyResult(playing.extra.daily, r, () => state === 'result' && lastResult === r);
   if (playing.extra?.weekly) weeklyResult(playing.extra.weekly, d, r, () => state === 'result' && lastResult === r);
@@ -889,6 +926,7 @@ function onGameEnd(r) {
       const rows = await fetchRanking(entry.id, d, myRankId(), 10);
       if (state !== 'result' || lastResult !== r) return;
       on.innerHTML = `<p>ONLINE RANK <span class="r-myrank">#${res.online}</span></p><ol class="rank-list">${rankRows(rows)}</ol>`;
+      if (isNew) uploadGhost(entry, d, r);
     }).catch((err) => { console.error(err); on.innerHTML = `<p class="r-msg">${esc(acc.errText(err))}(記録は端末に保存済み)</p>`; });
   } else if (entry.local) on.innerHTML = '<p class="r-msg">読み込んだ曲の記録はこの端末にだけ保存されます。</p>';
   else if (!name) on.innerHTML = '<p class="r-msg">ログインするとコインがもらえ、オンラインランキングにも参加できます(右上のアカウントから)。</p>';
@@ -900,11 +938,21 @@ function onGameEnd(r) {
         const rows = await fetchRanking(entry.id, d, clientId(), 10);
         if (state !== 'result' || lastResult !== r) return;
         on.innerHTML = `<p>ONLINE RANK <span class="r-myrank">#${myRank}</span></p><ol class="rank-list">${rankRows(rows)}</ol>`;
+        if (isNew) uploadGhost(entry, d, r);
       })
       .catch((err) => { console.error(err); on.innerHTML = '<p class="r-msg">ランキングに送信できませんでした(記録は端末に保存済み)</p>'; });
   }
 }
 $('btn-retry').addEventListener('click', retry);
+// X に投稿 / 縦動画で録ってもう一度
+$('btn-rx').addEventListener('click', () => { if (!playing || !lastResult) return; const e = playing.entry; postX(resultText(e, playing.label, lastResult), e.urlId ? songUrl(e) : SITE); });
+$('btn-rrec').hidden = !recordSupported();
+$('btn-rrec').addEventListener('click', () => {
+  if (playing?.live || playing?.custom) { toast('この遊び方では録画できません'); return; }
+  armRecord();
+  toast('もう一度遊ぶあいだ、縦型の動画を録ります(音も入ります)', 3500);
+  retry();
+});
 $('btn-back').addEventListener('click', quitGame);
 $('btn-resume').addEventListener('click', () => { overlay('pause', false); game?.resume(); });
 $('btn-p-retry').addEventListener('click', retry);
@@ -1138,6 +1186,11 @@ $('btn-tut-home').addEventListener('click', () => overlay('tut-done', false));
 $('btn-tut-play').addEventListener('click', () => { overlay('tut-done', false); goHome(true); goSelect(); });
 for (const b of document.querySelectorAll('[data-home]')) b.addEventListener('click', () => goHome());
 initEvent({ songs: SONGS.filter((d) => d.event === 'xmas' && eventActive('xmas')) });
+initSeason({
+  entries, esc, toast, jacketURL, rankRows,
+  play: (entry, d, custom, live, extra) => startGame(entry, d, custom, live, extra),
+  rankId: () => myRankId(), playerName: () => acc.getState()?.name || load('name', ''),
+});
 initMeta({ show: (n) => { stopPreview(); show(n); }, toast, back: () => goHome(), current: () => state });
 initMaker({
   entries, show: (n) => { stopPreview(); show(n); }, toast, back: () => goHome(), current: () => state, overlay,
@@ -1171,6 +1224,20 @@ initExtras({
   state: () => state, game: () => game, goHome: (liveMenu) => goHome(liveMenu),
   pickSong: (o) => pickSong(o),
 });
+
+initSocial({
+  entries, esc, toast, jacketURL, bestOf, isTouch: IS_TOUCH, settings: () => settings,
+  play: (entry, d, custom, live, extra) => startGame(entry, d, custom, live, extra),
+  rankId: () => myRankId(), playerName: () => acc.getState()?.name || load('name', ''),
+  enterQuiet: () => enterFromTitle({ quiet: true, home: true }),
+});
+
+initPoll({
+  entries, esc, toast, overlay, jacketURL, settings: () => settings,
+  selectSong: (id) => { const i = entries.findIndex((e) => e.id === id); if (i < 0) return; if (state !== 'select') goSelect(); selectSong(i, true); },
+  enter: () => enterFromTitle({ quiet: true }),
+});
+syncPollButton();
 
 // オフライン対応: 一度読み込んだファイルを端末に保存しておく(公開サイトのみ。ローカル開発では古いファイルが残らないよう使わない)
 if (!EMBED && 'serviceWorker' in navigator && (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname) || location.search.includes('sw=1'))) {
@@ -1246,8 +1313,7 @@ function syncSettingsUI() {
   $('s-vis').value = settings.vis || 'none';
   $('s-stream').value = settings.stream || '';
   applyStream();
-  $('s-ghost').checked = settings.ghost !== false;
-  $('o-ghost').textContent = settings.ghost !== false ? 'ON' : 'OFF';
+  $('s-ghost').value = settings.ghostMode || (settings.ghost === false ? 'off' : 'self');
   $('s-mv').checked = settings.mv !== false;
   $('o-mv').textContent = settings.mv !== false ? 'ON' : 'OFF';
   applyKeys(); renderKeys();
@@ -1260,6 +1326,7 @@ $('s-stream').addEventListener('change', () => { settings.stream = $('s-stream')
 // 配信者モード: body に印を付け、みんなでライブの参加コードを画面の上に出し続ける
 function applyStream() {
   document.body.classList.toggle('stream', !!settings.stream);
+  syncPollButton();
   document.body.classList.toggle('stream-green', settings.stream === 'green');
 }
 setInterval(() => {
@@ -1270,7 +1337,7 @@ setInterval(() => {
   el.hidden = !show;
 }, 1000);
 applyStream();
-$('s-ghost').addEventListener('change', () => { settings.ghost = $('s-ghost').checked; $('o-ghost').textContent = settings.ghost ? 'ON' : 'OFF'; setSettings(settings); });
+$('s-ghost').addEventListener('change', () => { settings.ghostMode = $('s-ghost').value; settings.ghost = settings.ghostMode !== 'off'; setSettings(settings); });
 $('s-mv').addEventListener('change', () => {
   settings.mv = $('s-mv').checked;
   $('o-mv').textContent = settings.mv ? 'ON' : 'OFF';

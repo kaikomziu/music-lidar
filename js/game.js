@@ -195,8 +195,11 @@ export class Game {
   }
 
   // ゴースト(自己ベストの判定の記録)から、各時刻での自己ベストのスコアを前もって計算しておく
-  setGhost(log) {
+  // ghost は判定の記録の配列か、{ log, name }(オンラインのゴースト)
+  setGhost(ghost) {
     this.ghost = null;
+    const log = Array.isArray(ghost) ? ghost : ghost?.log;
+    const name = Array.isArray(ghost) ? 'BEST' : ghost?.name || 'BEST';
     if (!log?.length) return;
     const total = this.total;
     let sum = 0, combo = 0, max = 0;
@@ -207,7 +210,7 @@ export class Game {
       T.push(t); S.push(Math.round((950000 * sum) / total + (50000 * max) / total));
     }
     if (log.length !== total) return; // 譜面が変わっていたら使わない
-    this.ghost = { T, S, i: -1 };
+    this.ghost = { T, S, i: -1, name };
   }
   ghostScore(t) {
     const g = this.ghost;
@@ -842,7 +845,7 @@ export class Game {
       const dlt = this.score - this.ghostScore(t);
       g.font = `700 ${small ? 10 : 12}px "Orbitron", sans-serif`;
       g.fillStyle = dlt >= 0 ? '#7dffb0' : '#ff7a8e';
-      g.fillText(`BEST ${dlt >= 0 ? '+' : '−'}${Math.abs(dlt).toLocaleString()}`, W - 16, accY + (small ? 15 : 19));
+      g.fillText(`${this.ghost.name} ${dlt >= 0 ? '+' : '−'}${Math.abs(dlt).toLocaleString()}`, W - 16, accY + (small ? 15 : 19));
     }
     if (status) {
       const aw = g.measureText(this.accuracy.toFixed(2) + '%').width;

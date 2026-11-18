@@ -25,6 +25,13 @@ export function setVolumes(bgm, se) {
 }
 
 export const bgmOut = () => (getCtx(), bgmGain);
+// 録画用: 曲とタップ音をまとめた MediaStream(stop で外す)
+export function recordTap() {
+  getCtx();
+  const d = ctx.createMediaStreamDestination();
+  bgmGain.connect(d); seGain.connect(d);
+  return { stream: d.stream, stop() { try { bgmGain.disconnect(d); seGain.disconnect(d); } catch { /* noop */ } } };
+}
 
 // 静かな曲(オルゴール・ピアノなど)だけ音量を持ち上げて、ほかの曲と聞こえ方をそろえる
 // 平均の大きさ(RMS)が目標より小さいときだけ上げる。ピークが割れない範囲まで

@@ -313,7 +313,7 @@ function renderPass() {
     const list = skinList || [];
     body.innerHTML = KIND_ORDER.map((k) => `<section class="sk-group"><h3>${KIND[k]}</h3><ul class="sk-list">${[{ id: 'default', name: 'いつもの', price: 0, source: 'base' }, ...list.filter((x) => x.kind === k)].map((x) => {
       const has = x.id === 'default' || owned.has(x.id), on = eq[k] === x.id;
-      const how = has ? '' : x.source === 'shop' ? `<button class="btn-line small" data-buy="${x.id}">◎${x.price.toLocaleString()} で買う</button>` : `<span class="muted small">${x.source === 'season' ? 'シーズンパスの報酬' : '友だち招待でもらえる'}</span>`;
+      const how = has ? '' : x.source === 'shop' ? `<button class="btn-line small" data-buy="${x.id}">◎${x.price.toLocaleString()} で買う</button>` : `<span class="muted small">${x.source === 'season' ? 'シーズンパスの報酬' : x.source === 'event' ? '季節イベントに参加するともらえる' : x.id === 'line_invite' ? '友だちを3人招待するともらえる' : x.id === 'note_crown' ? '友だちを10人招待するともらえる' : '友だち招待でもらえる'}</span>`;
       return `<li class="${on ? 'on' : ''}${has ? '' : ' lock'}"><canvas width="120" height="48" data-sample="${x.id}" data-kind="${k}"></canvas><b>${ui.esc(x.name)}</b>
         ${has ? (on ? '<span class="sk-on">装備中</span>' : `<button class="btn-line small" data-equip="${x.id}" data-kind="${k}">装備する</button>`) : how}
         ${k === 'tap' ? `<button class="link-btn small" data-hear="${x.id}">試聴</button>` : ''}</li>`;
@@ -408,9 +408,17 @@ function inviteHtml() {
   const canRedeem = !s.meta?.invited_by && Date.now() - new Date(s.meta?.created).getTime() < 14 * 864e5;
   return `<section class="pf-inv hud"><h3>友だちを招待</h3>
     <p class="small">招待コードかリンクで友だちが始めると、<b>2人とも ◎300</b> と限定の着せ替え「フレンド」がもらえます(コインは20人まで)</p>
-    <div class="pf-code"><b id="inv-code">……</b><button class="btn-line small" data-copy-inv>リンクをコピー</button></div>
+    ${inviteSteps(Number(s.meta?.invites || 0))}
+    <div class="pf-code"><b id="inv-code">……</b><button class="btn-line small" data-copy-inv>リンクをコピー</button><button class="btn-line small x-btn" data-x-inv>𝕏 で誘う</button></div>
     ${canRedeem ? `<form class="pf-redeem" data-redeem><input id="inv-input" maxlength="8" placeholder="もらった招待コード" autocomplete="off"><button class="btn-line small">使う</button></form><p class="muted small">招待コードは、始めてから14日以内に1回だけ使えます</p>`
       : s.meta?.invited_by ? `<p class="muted small">${ui.esc(s.meta.invited_by)} さんの招待で始めました</p>` : ''}</section>`;
+}
+// 招待の段階報酬(1人・3人・10人)と進み具合
+const INVITE_STEPS = [[1, '着せ替え「フレンド」'], [3, '判定ライン「アンバサダー」'], [10, 'ノーツ「クラウン」とバッジ「アンバサダー」']];
+function inviteSteps(n) {
+  const next = INVITE_STEPS.find(([k]) => n < k);
+  return `<ol class="inv-steps">${INVITE_STEPS.map(([k, what]) => `<li class="${n >= k ? 'done' : ''}"><b>${k}人</b><span>${what}</span></li>`).join('')}</ol>
+    <p class="muted small">いま ${n}人${next ? ` ・ あと${next[0] - n}人で${next[1]}` : ' ・ すべての報酬を受け取りました'}</p>`;
 }
 // 招待リンクで来た人に「〇〇さんから招待されました」を画面の上に出す(まだログインしていない人だけ。ログイン中なら自動で使われてお知らせが出る)
 async function showInviteBanner(code) {
@@ -473,6 +481,12 @@ async function onProfileClick(ev) {
   if (ev.target.closest('[data-copy-inv]')) {
     const c = $('inv-code').textContent;
     copy(`MUSIC LiDAR で一緒に遊ぼう!招待コード ${c} ${shareUrl('invite=' + c)}`, '招待リンクをコピーしました');
+    return;
+  }
+  if (ev.target.closest('[data-x-inv]')) {
+    const c = $('inv-code').textContent;
+    const u = `https://twitter.com/intent/tweet?text=${encodeURIComponent(`無料のブラウザ音ゲー MUSIC LiDAR で一緒に遊ぼう!このリンクから始めると2人とも◎300コインと限定の着せ替えがもらえます`)}&url=${encodeURIComponent('https://music-lidar.com/?invite=' + c)}&hashtags=MUSICLiDAR`;
+    window.open(u, '_blank', 'noopener,width=600,height=520');
     return;
   }
 }

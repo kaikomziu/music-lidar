@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<title>曲ごとの共有画像(og.jpg)を作る</title>
+<!-- 使い方(開発用):
+  1. python tools/og_save_server.py 8766 "C:/Users/4yoma/Desktop/Claude/music-lidar"(受け取った画像を music/<urlId>/og.jpg に保存するだけのサーバー)
+  2. ローカル配信で http://localhost:8765/music-lidar/tools/og.html を開く(?ids=曲ID,曲ID で一部だけ。?dry=1 で保存せずに並べるだけ)
+  3. できたら python tools/release.py(曲ページの og:image が og.jpg に切り替わる) -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@500;800&family=Orbitron:wght@700;800&display=swap" rel="stylesheet">
+<style>body{background:#111;color:#ddd;font:14px sans-serif}canvas{width:400px;margin:4px;border:1px solid #333}</style>
+<p id="msg">準備中…</p>
+<div id="out"></div>
+<script type="module">
+import SONGS from '../js/songs/index.js';
+import { jacketURL } from '../js/jacket.js';
+
+const q = new URLSearchParams(location.search);
+const ids = q.get('ids')?.split(',');
+const dry = q.has('dry');
+const W = 1200, H = 630;
+const C = { easy: '#7dffb0', normal: '#ffd25e', hard: '#ff5a8e' };
+
+async function render(s) {
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const g = cv.getContext('2d');
+  const img = new Image();
+  img.src = jacketURL(s, 512);
+  await img.decode();
+  // 背景: ジャケットをぼかして全面に
+  g.filter = 'blur(28px) brightness(0.45)';
+  g.drawImage(img, -100, -385, 1400, 1400);
+  g.filter = 'none';
+  const sh = g.createLinearGradient(0, 0, W, 0);
+  sh.addColorStop(0, 'rgba(4,6,16,0.2)'); sh.addColorStop(0.45, 'rgba(4,6,16,0.65)'); sh.addColorStop(1, 'rgba(4,6,16,0.9)');
+  g.fillStyle = sh; g.fillRect(0, 0, W, H);
+  // ジャケット
+  g.save(); g.shadowColor = s.color; g.shadowBlur = 40;
+  g.drawImage(img, 70, 95, 440, 440);
+  g.restore();
+  g.strokeStyle = s.color; g.lineWidth = 4; g.strokeRect(70, 95, 440, 440);
+  // 文字
+  const x = 570;
+  g.fillStyle = 'rgba(200,215,255,0.85)'; g.font = '700 30px Orbitron, sans-serif';
+  g.fillText('MUSIC LiDAR', x, 140);
+  g.fillStyle = s.color; g.font = '700 26px Orbitron, "Noto Sans JP", sans-serif';
+  g.fillText(`${s.genre} ・ BPM ${Math.round(s.bpm)}`, x, 200);
+  g.fillStyle = '#fff';
+  let size = 72;
+  g.font = `800 ${size}px "Noto Sans JP", Orbitron, sans-serif`;
+  while (g.measureText(s.title).width > W - x - 50 && size > 40) { size -= 4; g.font = `800 ${size}px "Noto Sans JP", Orbitron, sans-serif`; }
+  let t = s.title;
+  while (g.measureText(t).width > W - x - 50 && t.length > 3) t = t.slice(0, -2) + '…';
+  g.fillText(t, x, 290);
+  if (s.artist && s.artist !== 'MUSIC LiDAR') { g.fillStyle = 'rgba(220,230,255,0.8)'; g.font = '500 26px "Noto Sans JP", sans-serif'; g.fillText(s.artist, x, 335); }
+  // レベル
+  let lx = x;
+  for (const d of ['easy', 'normal', 'hard']) {
+    g.strokeStyle = C[d]; g.lineWidth = 3; g.strokeRect(lx, 375, 175, 70);
+    g.fillStyle = C[d]; g.font = '700 20px Orbitron, sans-serif'; g.fillText(d.toUpperCase(), lx + 14, 403);
+    g.font = '800 30px Orbitron, sans-serif'; g.fillText('Lv' + s.levels[d], lx + 14, 436);
+    lx += 190;
+  }
+  g.fillStyle = '#fff'; g.font = '800 30px "Noto Sans JP", sans-serif';
+  g.fillText('▶ ブラウザで今すぐ無料プレイ', x, 520);
+  g.fillStyle = 'rgba(200,215,255,0.7)'; g.font = '600 22px Orbitron, sans-serif';
+  g.fillText('music-lidar.com', x, 560);
+  return cv;
+}
+
+await document.fonts.load('800 40px "Noto Sans JP"'); await document.fonts.load('700 30px Orbitron');
+const list = SONGS.filter((s) => s.urlId && (!ids || ids.includes(s.id)));
+let done = 0, fail = 0;
+for (const s of list) {
+  const cv = await render(s);
+  document.getElementById('out').append(cv);
+  if (!dry) {
+    const blob = await new Promise((r) => cv.toBlob(r, 'image/jpeg', 0.85));
+    try { const r = await fetch(`http://127.0.0.1:8766/save/${s.urlId}`, { method: 'POST', body: blob }); if (!r.ok) throw new Error(r.status); done++; } catch (e) { console.error(s.id, e); fail++; }
+  }
+  document.getElementById('msg').textContent = `${done + fail}/${list.length}(失敗 ${fail})`;
+}
+document.getElementById('msg').textContent += ' すべて完了';
+window.__ogDone = { done, fail, total: list.length };
+</script>
+</html>

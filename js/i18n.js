@@ -1,14 +1,23 @@
-// 英語表示(海外から来た人向け)。まずはメニュー・ボタン・説明など、画面の決まった文字だけを英語にする
+// 多言語表示(海外から来た人向け)。英語・韓国語・中国語(簡体字/繁体字)。メニュー・ボタン・説明など、画面の決まった文字だけを置き換える
 // しくみ: 画面の文字(テキストと title / placeholder / aria-label)が下の辞書の日本語と「まるごと同じ」なら英語に置き換える。
 //         あとから JS が出した文字も MutationObserver で置き換える(辞書にない文は日本語のまま)
-// 言語の決め方: URL の ?lang=en / ?lang=ja > 設定で選んだ言語(mlidar:lang)> ブラウザの言語(日本語以外なら英語)
-// 新しいボタンや見出しを足したら、ここに英語も足す
+// 言語の決め方: URL の ?lang=en など > 設定で選んだ言語(mlidar:lang)> ブラウザの言語(日本語→ja、韓国語→ko、中国語→zh-Hans/zh-Hant、ほかは英語)
+// 新しいボタンや見出しを足したら、ここ(EN)と i18n-ko.js・i18n-zh-hans.js にも足し、python tools/make_zh_hant.py で繁体字を作り直す
+// 韓国語・中国語の辞書にない文は英語になる
 import { load, save } from './storage.js';
 
+export const LANGS = { ja: '日本語', en: 'English', ko: '한국어', 'zh-Hans': '简体中文', 'zh-Hant': '繁體中文' };
 const q = new URLSearchParams(location.search).get('lang');
-if (q === 'en' || q === 'ja') save('lang', q);
+if (q && LANGS[q]) save('lang', q);
 const pref = load('lang', 'auto');
-export const LANG = pref === 'en' || pref === 'ja' ? pref : (navigator.languages?.[0] || navigator.language || 'ja').toLowerCase().startsWith('ja') ? 'ja' : 'en';
+function browserLang() {
+  const l = (navigator.languages?.[0] || navigator.language || 'ja').toLowerCase();
+  if (l.startsWith('ja')) return 'ja';
+  if (l.startsWith('ko')) return 'ko';
+  if (l.startsWith('zh')) return /hant|tw|hk|mo/.test(l) ? 'zh-Hant' : 'zh-Hans';
+  return 'en';
+}
+export const LANG = LANGS[pref] ? pref : browserLang();
 export const langPref = () => load('lang', 'auto');
 export function setLang(v) { save('lang', v); location.reload(); }
 
@@ -97,8 +106,22 @@ const EN = {
   'ルーキー': 'Rookie', 'ブロンズ': 'Bronze', 'シルバー': 'Silver', 'ゴールド': 'Gold', 'プラチナ': 'Platinum', 'ダイヤ': 'Diamond', 'マスター': 'Master', 'グランドマスター': 'Grandmaster', 'レジェンド': 'Legend',
   'ホーム': 'Home', 'リザルト': 'Result', 'ブラウザで遊べる無料4キー音ゲー(リズムゲーム)': 'Free 4-key browser rhythm game', '承認': 'Accept', '断る': 'Decline', '申請する': 'Send request', 'プレイヤーの名前': 'Player name',
   'ログインして受け取る': 'Log in to claim', '受け取った!': 'Got it!', 'このページのリンクをコピー': 'Copy link to this page', 'リンクをコピー': 'Copy link',
+  // 1.62.0
+  '▶ いますぐ1曲遊ぶ': '▶ Play a song now', '説明なしで、やさしい曲から': 'Jump straight into an easy song', '楽曲募集': 'Call for music',
+  '𝕏 に投稿': 'Post on 𝕏', '結果を X(旧 Twitter)に投稿': 'Post your result on X (Twitter)', '🎬 縦動画で録る': '🎬 Record vertical video',
+  'もう一度遊んで、ショート動画向けの縦型動画を録画': 'Play again and record a vertical video for Shorts', '動画を保存・共有': 'Save / share video', '次はこれがおすすめ': 'Recommended next',
+  'ゴースト(スコアの差を表示)': 'Ghost (score gap)', '自己ベスト': 'Personal best', 'すぐ上のライバル': 'Rival just above you', 'ランキング1位': 'Ranking #1', 'なし': 'None',
+  '📊 視聴者投票': '📊 Viewer poll', '配信を見ている人に次の曲を投票してもらう': 'Let your viewers vote for the next song', '🔗 招待リンク': '🔗 Invite link', '招待リンクをコピー(開くだけで入れる)': 'Copy invite link (opens straight into the room)', 'X で募集する': 'Recruit on X',
+  '挑戦する': 'Take the challenge', '埋め込みコード': 'Embed code', 'ブログ・サイトに貼る': 'For your blog or site', 'カード(軽い・おすすめ)': 'Card (light, recommended)', 'ゲームまるごと': 'Full game', 'コピー': 'Copy',
+  '曲のジャケットとレベルが出る小さなカード。押すとこの曲のページが開きます。記事のじゃまになりません。': 'A small card with the jacket and levels. Clicking it opens this song’s page.',
+  'ページの中でそのまま遊べます(重め)。': 'Playable right inside your page (heavier).', '𝕏 で誘う': 'Invite on 𝕏', '候補を入れ替え': 'Shuffle candidates', '投票を始める': 'Start poll',
+  '閉じる(投票は続く)': 'Close (poll keeps running)', '締め切って1位の曲を選ぶ': 'Close poll and pick the winner', '配信者が次に遊ぶ曲を投票': 'Vote for the streamer’s next song', '自分も遊んでみる(無料)': 'Play it yourself (free)',
   '再生位置': 'Position', 'シャッフル': 'Shuffle', '前の曲': 'Previous', '再生': 'Play', '次の曲': 'Next', 'くり返し': 'Repeat',
 };
+
+// 使う辞書(英語以外は、その言語の辞書 + 足りない所は英語)
+const EXTRA = { ko: 'ko', 'zh-Hans': 'zh-hans', 'zh-Hant': 'zh-hant' };
+const DICT = LANG === 'ja' ? {} : LANG === 'en' ? EN : { ...EN, ...(await import(`./i18n-${EXTRA[LANG]}.js`)).default };
 
 const ATTRS = ['title', 'placeholder', 'aria-label'];
 const JP = /[぀-ヿ一-鿿]/;
@@ -107,11 +130,11 @@ function tText(node) {
   const v = node.nodeValue;
   if (!v || !JP.test(v)) return;
   const k = v.trim().replace(/\s+/g, ' ');
-  const en = EN[k];
+  const en = DICT[k];
   if (en) node.nodeValue = v.replace(v.trim(), en);
 }
 function tEl(el) {
-  for (const a of ATTRS) { const v = el.getAttribute?.(a); if (v && EN[v.trim()]) el.setAttribute(a, EN[v.trim()]); }
+  for (const a of ATTRS) { const v = el.getAttribute?.(a); if (v && DICT[v.trim()]) el.setAttribute(a, DICT[v.trim()]); }
 }
 function walk(root) {
   if (root.nodeType === 3) { tText(root); return; }
@@ -121,13 +144,13 @@ function walk(root) {
   for (let n = it.nextNode(); n; n = it.nextNode()) { if (n.nodeType === 3) tText(n); else tEl(n); }
 }
 
-if (LANG === 'en') {
-  document.documentElement.lang = 'en';
-  document.body.classList.add('lang-en');
+if (LANG !== 'ja') {
+  document.documentElement.lang = LANG;
+  document.body.classList.add('lang-en', 'lang-' + LANG); // lang-en は「日本語以外」の見た目調整にも使う
   walk(document.body);
   // タブの題名(「ホーム｜MUSIC LiDAR」など)も、｜で区切った部分ごとに置き換える
   const tEl2 = document.querySelector('title');
-  const tTitle = () => { const parts = document.title.split('｜'); if (parts.some((x) => EN[x])) document.title = parts.map((x) => EN[x] || x).join('｜'); };
+  const tTitle = () => { const parts = document.title.split('｜'); if (parts.some((x) => DICT[x])) document.title = parts.map((x) => DICT[x] || x).join('｜'); };
   tTitle();
   if (tEl2) new MutationObserver(tTitle).observe(tEl2, { childList: true, characterData: true, subtree: true });
   new MutationObserver((list) => {

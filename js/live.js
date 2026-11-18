@@ -79,8 +79,40 @@ export function initLive(api) {
     const text = `MUSIC LiDAR「みんなでライブ」ルームコード: ${room.code}`;
     navigator.clipboard?.writeText(room.code).then(() => ui.toast('ルームコードをコピーしました'), () => ui.toast(text));
   });
+  // 招待リンク(?room=CODE)。開いた人はそのままこのルームに入る
+  $('live-link').addEventListener('click', async () => {
+    const url = roomUrl(room.code), text = `MUSIC LiDAR で一緒にライブしよう!ルームコード ${room.code}`;
+    try {
+      if (navigator.share && document.body.classList.contains('touch')) { await navigator.share({ text, url }); return; }
+      await navigator.clipboard.writeText(`${text}
+${url}`);
+      ui.toast('招待リンクをコピーしました。送った相手はリンクを開くだけでこのルームに入れます', 4500);
+    } catch (e) { if (e?.name !== 'AbortError') prompt('このリンクを送ってください', url); }
+  });
+  $('live-x').addEventListener('click', () => {
+    const u = `https://twitter.com/intent/tweet?text=${encodeURIComponent(`MUSIC LiDAR で一緒にライブしよう!ルームコード ${room.code}`)}&url=${encodeURIComponent(roomUrl(room.code))}&hashtags=MUSICLiDAR`;
+    window.open(u, '_blank', 'noopener,width=600,height=520');
+  });
+  acc.onChange(() => { if (pendingRoom && acc.isLoggedIn()) { const c = pendingRoom; pendingRoom = ''; joinFromLink(c); } });
   $('live-back').addEventListener('click', () => { closeNet(); room = null; mode = 'off'; ui.back(); });
   window.addEventListener('pagehide', () => closeNet()); // ページを閉じたら抜ける
+}
+
+const roomUrl = (code) => `https://music-lidar.com/?room=${encodeURIComponent(code)}`;
+let pendingRoom = '';
+// 招待リンクから: ログインしていなければログインのあとで入る
+export async function joinFromLink(code) {
+  code = String(code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+  if (!code) return;
+  if (!acc.isLoggedIn()) {
+    pendingRoom = code;
+    ui.toast(`ルーム ${code} に招待されています。ログインすると、そのまま入れます`, 6000);
+    ui.openAccount();
+    return;
+  }
+  openLive();
+  if (room) return;
+  if (await joinRoom(code)) ui.toast(`ルーム ${code} に入りました`);
 }
 
 // ---------------------------------------------------------------------------

@@ -9,6 +9,7 @@ import { getCtx, nowAudio } from './audio.js';
 import { fetchRanking, submitScore } from './ranking.js';
 import { createMV, mvTag } from './mv.js';
 import { load, save } from './storage.js';
+import { dailyShareButtons } from './social.js';
 
 const $ = (id) => document.getElementById(id);
 let ui = null;
@@ -59,7 +60,7 @@ export function renderDaily() {
   }).catch(() => { const el = $('daily-top'); if (el) el.textContent = ''; });
 }
 
-function playDaily() {
+export function playDaily() {
   const d = dailyOf();
   if (!d.entry) return;
   ui.play(d.entry, d.diff, null, null, { daily: d });
@@ -70,13 +71,15 @@ export function dailyResult(daily, r, isCurrent) {
   const box = $('r-daily');
   box.hidden = false;
   const name = ui.playerName();
-  if (!name) { box.innerHTML = '<p class="r-msg">デイリーチャレンジのランキングに参加するには、ログインするか設定でゲスト名を入れてください。</p>'; return; }
+  const dur = daily.entry.buffer?.duration || daily.entry.duration || 120;
+  if (!name) { box.innerHTML = '<p class="r-msg">デイリーチャレンジのランキングに参加するには、ログインするか設定でゲスト名を入れてください。</p>'; box.append(dailyShareButtons(daily, r, dur, 0)); return; }
   box.innerHTML = '<p class="r-msg">デイリーチャレンジのランキングに送信中…</p>';
   submitScore(daily.key, daily.diff, ui.rankId(), name, r).then(async (rank) => {
     const rows = await fetchRanking(daily.key, daily.diff, ui.rankId(), 5);
     if (!isCurrent()) return;
     box.innerHTML = `<p>DAILY CHALLENGE ${daily.ymd.slice(4, 6)}/${daily.ymd.slice(6)} ・ ${ui.esc(daily.optLabel)} ・ 今日の順位 <span class="r-myrank">#${rank}</span></p><ol class="rank-list">${ui.rankRows(rows)}</ol>`;
-  }).catch((e) => { console.error(e); box.innerHTML = '<p class="r-msg">デイリーチャレンジのランキングに送信できませんでした</p>'; });
+    box.append(dailyShareButtons(daily, r, dur, rank));
+  }).catch((e) => { console.error(e); box.innerHTML = '<p class="r-msg">デイリーチャレンジのランキングに送信できませんでした</p>'; box.append(dailyShareButtons(daily, r, dur, 0)); });
 }
 
 // ---------------------------------------------------------------------------

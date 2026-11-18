@@ -13,6 +13,9 @@ export const LOOK = {
   note_rainbow: ['#ff5e7e', '#ffd76a', '#7dffc8', '#7da8ff'],
   note_aurora: ['#5effb1', '#7d8cff', '#c77dff', '#5effe8'],
   note_invite: ['#ff9ad5', '#9ae0ff', '#9ae0ff', '#ff9ad5'],
+  note_crown: ['#ffd76a', '#b77dff', '#b77dff', '#ffd76a'],
+  note_sakura: ['#ffc2df', '#fff0f6', '#fff0f6', '#ffc2df'],
+  note_pumpkin: ['#ff8a2a', '#9b5cff', '#9b5cff', '#ff8a2a'],
   // 判定ライン [芯の色, 光の色]
   line_default: ['rgba(220,255,255,0.95)', '#7ff9ff'],
   line_pink: ['rgba(255,220,245,0.95)', '#ff6fe0'],
@@ -20,6 +23,9 @@ export const LOOK = {
   line_gold: ['rgba(255,246,210,0.95)', '#ffc94a'],
   line_fire: ['rgba(255,230,200,0.95)', '#ff6a2a'],
   line_ice: ['rgba(235,250,255,0.95)', '#9fe6ff'],
+  line_invite: ['rgba(255,240,250,0.95)', '#ff9ad5'],
+  line_summer: ['rgba(255,245,225,0.95)', '#ff9f43'],
+  line_xmas: ['rgba(235,255,240,0.95)', '#2fdc6a'],
 };
 
 // いまの着せ替え(ゲーム・プレビューが読む)

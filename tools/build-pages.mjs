@@ -1,6 +1,6 @@
 // 曲ごとのページ music/<urlId>/index.html と sitemap.xml を作る(tools/release.py から呼ばれる)
 // - 中身は index.html と同じゲーム。<base href="../../"> で css/js/audio はルートを参照する
-// - タイトル・説明・共有画像(og)を曲ごとに差し替える。music/<urlId>/og.png があればそれを使う
+// - タイトル・説明・共有画像(og)を曲ごとに差し替える。music/<urlId>/og.png(前に作った分)か og.jpg(tools/og.html で作る)があればそれを使う
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
@@ -45,8 +45,11 @@ function setMeta(html, attr, key, value) {
   return html.replace(re, `$1${esc(value)}$2`);
 }
 
+// 曲ごとの共有画像のファイル名(og.png を優先)。なければ ''
+const ogOf = (u) => ['og.png', 'og.jpg'].find((f) => fs.existsSync(path.join(root, 'music', u, f))) || '';
+
 const seen = new Set();
-const urls = [SITE, SITE + 'guide.html', SITE + 'streaming.html'];
+const urls = [SITE, SITE + 'guide.html', SITE + 'streaming.html', SITE + 'submit-music.html'];
 for (const s of songs) {
   if (!s.urlId || !/^[a-z0-9]{6,16}$/.test(s.urlId)) throw new Error('urlId がない/不正: ' + s.id);
   if (seen.has(s.urlId)) throw new Error('urlId が重複: ' + s.urlId);
@@ -60,7 +63,8 @@ for (const s of songs) {
   const desc = `「${s.title}」${s.artist && s.artist !== 'MUSIC LiDAR' ? `(${s.artist})` : ''}は${s.genre}の音ゲー曲${cols.length ? `(${cols.slice(0, 2).join('・')})` : ''}。ブラウザで今すぐプレイ。` +
     `EASY Lv${lv.easy} / NORMAL Lv${lv.normal} / HARD Lv${lv.hard}。MUSIC LiDAR はインストール不要・無料の4キー音ゲー(リズムゲーム)。PC・スマホ対応。` +
     (s.credit ? ` ${s.credit}` : '');
-  const og = fs.existsSync(path.join(dir, 'og.png')) ? `${url}og.png` : `${SITE}og.png`;
+  const ogFile = ogOf(s.urlId);
+  const og = ogFile ? `${url}${ogFile}` : `${SITE}og.png`;
 
   let h = base.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n<base href="../../">');
   h = h.replace(/<title>[^<]*<\/title>/, `<title>${esc(title)}</title>`);
@@ -130,6 +134,13 @@ for (const sc of SCREENS) {
   fs.writeFileSync(path.join(dir, 'index.html'), h);
   if (!sc.noindex) urls.splice(2, 0, url);
 }
+
+// 埋め込みカード(card.html)用の曲の一覧
+fs.mkdirSync(path.join(root, 'data'), { recursive: true });
+fs.writeFileSync(path.join(root, 'data/cards.json'), JSON.stringify(songs.filter((s) => s.urlId).map((s) => ({
+  u: s.urlId, t: s.title, a: s.artist && s.artist !== 'MUSIC LiDAR' ? s.artist : '', g: s.genre, b: Math.round(s.bpm), c: s.color,
+  l: [s.levels.easy, s.levels.normal, s.levels.hard], og: ogOf(s.urlId),
+}))));
 
 fs.writeFileSync(path.join(root, 'sitemap.xml'),
   '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +

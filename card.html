@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>MUSIC LiDAR 曲カード</title>
+<!-- ブログなどに iframe で貼る、軽い「この曲を遊ぶ」カード。?s=<曲ページのurlId>(&theme=light)。ゲーム本体は読み込まない -->
+<style>
+  :root { --bg: #0a0d22; --fg: #eef2ff; --sub: #9aa6d0; --line: rgba(140,160,255,0.25); }
+  body.light { --bg: #fff; --fg: #141830; --sub: #5b6385; --line: rgba(20,30,80,0.15); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, "Hiragino Sans", "Noto Sans JP", sans-serif; }
+  a.card { display: flex; height: 100%; min-height: 120px; text-decoration: none; color: inherit; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .art { flex: 0 0 34%; background: #000 left center / cover no-repeat; } /* 共有画像の左にあるジャケットが見えるように */
+  .txt { flex: 1; min-width: 0; padding: 8px 12px; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+  .brand { font-size: 10px; letter-spacing: 0.08em; color: var(--sub); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .title { font-size: 17px; line-height: 1.25; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta { font-size: 12px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lv { display: flex; gap: 6px; font-size: 11px; font-weight: 700; }
+  .lv span { border: 1px solid currentColor; border-radius: 4px; padding: 0 5px; }
+  .play { align-self: flex-start; margin-top: 4px; background: var(--c, #5ef2ff); color: #05071a; font-weight: 800; border-radius: 999px; padding: 4px 14px; font-size: 13px; }
+  a.card:hover .play { filter: brightness(1.15); }
+  @media (max-width: 360px) { .art { display: none; } }
+</style>
+</head>
+<body>
+<a class="card" id="card" target="_blank" rel="noopener" href="https://music-lidar.com/">
+  <div class="art" id="art"></div>
+  <div class="txt">
+    <div class="brand">MUSIC LiDAR ・ 無料ブラウザ音ゲー</div>
+    <div class="title" id="title">MUSIC LiDAR</div>
+    <div class="meta" id="meta">インストール不要・PC/スマホ対応</div>
+    <div class="lv" id="lv"></div>
+    <span class="play">▶ この曲を遊ぶ</span>
+  </div>
+</a>
+<script>
+(async () => {
+  const q = new URLSearchParams(location.search);
+  if (q.get('theme') === 'light') document.body.classList.add('light');
+  const SITE = 'https://music-lidar.com/';
+  const id = q.get('s');
+  let list = [];
+  try { list = await (await fetch('data/cards.json')).json(); } catch { /* 一覧が読めなければサイトの入口だけ */ }
+  const s = list.find((x) => x.u === id) || (id === 'random' ? list[Math.floor(Math.random() * list.length)] : null);
+  const art = document.getElementById('art');
+  if (!s) { art.style.backgroundImage = `url(${SITE}og.png)`; return; }
+  const url = `${SITE}music/${s.u}/`;
+  document.getElementById('card').href = url;
+  document.getElementById('card').style.setProperty('--c', s.c);
+  art.style.backgroundImage = `url(${s.og ? `music/${s.u}/${s.og}` : SITE + 'og.png'})`; // 画像は同じサイトから(相対パス)
+  document.getElementById('title').textContent = s.t;
+  document.getElementById('meta').textContent = [s.a, s.g, `BPM ${s.b}`].filter(Boolean).join(' ・ ');
+  const C = ['#4fd88a', '#e0a92a', '#ff4f84'];
+  document.getElementById('lv').innerHTML = ['EASY', 'NORMAL', 'HARD'].map((d, i) => `<span style="color:${C[i]}">${d} ${s.l[i]}</span>`).join('');
+  document.title = `${s.t}｜MUSIC LiDAR`;
+})();
+</script>
+</body>
+</html>

@@ -6,6 +6,8 @@ import { rpc, fetchRanking, submitScore } from './ranking.js';
 import { load, save } from './storage.js';
 import { setEquip, getEquip, KIND, KIND_ORDER, drawSample } from './skins.js';
 import { mulberry32, hashStr } from './composer.js';
+import { openFriends, refreshFriendBadge, requestFriend, friendList } from './friends.js';
+import { badgesHtml } from './badges.js';
 
 const $ = (id) => document.getElementById(id);
 let ui = null; // { entries, bestOf, esc, toast, show, back, current, overlay, jacketURL, play, openAccount, renderHome, diffColor }
@@ -124,9 +126,10 @@ export function playerBadges() {
   const rate = currentRate();
   const st = s?.meta?.streak;
   const alive = st && (st.last === s.meta.today || st.last === yesterday(s.meta.today));
-  return `${titleTag(rate)}${s ? `<span class="g-streak${alive && st.last !== s.meta.today ? ' warn' : ''}" title="連続プレイ日数(1日1曲でつながる)">🔥 ${alive ? st.days : 0}日</span>` : ''}<button class="chip g-prof" id="btn-myprof" type="button">プロフィール</button>`;
+  return `${titleTag(rate)}${s ? `<span class="g-streak${alive && st.last !== s.meta.today ? ' warn' : ''}" title="連続プレイ日数(1日1曲でつながる)">🔥 ${alive ? st.days : 0}日</span>` : ''}<button class="chip g-prof" id="btn-myprof" type="button">プロフィール</button>${s ? '<button class="chip g-prof" id="btn-friends" type="button">フレンド<i class="fr-count" id="fr-count" hidden></i></button>' : ''}`;
 }
 export function bindBadges() {
+  if ($('btn-friends')) { $('btn-friends').addEventListener('click', openFriends); refreshFriendBadge(); }
   $('btn-myprof')?.addEventListener('click', () => { const s = acc.getState(); if (s) openProfile(s.name); else { ui.toast('プロフィールはログインすると作られます'); ui.openAccount(); } });
   const s = acc.getState();
   const se = s?.meta?.season;
@@ -394,9 +397,11 @@ export async function openProfile(name) {
     <h3 class="pf-h">ベスト(レート対象の上位)</h3>
     <ol class="pf-best">${list.slice(0, 10).map((x) => `<li><img src="${ui.jacketURL(x.e, 64)}" alt=""><span class="nm2">${ui.esc(x.e.title)}<i class="lm-diff" style="--dc:${ui.diffColor[x.d]}">${x.d.toUpperCase()} ${x.e.levels[x.d]}</i></span>
       <span>${x.ap ? '<span class="badge ap">AP</span>' : x.fc ? '<span class="badge fc">FC</span>' : ''}</span><span class="sc">${x.score.toLocaleString()}</span><span class="pf-v">${x.v.toFixed(2)}</span></li>`).join('') || '<li class="empty">まだ記録がありません</li>'}</ol>
+    ${badgesHtml(p, ui.entries, ui.esc, mine)}
     ${mine ? inviteHtml() : ''}
-    <div class="modal-actions"><button class="btn-line" data-share="${ui.esc(p.name)}">このページのリンクをコピー</button><button class="btn-glow" data-close>閉じる</button></div>`;
+    <div class="modal-actions">${!mine && acc.getToken() ? `<button class="btn-line" data-friend="${ui.esc(p.name)}" hidden>＋ フレンド申請</button>` : ''}<button class="btn-line" data-share="${ui.esc(p.name)}">このページのリンクをコピー</button><button class="btn-glow" data-close>閉じる</button></div>`;
   if (mine) loadInviteCode();
+  else if (acc.getToken()) friendButton(p.name);
 }
 function inviteHtml() {
   const s = acc.getState();
@@ -429,6 +434,19 @@ async function showInviteBanner(code) {
   document.body.appendChild(bar);
   acc.onChange((st) => { if (st) bar.remove(); }); // ログインしたら消す(招待コードはログイン後に自動で使う)
 }
+// プロフィールの「フレンド申請」ボタン: もうフレンド・申請中ならその表示にする
+async function friendButton(name) {
+  const b = document.querySelector('#pf-box [data-friend]');
+  if (!b) return;
+  try {
+    const d = await friendList();
+    const has = (arr) => arr.some((n) => n.toLowerCase() === name.toLowerCase());
+    if (d.friends.some((f) => f.name.toLowerCase() === name.toLowerCase())) { b.textContent = '✓ フレンド'; b.disabled = true; }
+    else if (has(d.outgoing)) { b.textContent = '申請中'; b.disabled = true; }
+    else if (has(d.incoming)) b.textContent = '＋ 申請を承認する';
+  } catch { /* そのまま出す */ }
+  b.hidden = false;
+}
 async function loadInviteCode() {
   try { const c = await rpc('mlidar_invite_code', { p_token: acc.getToken() }); if ($('inv-code')) $('inv-code').textContent = c; } catch { /* noop */ }
 }
@@ -450,6 +468,8 @@ async function onProfileClick(ev) {
   if (ev.target === $('pf-modal') || ev.target.closest('[data-close]')) { ui.overlay('pf-modal', false); return; }
   const sh = ev.target.closest('[data-share]');
   if (sh) { copy(shareUrl('player=' + encodeURIComponent(sh.dataset.share)), 'プレイヤーページのリンクをコピーしました'); return; }
+  const fb = ev.target.closest('[data-friend]');
+  if (fb) { fb.disabled = true; const r = await requestFriend(fb.dataset.friend); fb.textContent = r === 'ok' ? '✓ フレンド' : r ? '申請中' : '＋ フレンド申請'; fb.disabled = !!r; return; }
   if (ev.target.closest('[data-copy-inv]')) {
     const c = $('inv-code').textContent;
     copy(`MUSIC LiDAR で一緒に遊ぼう!招待コード ${c} ${shareUrl('invite=' + c)}`, '招待リンクをコピーしました');

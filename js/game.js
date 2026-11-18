@@ -440,7 +440,7 @@ export class Game {
     const topY = H * 0.06;
     const r = Z_J / Z_FAR;
     const hz = (topY - J * r) / (1 - r);
-    return { W, H, dpr, J, laneW, hz, cx: W / 2 };
+    return { W, H, dpr, J, laneW, hz, cx: W / 2 + (this.swayX || 0) * laneW }; // swayX: 「揺れる」ギミックの横ずれ(render で更新)
   }
 
   proj(G, u, z) { return [G.cx + (u * G.laneW * Z_J) / z, G.hz + ((G.J - G.hz) * Z_J) / z]; }
@@ -486,6 +486,10 @@ export class Game {
 
   render(t, perfNow) {
     this.nowS = this.scroll.S(t);
+    this.lastT = t;
+    // 「揺れる」ギミック: 4拍で1往復、左右に揺らす(タッチのレーン判定も同じ位置を使う)
+    const sway = this.scroll.swayAt(t);
+    this.swayX = sway > 0.001 ? sway * Math.sin((t * this.bpm / 60) * Math.PI / 2) : 0;
     const G = this.geom();
     const g = this.g;
     g.setTransform(G.dpr, 0, 0, G.dpr, 0, 0);
@@ -751,7 +755,9 @@ export class Game {
     const g = this.g;
     const u0 = n.lane - 2 + 0.05, u1 = n.lane - 1 - 0.05;
     const behind = z < Z_J ? Math.max(0, (z - Z_J * 0.75) / (Z_J * 0.25)) : 1;
-    const hid = this.opts.vis === 'hidden' ? Math.max(0, Math.min(1, (z - 15) / 5)) : 1; // HIDDEN: 判定ラインの手前で消える
+    let hid = this.opts.vis === 'hidden' ? Math.max(0, Math.min(1, (z - 15) / 5)) : 1; // HIDDEN: 判定ラインの手前で消える
+    const hg = this.scroll.hideAt(this.lastT ?? 0); // 「消える」ギミック: 判定ラインから奥へ hg の範囲で消える(手前ほど薄く)
+    if (hg > 0.01) { const zh = Z_J + hg * (Z_FAR - Z_J); hid = Math.min(hid, Math.max(0, Math.min(1, (z - zh) / 3))); }
     if (hid <= 0) return;
     g.save();
     g.globalAlpha = alpha * behind * hid;

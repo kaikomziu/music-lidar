@@ -318,10 +318,10 @@ function updateInfo() {
   const ln = n.filter((x) => x.end).length;
   const est = estLevel();
   $('ed-estlv').textContent = est ? `(目安 ${est})` : '';
-  const cnt = { stop: 0, speed: 0, cover: 0 };
-  for (const g of ed.gimmicks) cnt[g.type]++;
+  const cnt = { stop: 0, speed: 0, cover: 0, hidden: 0, sway: 0 };
+  for (const g of ed.gimmicks) cnt[g.type] = (cnt[g.type] || 0) + 1;
   $('ed-info').innerHTML = `<div><b>${n.length}</b> ノーツ(ロング ${ln})</div>
-    <div>ギミック: 停止 ${cnt.stop} / 変速 ${cnt.speed} / 隠し ${cnt.cover}</div>
+    <div>ギミック: 停止 ${cnt.stop} / 変速 ${cnt.speed} / 隠し ${cnt.cover} / 消える ${cnt.hidden} / 揺れる ${cnt.sway}</div>
     <div>BPM ${ed.bpm.toFixed(ed.entry?.local ? 2 : 0)} ・ ${fmt(duration())}</div>`;
 }
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -541,7 +541,7 @@ export function draw() {
   ed.gimmicks.forEach((gm) => {
     const y = yOf(L, gm.t);
     if (y < -40 || (y > L.H + 40 && yOf(L, gm.t + (gm.dur || 0)) > L.H)) return;
-    const col = gm.type === 'stop' ? '#c49bff' : gm.type === 'speed' ? '#ffd25e' : '#5ef2ff';
+    const col = { stop: '#c49bff', speed: '#ffd25e', hidden: '#ff7ce6', sway: '#9dff4f' }[gm.type] || '#5ef2ff';
     if (gm.dur > 0) {
       const y2 = yOf(L, gm.t + gm.dur);
       g.fillStyle = col + '33';
@@ -612,6 +612,8 @@ function gimmickText(gm) {
   const bs = Math.round(beats * 100) / 100;
   if (gm.type === 'stop') return `停止 ${bs}拍`;
   if (gm.type === 'speed') return `速さ ×${gm.to}${bs ? ` (${bs}拍で)` : ''}`;
+  if (gm.type === 'sway') return gm.to > 0 ? `揺れる ×${gm.to}` : '揺れ 止める';
+  if (gm.type === 'hidden') return gm.to > 0 ? `消える ${Math.round(gm.to * 100)}%` : '消える 解除';
   return gm.to > 0 ? `隠し ${Math.round(gm.to * 100)}%` : '隠し 解除';
 }
 
@@ -709,7 +711,7 @@ function openGimmick(index, t, cx, cy) {
   ed.gEdit = { index, t: gm.t };
   $('gp-type').value = gm.type;
   $('gp-dur').value = Math.round(((gm.dur || 0) / spb()) * 100) / 100;
-  $('gp-to').value = gm.type === 'cover' ? Math.round((gm.to ?? 0.4) * 100) : gm.to ?? 1;
+  $('gp-to').value = gm.type === 'cover' || gm.type === 'hidden' ? Math.round((gm.to ?? 0.4) * 100) : gm.to ?? 1; // 割合の種類は%で見せる
   $('gp-title').textContent = `${fmtMs(gm.t)} のギミック`;
   $('gp-del').hidden = index == null;
   syncGimmickForm(true);
@@ -723,16 +725,20 @@ function syncGimmickForm(keep) {
   const type = $('gp-type').value;
   $('gp-to-row').hidden = type === 'stop';
   $('gp-dur-label').textContent = type === 'stop' ? '止まる長さ(拍)' : '変化にかける拍(0で一瞬)';
-  $('gp-to-label').textContent = type === 'speed' ? '速さの倍率(0.1〜4)' : '隠す割合(%・0で解除)';
+  $('gp-to-label').textContent = { speed: '速さの倍率(0.1〜4)', sway: '揺れ幅(レーン幅の倍率・0〜1.5。0で止まる)', hidden: '消える範囲(%・0で解除)' }[type] || '隠す割合(%・0で解除)';
   if (keep !== true) {
     if (type === 'speed') { $('gp-to').value = 0.5; $('gp-dur').value = 0; }
     if (type === 'cover') { $('gp-to').value = 40; $('gp-dur').value = 1; }
     if (type === 'stop') $('gp-dur').value = 1;
+    if (type === 'hidden') { $('gp-to').value = 35; $('gp-dur').value = 1; }
+    if (type === 'sway') { $('gp-to').value = 0.6; $('gp-dur').value = 2; }
   }
   $('gp-help').textContent = {
     stop: '音楽は進んだまま、ノーツの流れだけが止まります。',
     speed: 'ここから流れる速さが変わります(1が普通)。',
     cover: 'レーンの奥側を隠して、ノーツが手前で現れるようにします。',
+    hidden: '判定ラインの手前でノーツが消えるようにします。タイミングは覚えて叩きます。',
+    sway: 'レーン全体が左右にゆらゆら揺れます(4拍で1往復)。',
   }[type];
 }
 function applyGimmick() {
@@ -741,6 +747,8 @@ function applyGimmick() {
   let to = +$('gp-to').value;
   if (type === 'speed') to = Math.max(0.1, Math.min(4, to || 1));
   if (type === 'cover') to = Math.max(0, Math.min(0.8, (to || 0) / 100));
+  if (type === 'hidden') to = Math.max(0, Math.min(0.6, (to || 0) / 100));
+  if (type === 'sway') to = Math.max(0, Math.min(1.5, to || 0));
   if (type === 'stop' && dur <= 0) { ui.toast('止まる長さを入れてください'); return; }
   pushUndo();
   const gm = { t: ed.gEdit.t, type, dur, to: type === 'stop' ? 0 : to };

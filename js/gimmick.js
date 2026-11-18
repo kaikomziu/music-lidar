@@ -3,10 +3,12 @@
 //   { beat: 46, type: 'stop', beats: 2 },              // 2拍のあいだ譜面が止まる(音楽は進む)
 //   { beat: 64, type: 'speed', to: 0.5, beats: 0 },    // 流れる速さを0.5倍に(beats>0 ならその拍数かけてなめらかに変化)
 //   { beat: 144, type: 'cover', to: 0.45, beats: 2 },  // レーンの奥45%を隠す(0で解除)
+//   { beat: 160, type: 'hidden', to: 0.35, beats: 2 }, // 判定ラインの手前35%でノーツが消える(0で解除)
+//   { beat: 176, type: 'sway', to: 0.6, beats: 4 },    // レーン全体が左右に揺れる。to は揺れ幅(レーン幅の何倍か。0で止まる)。4拍で1往復
 // ]
 // ノーツの位置は「スクロール量 S(t)」で決める。判定はこれまでどおり時刻で行う。
 
-export const NO_SCROLL = { S: (t) => t, coverAt: () => 0, stops: [], has: false };
+export const NO_SCROLL = { S: (t) => t, coverAt: () => 0, hideAt: () => 0, swayAt: () => 0, stops: [], has: false };
 
 export function buildScroll(gimmicks, bpm) {
   if (!gimmicks?.length) return NO_SCROLL;
@@ -44,18 +46,21 @@ export function buildScroll(gimmicks, bpm) {
     return g.s + g.m * (t - g.t);
   };
 
-  const covers = list.filter((g) => g.type === 'cover').map((g) => ({ t: g.t ?? g.beat * spb, to: g.to, dur: Math.max(0.001, g.dur ?? (g.beats || 0) * spb) }));
-  const coverAt = (t) => {
-    let v = 0;
-    for (const c of covers) {
-      if (t < c.t) break;
-      const k = Math.min(1, (t - c.t) / c.dur);
-      v = v + (c.to - v) * k;
-      if (k < 1) break;
-    }
-    return v;
+  // 隠し・消える・揺れるは「値がなめらかに to へ変わる」同じ形なので、まとめて作る
+  const level = (type) => {
+    const arr = list.filter((g) => g.type === type).map((g) => ({ t: g.t ?? g.beat * spb, to: g.to, dur: Math.max(0.001, g.dur ?? (g.beats || 0) * spb) }));
+    return (t) => {
+      let v = 0;
+      for (const c of arr) {
+        if (t < c.t) break;
+        const k = Math.min(1, (t - c.t) / c.dur);
+        v = v + (c.to - v) * k;
+        if (k < 1) break;
+      }
+      return v;
+    };
   };
-  return { S, coverAt, stops, has: true };
+  return { S, coverAt: level('cover'), hideAt: level('hidden'), swayAt: level('sway'), stops, has: true };
 }
 
 // 停止中に来るはずのノーツは見えないまま判定ラインで固まってしまうので取り除く
@@ -66,6 +71,6 @@ export function dropNotesInStops(notes, stops) {
 
 export function gimmickLabel(gimmicks) {
   if (!gimmicks?.length) return '';
-  const names = { stop: '停止', speed: '変速', cover: '隠し' };
+  const names = { stop: '停止', speed: '変速', cover: '隠し', hidden: '消える', sway: '揺れる' };
   return [...new Set(gimmicks.map((g) => names[g.type]).filter(Boolean))].join('・');
 }

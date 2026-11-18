@@ -1,4 +1,4 @@
-// GIMMICK / 150 BPM: 蜃気楼のように譜面がゆれる。ゆっくり→急加速→止まる→隠れる
+// GIMMICK / 150 BPM: 蜃気楼のように譜面がゆれる。ゆっくり→急加速→ゆれる→止まる→隠れる→消える
 import { sustain, bassLine, arp, build } from './kit.js';
 
 const PROG = ['E4+G4+B4', 'C4+E4+G4', 'D4+F#4+A4', 'B3+D#4+F#4'];
@@ -24,11 +24,15 @@ export default {
     { beat: 46, type: 'stop', beats: 2 },
     { beat: 64, type: 'speed', to: 2.2, beats: 0 },
     { beat: 80, type: 'speed', to: 0.7, beats: 0 },
+    { beat: 80, type: 'sway', to: 0.5, beats: 4 }, // 蜃気楼のようにレーンがゆれる
+    { beat: 96, type: 'sway', to: 0, beats: 4 },
     { beat: 96, type: 'speed', to: 1, beats: 4 },
     ...[0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ beat: 112 + i * 4 + 2, type: 'stop', beats: 1 })),
     { beat: 144, type: 'cover', to: 0.4, beats: 4 },
     { beat: 172, type: 'cover', to: 0, beats: 4 },
     { beat: 176, type: 'speed', to: 1.6, beats: 8 },
+    { beat: 184, type: 'hidden', to: 0.3, beats: 2 }, // 最後は手前でノーツが消える
+    { beat: 200, type: 'hidden', to: 0, beats: 2 },
     { beat: 200, type: 'speed', to: 1, beats: 0 },
   ],
   compose(s) {

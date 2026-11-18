@@ -226,7 +226,7 @@ const LIFE = {
   hard: { label: 'きびしい', start: 100, miss: 10, good: 2.5, great: 0.03, perfect: 0.1 },
 };
 const course = { items: [], life: 'normal', running: false, results: null };
-const playable = () => ui.entries.filter((e) => !e.local && e.charts);
+const playable = () => ui.entries.filter((e) => !e.local && e.levels); // e.charts を見ると全曲の譜面づくりが走るので levels で見る
 const DIFFS = ['easy', 'normal', 'hard'];
 
 function initCourse() {

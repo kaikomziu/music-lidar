@@ -4,7 +4,7 @@
 
 - **書いていないことが必要になったら、コードを読んでこのファイルに追記する。** 仕組みを変えたら、同じコミットでここも直す
 - コードと食い違っていたら、コードが正しい。気づいたらここを直す
-- 最終更新: 2026-11-18(1.58.2 時点)
+- 最終更新: 2026-11-18(1.59.0 時点)
 
 ---
 
@@ -58,9 +58,12 @@
 
 1. `index.html` の先頭のスクリプト: 旧URLからの引っ越し(上の 1. を参照)
 2. 次のスクリプト: `version.json` を `no-store` で読み、`<meta name="app-version">` と違えば `?v=` を付けて読み直す(古いHTMLと新しいJSが混ざらないように)
-3. import map で全モジュールに `?v=<バージョン>` を付けて読む(`release.py` が書き換える)
+3. import map で全モジュールに `?v=<バージョン>` を付けて読む(`release.py` が書き換える)。`<!--PRELOAD-->` の `<link rel="modulepreload">` で、main.js から静的に import される全モジュール(約170)を最初に並行して読み始める(import をたどると5段の待ち合わせになるため。これも `release.py` が作る)
+   - Google Fonts の CSS は `rel="preload" as="style"` で読み、表示を止めない
 4. `js/main.js` が起動する
    - `SONGS`(js/songs/index.js)から曲一覧 `entries` を作る。期間限定曲は `eventActive()` のときだけ入れる
+   - **内蔵曲の曲データと譜面は、使うときにはじめて作る**(`builtinEntry` の `charts` / `stats` / `duration` / `onsets` はゲッター)。起動後は `prepareIdle()` が手の空いたときに1曲ずつ作る。全曲まとめて作ると起動に 0.5〜1秒(スマホでは数秒)かかるので、**全曲の `e.charts` などを一度に触る処理を書かない**(曲があるかの判定は `e.levels` で行う)
+   - 起動画面(`#boot`)は main.js の最後で `__bootDone()` を呼ぶと消える。ロゴの演出のため、最低 0.9 秒は表示する
    - 曲ページ(`<meta name="song-id">` がある)から来たら、その曲を選んだ状態にする。**ただし、ログインしていない人はトップ(タイトル画面)として扱う**(埋め込みは別)
    - `initGrowth` / `initMatch` / `initInstall` / `initKeyConfig` / `initDan` / `initExtras` などで各機能を初期化する
    - Service Worker を `ROOT_PATH + 'sw.js'` で登録する(埋め込み時は登録しない)
@@ -104,6 +107,9 @@
 | `event.js` | 季節イベント(クリスマス 12/1〜1/31。`?event=xmas` / `?event=off` で確認できる) |
 | `keyconfig.js` | キー配置の設定 |
 | `install.js` | 「ホーム画面に追加」の案内 |
+| `friends.js` | フレンド(申請・承認・一覧・オンライン表示・フレンドランキング) |
+| `badges.js` | 実績バッジ(記録から計算する。保存はしない) |
+| `i18n.js` | 英語表示(辞書で画面の文字を置き換える)。main.js の最初に読む |
 | `request.js` | お問い合わせ(リクエスト箱) |
 | `admin.js` | 管理者ページ |
 | `tutorial.js` | チュートリアル(専用のゆっくりの曲と手作りの譜面) |
@@ -123,7 +129,7 @@ export default {
   levels: { easy: 5, normal: 10, hard: 13 },
   preview: 128,              // 試聴を始める拍
   chart: { hard: { minGap, maxNps, chordP, ... } },  // 譜面の密度の調整(composer.js の PARAM を上書き)
-  gimmicks: [{ beat, type: 'stop'|'speed'|'cover', ... }],  // 任意
+  gimmicks: [{ beat, type: 'stop'|'speed'|'cover'|'hidden'|'sway', ... }],  // 任意。下の「譜面ギミック」
   event: 'xmas',             // 任意。期間限定曲
   compose(s) { ... },        // s.seq / s.drums / s.crash などでイベントを並べる。部品は kit.js
 };
@@ -131,6 +137,17 @@ export default {
 - 音源ファイル曲は `audio` / `bpm` / `offset` / `fixedCharts`(または `*.data.js`)を使う
 - 曲を足す手順: ファイルを作る → `js/songs/index.js` に import を1行 → `python tools/release.py`(曲ページとサイトマップができる)→ `python tools/export.py` で `D:\MUSIC_LiDAR_export` に mp3 / mp4 を書き出す
 - 週替わりスコアアタックとデイリーは、曲一覧から乱数で選ぶ。**曲を足すと、選ばれる曲が変わることがある**
+
+### 譜面ギミック(`gimmick.js`)
+| type | 内容 | to |
+|---|---|---|
+| `stop` | `beats` 拍のあいだノーツの流れが止まる(音楽は進む)。止まっている間のノーツは取り除く | なし |
+| `speed` | 流れる速さを変える(`beats` > 0 ならその拍数でなめらかに) | 倍率(0.1〜4) |
+| `cover` | レーンの奥を隠す(サドゥン) | 隠す割合(0で解除) |
+| `hidden` | 判定ラインの手前でノーツが消える | 消える範囲(0〜0.6。0で解除) |
+| `sway` | レーン全体が左右に揺れる(4拍で1往復)。タッチのレーン判定も一緒に動く | 揺れ幅(レーン幅の倍率。0で止まる) |
+- 曲ファイルは拍(`beat` / `beats`)、譜面メーカーは秒(`t` / `dur`)で保存する。`buildScroll` が `S(t)`(スクロール量)と `coverAt` / `hideAt` / `swayAt` を返す
+- `cover` / `hidden` / `sway` は「値がなめらかに `to` へ変わる」同じ形(`level(type)`)
 
 ### 譜面の自動生成(`composer.js`)
 - `composeSong` で楽譜 → イベント列。`candidatesFromEvents` でノーツ候補(強さの点数つき)
@@ -167,6 +184,9 @@ export default {
 | `inviteCode` | 招待リンク(`?invite=`)のコード。ログインしたら自動で使う |
 | `playCount` / `installSnooze` / `installDone` | ホーム画面に追加の案内 |
 | `moved` | 旧URLからの引っ越しが済んだか |
+| `lang` | 表示の言語(`auto` / `ja` / `en`) |
+| `rankMode` | 選曲画面のランキングの表示(`all` / `friend`) |
+| `badges:<アカウントID>` | 前に見たときに持っていたバッジ(増えたらお知らせするため) |
 
 `ka_session`(頭に `mlidar:` が付かない)は、かるわかGAMESアカウントの共通ログイン。
 
@@ -245,6 +265,25 @@ export default {
 - `?invite=` を開くとコードを保存。ログインしていなければ、`mlidar_invite_lookup` で招待した人の名前と称号を調べて「〇〇さんから招待されました」の帯を出す。ログインしたら `mlidar_invite_redeem` で自動で使う
 - 管理者ページの「友だち招待」は `mlidar_admin_invites`
 
+### フレンド(`friends.js`)
+- テーブル `mlidar_friends`(`a` が `b` に申請。`status` は `pending` / `ok`)。名前で申請し、相手が承認するとフレンド。相手からの申請が来ている人に申請すると、そのままフレンドになる
+- 上限: フレンドと申請あわせて100人、申請は1日30件まで
+- 一覧(`mlidar_friend_list`)は、セッションの `last_used` が3分以内ならオンライン、`place`(`mlidar_ping` が1分ごとと画面が変わったときに送る今の画面)を表示する
+- 曲のフレンドランキング(`mlidar_friend_ranking`)は `mlidar_scores` から自分とフレンドの行だけを出す(ログイン中の記録は `client_id` = アカウントID)
+- 入口: ホームの「フレンド」(届いた申請の数のバッジつき)、プロフィールの「＋ フレンド申請」、選曲画面のランキングの「みんな / フレンド」
+
+### 実績バッジ(`badges.js`)
+- `BADGES` に23種類。サーバーの記録(`best` / `stats` / `meta`)から、その場で計算する。自分の state(`acc.getState()`)でも、他人のプロフィール(`mlidar_profile`)でも同じ関数で計算できる
+- プロフィールでは、自分のときはまだのバッジも薄く(進み具合のバーつき)、他人のときは持っているものだけ出す
+- ホームを出すたびに、前に覚えた一覧(`mlidar:badges:<ID>`)と比べ、増えていればお知らせを出す
+- バッジを足すときは `BADGES` に `{ id, icon, name, desc, n: (c) => 数, goal }` を足す。必要な数は `ctx()` に足す
+
+### 英語表示(`i18n.js`)
+- 言語の決め方: `?lang=en` / `?lang=ja` > 設定の「言語 / Language」(`mlidar:lang`)> ブラウザの言語(日本語以外なら英語)
+- 画面の文字(テキストと `title` / `placeholder` / `aria-label`)が辞書 `EN` の日本語と**まるごと同じ**なら英語に置き換える。あとから JS が出した文字も MutationObserver で置き換える。タブの題名も `｜` で区切った部分ごとに置き換える
+- 辞書にない文(トーストやリザルトの細かい文など)は日本語のまま。**新しいボタンや見出しを足したら、`EN` にも英語を足す**
+- 言語を変えたらページを読み直す(`setLang`)
+
 ### 埋め込み(`?embed=1`)
 - 曲ページ + `?embed=1` を iframe に入れて使う。`body.embed` が付き、その曲の選曲・プレイ・リザルトだけになる。チュートリアル・ログイン案内・Service Worker なし
 - 選曲画面の「⧉ 埋め込みコード」でコピーできる
@@ -281,6 +320,7 @@ export default {
 | `mlidar_live_rooms` / `mlidar_live_members` | 昔のライブ方式。**消さない** |
 | `mlidar_match_queue` | ランダムマッチの待ち行列 |
 | `mlidar_requests` | お問い合わせ |
+| `mlidar_friends` | フレンド(`a` → `b` の申請。`status` = `pending` / `ok`) |
 
 ### ブラウザから呼ぶ関数(主なもの)
 - アカウント: `mlidar_state`, `mlidar_catalog`, `mlidar_ka_*`, `mlidar_login`, `mlidar_register`, `mlidar_logout`, `mlidar_ping`
@@ -288,9 +328,10 @@ export default {
 - ガチャ・編成・ミッション: `mlidar_gacha`, `mlidar_gacha_event`, `mlidar_banners`, `mlidar_set_team`, `mlidar_claim`, `mlidar_dan_clear`
 - 続けたくなる要素: `mlidar_login_bonus`, `mlidar_season_claim`, `mlidar_skin_list` / `_buy` / `_equip`, `mlidar_weekly_submit` / `_claim` / `_hall`, `mlidar_invite_code` / `_lookup` / `_redeem`
 - 対戦: `mlidar_lobby_put` / `_list` / `_close`, `mlidar_match_poll` / `_cancel` / `_done`
+- フレンド: `mlidar_friend_request` / `_respond` / `_remove` / `_list` / `_ranking`
 - 譜面: `mlidar_chart_save` / `_list` / `_get` / `_delete` / `_like` / `_play` / `_ranking` / `_submit`
 - お問い合わせ・管理: `mlidar_request_send` / `_mine` / `_list` / `_set`, `mlidar_admin_overview`
-- 内部用(ブラウザから呼ばない): `mlidar_auth`, `mlidar_state_of`, `mlidar_play_result_core`, `mlidar_missions`, `mlidar_team_fx`, `mlidar_daily`, `mlidar_today`, `mlidar_week_key`, `mlidar_season_key`, `mlidar_season_reward`, `mlidar_give_skin`
+- 内部用(ブラウザから呼ばない): `mlidar_auth`, `mlidar_friend_ids`, `mlidar_state_of`, `mlidar_play_result_core`, `mlidar_missions`, `mlidar_team_fx`, `mlidar_daily`, `mlidar_today`, `mlidar_week_key`, `mlidar_season_key`, `mlidar_season_reward`, `mlidar_give_skin`
 
 新しい関数を足すときは `security definer` と `set search_path = public` を付け、`revoke all … from public` してから、必要なら `grant execute … to anon, authenticated`。
 
@@ -309,6 +350,11 @@ export default {
 - `python <scratchpad>/range_server.py 8765 "C:/Users/4yoma/Desktop/Claude"` で配信し、`http://localhost:8765/music-lidar/` を開く(`file://` では動かない)
 - ログインが要るテストは、SQL でテスト用のアカウントとセッション(決まったトークン)を作り、localStorage の `mlidar:token` に入れる。**終わったらテスト用の行(scores・sessions・accounts)を消す**
 - 音を読ませるには、タイトル画面で本物のキー操作(Enter)が要る
+
+### スマホ(タッチ)
+- タッチの端末では `body.touch` が付く。CSS の最後の「スマホ(タッチ)の操作感」で、ボタンを押しやすい大きさ(36px 以上)にし、入力欄を 16px にしている(iPhone は 16px 未満の入力欄を押すと画面を拡大してしまう)
+- プレイ中のタッチは `main.js` の `touchstart` / `touchmove` / `touchend`。レーンは `game.laneAt(x)`(横の位置だけで決める。指をすべらせて隣のレーンに移れる)
+- 画面の切り欠き(ノッチ)は `.screen` の `env(safe-area-inset-*)` で避けている
 
 ### 気をつけること
 - 外部の曲(魔王魂・INMU KING〔ニコニ・コモンズ〕・しゃろう〔OpenTracks〕・ああああ さん)のクレジットを消さない。広告や収益のある場所に出すときはライセンスを確かめ直す(ああああ さんの曲は収益化のとき連絡が必要)

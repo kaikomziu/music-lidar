@@ -24,6 +24,25 @@ html, n2 = re.subn(r'<!--IMPORTMAP-->.*?<!--/IMPORTMAP-->', lambda m: f'<!--IMPO
 html, n3 = re.subn(r'href="css/style\.css(\?v=[^"]*)?"', f'href="css/style.css?v={v}"', html)
 html, n4 = re.subn(r'src="js/main\.js(\?v=[^"]*)?"', f'src="js/main.js?v={v}"', html)
 assert (n1, n2, n3, n4) == (1, 1, 1, 1), (n1, n2, n3, n4)
+
+# 起動を速くする: main.js から静的に import される全モジュールを <link rel="modulepreload"> で先に読み始める
+# (import をたどると5段の待ち合わせになるので、HTMLを読んだ時点で並行して取りに行く)
+def static_graph(start):
+    seen, stack = [], [start]
+    pat = re.compile(r'''(?:^|\n)\s*import\s+(?:[^'"]*?\s+from\s+)?['"](\.{1,2}/[^'"]+)['"]''')
+    while stack:
+        f = stack.pop()
+        if f in seen:
+            continue
+        seen.append(f)
+        src = (root / f).read_text(encoding='utf-8')
+        for i in pat.findall(src):
+            stack.append(((root / f).parent / i).resolve().relative_to(root).as_posix())
+    return seen
+mods = [m for m in static_graph('js/main.js') if m != 'js/main.js']
+preload = ''.join(f'<link rel="modulepreload" href="{m}?v={v}">' for m in sorted(mods))
+html, n5 = re.subn(r'<!--PRELOAD-->.*?<!--/PRELOAD-->', lambda m: f'<!--PRELOAD-->{preload}<!--/PRELOAD-->', html, flags=re.S)
+assert n5 == 1, n5
 html_path.write_text(html, encoding='utf-8', newline='\n')
 (root / 'version.json').write_text(json.dumps({'v': v}) + '\n', encoding='utf-8', newline='\n')
 print('version', v, '/', len(js), 'modules')

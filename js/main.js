@@ -1,3 +1,4 @@
+import { langPref, setLang } from './i18n.js'; // 英語表示(いちばん先に読んで、画面の文字を置き換える)
 import SONGS from './songs/index.js';
 import { composeSong, candidatesFromEvents, generateChart, chartStats, DIFFS, hashStr } from './composer.js';
 import { getCtx, setVolumes, playPreview, stopPreview } from './audio.js';
@@ -23,7 +24,9 @@ import { TUTORIAL_DEF, TUT_NOTES, tutCaptions } from './tutorial.js';
 import { initAdmin, openAdmin, stopAdmin } from './admin.js';
 import { initRequest, closeRequest } from './request.js';
 import { initMotion, replay } from './motion.js';
-import { initGrowth, playerBadges, bindBadges, renderSongStats, renderWeekly, weeklyResult, resultGrowth, closeGrowth, currentRate } from './growth.js';
+import { initGrowth, playerBadges, bindBadges, renderSongStats, renderWeekly, weeklyResult, resultGrowth, closeGrowth, currentRate, openProfile, titleTag } from './growth.js';
+import { initFriends, closeFriends, fetchFriendRanking } from './friends.js';
+import { newBadges } from './badges.js';
 import { initMatch, cancelMatch, reportMatch } from './match.js';
 import { initInstall, countPlay, maybeShowInstall } from './install.js';
 import { initKeyConfig, render as renderKeys, apply as applyKeys } from './keyconfig.js';
@@ -105,33 +108,60 @@ function onsetList(times) {
 }
 const NOT_ONSET = new Set(['pad', 'riser', 'downer']);
 
+// 内蔵曲。曲データ(イベント)と譜面は、使うときにはじめて作る(起動時に全曲ぶん作ると、スマホでは数秒かかるため)
+// 起動後は手が空いたときに少しずつ作っておく(prepareIdle)
 function builtinEntry(def) {
-  const { events, duration } = composeSong(def);
-  const cands = candidatesFromEvents(events);
-  const onsets = onsetList(events.filter((e) => !NOT_ONSET.has(e.type)).map((e) => e.t));
+  let built = null;
+  const build = () => {
+    if (built) return built;
+    const { events, duration } = composeSong(def);
+    const cands = candidatesFromEvents(events);
+    const onsets = onsetList(events.filter((e) => !NOT_ONSET.has(e.type)).map((e) => e.t));
+    const charts = {}, stats = {};
+    for (const d of DIFFS) {
+      charts[d] = dropNotesInStops(generateChart(cands, d, duration, hashStr(def.id), def.chart?.[d]), scroll.stops);
+      stats[d] = chartStats(charts[d]);
+    }
+    return (built = { events, duration, onsets, charts, stats });
+  };
   const scroll = buildScroll(def.gimmicks, def.bpm);
-  const charts = {}, stats = {};
-  for (const d of DIFFS) {
-    charts[d] = dropNotesInStops(generateChart(cands, d, duration, hashStr(def.id), def.chart?.[d]), scroll.stops);
-    stats[d] = chartStats(charts[d]);
-  }
   return {
     id: def.id, urlId: def.urlId, title: def.title, artist: def.artist, genre: def.genre, bpm: def.bpm, color: def.color,
-    event: def.event || null, levels: def.levels, charts, stats, local: false, duration, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [],
-    previewAt: (def.preview ?? 32) * 60 / def.bpm, onsets,
+    event: def.event || null, levels: def.levels, local: false, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [],
+    get charts() { return build().charts; },
+    get stats() { return build().stats; },
+    get duration() { return build().duration; },
+    get onsets() { return build().onsets; },
+    get built() { return !!built; },
+    prepare() { build(); },
+    previewAt: (def.preview ?? 32) * 60 / def.bpm,
     // 手作りMVがない曲の自動MV用(曲の構成は使うときに調べる)
-    mvAuto() { return (this._mv ||= { title: def.title, genre: def.genre, color: def.color, sections: analyzeSections(events, def.bpm, duration) }); },
+    mvAuto() { const b = build(); return (this._mv ||= { title: def.title, genre: def.genre, color: def.color, sections: analyzeSections(b.events, def.bpm, b.duration) }); },
     buffer: null, rendering: null,
     load() {
       if (this.buffer) { touchBuffer(this); return Promise.resolve(this.buffer); }
       if (!this.rendering) {
-        this.rendering = loadSongAudio(def.id, events, duration, { sidechain: !!def.sidechain }, (p) => { this.progress = p; })
-          .then((b) => { this.buffer = b; touchBuffer(this); return b; })
+        const b = build();
+        this.rendering = loadSongAudio(def.id, b.events, b.duration, { sidechain: !!def.sidechain }, (p) => { this.progress = p; })
+          .then((buf) => { this.buffer = buf; touchBuffer(this); return buf; })
           .catch((err) => { this.rendering = null; this.progress = 0; throw err; }); // 失敗したら次に選んだときやり直せるように
       }
       return this.rendering;
     },
   };
+}
+// 手が空いたときに、まだ作っていない曲の譜面を1曲ずつ作っておく(選曲画面をすぐ開けるように)
+function prepareIdle() {
+  const ric = window.requestIdleCallback || ((f) => setTimeout(() => f({ timeRemaining: () => 8 }), 50));
+  const step = (dl) => {
+    const rest = entries.filter((e) => e.prepare && !e.built);
+    if (!rest.length) return;
+    const first = rest.indexOf(entries[sel]) >= 0 ? entries[sel] : rest[0]; // 選んでいる曲から
+    first.prepare();
+    for (const e of rest) { if (dl.timeRemaining() < 6) break; if (!e.built) e.prepare(); }
+    ric(step, { timeout: 2000 });
+  };
+  ric(step, { timeout: 2000 });
 }
 // 期間限定の曲(event つき)は、そのイベントの期間だけ出す
 const entries = SONGS.filter((def) => !def.event || eventActive(def.event)).map((def) => (def.audio ? fileSongEntry(def) : builtinEntry(def)));
@@ -202,6 +232,7 @@ function bgLoop(now) {
 requestAnimationFrame(bgLoop);
 // タイトル画面の間から裏で音源を用意しておく(2回目以降はブラウザに保存した音を使うので一瞬)
 setTimeout(() => warmup(), 300);
+setTimeout(prepareIdle, 1200);
 
 // ---------------------------------------------------------------------------
 // 画面切り替え
@@ -557,20 +588,34 @@ function rankRows(rows) {
   return rows.map((r) => `<li class="${r.is_me ? 'me' : ''}"><span class="rk">${r.rank}</span><span class="nm" data-player="${esc(r.name)}" title="プレイヤーページを見る">${esc(r.name)}</span>
     <span>${r.ap ? '<span class="badge ap">AP</span>' : r.fc ? '<span class="badge fc">FC</span>' : ''}</span><span class="sc">${fmtScore(r.score)}</span></li>`).join('');
 }
+// ランキングの表示: 'all'(みんな)/ 'friend'(フレンドと自分)
+let rankMode = load('rankMode', 'all');
+function syncRankTabs() {
+  for (const b of document.querySelectorAll('#rank-tabs [data-rmode]')) b.classList.toggle('sel', b.dataset.rmode === rankMode);
+}
+for (const b of document.querySelectorAll('#rank-tabs [data-rmode]')) b.addEventListener('click', () => {
+  if (b.dataset.rmode === 'friend' && !acc.getToken()) { toast('フレンドのランキングはログインすると見られます'); openAccount(); return; }
+  rankMode = b.dataset.rmode; save('rankMode', rankMode); syncRankTabs(); loadRanking();
+});
+syncRankTabs();
 function loadRanking(force = false) {
   const e = entries[sel];
   const list = $('rank-list');
   if (e.local) { list.innerHTML = '<li class="empty">読み込んだ曲はランキング対象外です</li>'; return; }
-  const key = e.id + '/' + diff;
+  const friend = rankMode === 'friend' && !!acc.getToken();
+  const key = e.id + '/' + diff + (friend ? '/f' : '');
   const c = rankCache.get(key);
   if (c && !force && Date.now() - c.at < 30000) { list.innerHTML = rankRows(c.rows); return; }
   list.innerHTML = '<li class="empty">読み込み中…</li>';
   clearTimeout(loadRanking.tid);
   loadRanking.tid = setTimeout(async () => {
     try {
-      const rows = await fetchRanking(e.id, diff, myRankId());
+      const rows = friend ? await fetchFriendRanking(e.id, diff) : await fetchRanking(e.id, diff, myRankId());
       rankCache.set(key, { rows, at: Date.now() });
-      if (entries[sel] === e && (e.id + '/' + diff) === key) list.innerHTML = rankRows(rows);
+      if (entries[sel] === e && (e.id + '/' + diff + (friend ? '/f' : '')) === key) {
+        list.innerHTML = friend && rows.length <= 1 && !rows.some((r) => !r.is_me)
+          ? rankRows(rows) + '<li class="empty">フレンドの記録はまだありません。ホームの「フレンド」から友だちを追加しよう</li>' : rankRows(rows);
+      }
     } catch (err) {
       console.error(err);
       list.innerHTML = '<li class="empty">ランキングを取得できませんでした</li>';
@@ -1002,6 +1047,7 @@ function closeModals() {
   overlay('course', false);
   overlay('calib', false);
   closeGrowth();
+  closeFriends();
   if ($('match-modal').classList.contains('on')) cancelMatch();
 }
 function goSelect() {
@@ -1071,6 +1117,9 @@ function renderHome() {
   $('hp-login')?.addEventListener('click', () => openAccount());
   bindBadges();
   maybeShowInstall();
+  // 実績バッジが増えていたらお知らせ
+  const nb = newBadges(s, entries);
+  if (nb.length) setTimeout(() => toast(`実績バッジを手に入れました: ${nb.map((b) => b.icon + ' ' + b.name).join(' / ')}(プロフィールで見られます)`, 5000), 900);
   for (const t of document.querySelectorAll('#home .need-login')) t.classList.toggle('locked', !s);
   $('h-team').textContent = s ? fxText(acc.teamFx()) : 'キャラ5人でスキルを組み合わせる';
   $('btn-admin').hidden = !acc.isAdmin();
@@ -1105,6 +1154,7 @@ initGrowth({
   rankId: () => myRankId(), playerName: () => acc.getState()?.name || load('name', ''),
 });
 initMatch({ entries, toast, overlay, openAccount, esc, jacketURL, rate: () => currentRate() });
+initFriends({ esc, toast, overlay, openAccount, openProfile, titleTag });
 initInstall({ toast });
 initKeyConfig({ settings: () => settings, saveSettings: (s) => { settings = s; setSettings(s); }, toast });
 initDan({ entries, show: (n) => { stopPreview(); show(n); }, back: () => goHome(true), current: () => state, esc, jacketURL, toast, overlay,
@@ -1200,6 +1250,8 @@ function syncSettingsUI() {
 }
 $('s-laneopt').addEventListener('change', () => { settings.lane = $('s-laneopt').value; setSettings(settings); });
 $('s-vis').addEventListener('change', () => { settings.vis = $('s-vis').value; setSettings(settings); });
+$('s-lang').value = langPref();
+$('s-lang').addEventListener('change', () => setLang($('s-lang').value));
 $('s-stream').addEventListener('change', () => { settings.stream = $('s-stream').value; setSettings(settings); applyStream(); });
 // 配信者モード: body に印を付け、みんなでライブの参加コードを画面の上に出し続ける
 function applyStream() {

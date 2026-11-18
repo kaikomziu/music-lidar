@@ -1589,3 +1589,46 @@ body.stream-green .bg-canvas, body.stream-green #bg { display: none; }
 @keyframes ivbIn { from { opacity: 0; transform: translate(-50%, -12px); } }
 @media (max-width: 560px) { .invite-banner { flex-wrap: wrap; } .invite-banner .btn-glow { flex: 1; } }
 @media (prefers-reduced-motion: reduce) { .invite-banner { animation: none; } }
+
+/* ランキングの「みんな / フレンド」切り替え */
+.rank-tabs { display: inline-flex; gap: 2px; margin-right: 6px; padding: 2px; border: 1px solid var(--panel-line); border-radius: 6px; }
+.rank-tabs button { border: 0; background: transparent; color: var(--muted); padding: 2px 9px; border-radius: 4px; font-size: 11px; cursor: pointer; }
+.rank-tabs button.sel { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); font-weight: 700; }
+
+/* フレンド(friends.js) */
+.fr-box { width: min(560px, 100%); max-height: 88vh; overflow: auto; }
+.fr-add { display: flex; gap: 6px; margin: 8px 0 4px; }
+.fr-add input { flex: 1; min-width: 0; }
+.fr-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.fr-list li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--panel-line); font-size: 13px; }
+.fr-list li.empty { justify-content: center; color: var(--muted); }
+.fr-list .nm { font-weight: 700; cursor: pointer; }
+.fr-list .nm:hover { color: var(--accent); text-decoration: underline; }
+.fr-list small { margin-left: auto; }
+.fr-list li > button:last-child, .fr-act { margin-left: auto; display: flex; gap: 4px; }
+.fr-list small + .ib-close { margin-left: 0; }
+.fr-dot { width: 8px; height: 8px; border-radius: 50%; background: #4a5170; flex-shrink: 0; }
+.fr-list li.on .fr-dot { background: #9dff4f; box-shadow: 0 0 8px #9dff4f; }
+.fr-count { display: inline-grid; place-items: center; min-width: 16px; height: 16px; margin-left: 5px; padding: 0 4px; border-radius: 999px; background: #ff5a8a; color: #fff; font: 800 10px var(--font-d); font-style: normal; }
+.fr-count[hidden] { display: none; }
+
+/* 実績バッジ(badges.js) */
+.bdg-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.bdg-list li { position: relative; display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; padding: 7px 9px; border-radius: 7px; border: 1px solid var(--panel-line); background: rgba(0,0,0,0.25); opacity: 0.45; filter: grayscale(0.9); }
+.bdg-list li.got { opacity: 1; filter: none; border-color: rgba(255,210,94,0.55); background: linear-gradient(160deg, rgba(255,210,94,0.12), rgba(94,242,255,0.05)); }
+.bdg-ico { grid-row: span 2; font-size: 22px; }
+.bdg-list b { font-size: 12px; }
+.bdg-list small { font-size: 10px; color: var(--muted); line-height: 1.3; }
+.bdg-bar { grid-column: 1 / -1; display: block; height: 3px; margin-top: 5px; border-radius: 2px; background: rgba(255,255,255,0.1); overflow: hidden; }
+.bdg-bar i { display: block; height: 100%; background: var(--cyan); }
+
+/* スマホ(タッチ)の操作感: 指で押しやすい大きさにし、入力欄で画面が勝手に拡大されないようにする */
+input, textarea, select { -webkit-user-select: text; user-select: text; } /* type 指定のない入力欄も文字を打てるように */
+body.touch input, body.touch textarea, body.touch select { font-size: 16px !important; } /* iPhone は16px未満の入力欄で拡大してしまう */
+body.touch .chip, body.touch .f-chip, body.touch .g-prof { min-height: 36px; }
+body.touch .rank-tabs button { min-height: 30px; padding: 4px 12px; font-size: 12px; }
+body.touch .mini, body.touch #btn-rank-reload { min-width: 36px; min-height: 36px; }
+body.touch .btn-line.small, body.touch .btn-glow.small { min-height: 38px; }
+body.touch .ib-close { min-width: 36px; min-height: 36px; }
+.fr-add input { background: rgba(0, 0, 0, 0.4); border: 1px solid var(--panel-line); color: var(--text); border-radius: 8px; padding: 9px 12px; font: inherit; font-size: 14px; }
+.fr-add input:focus { outline: none; border-color: var(--accent); }

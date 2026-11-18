@@ -784,6 +784,8 @@ export function backToRoom() {
 }
 
 export const inRoom = () => !!room;
+// 配信者モードで画面に出す参加コード(1対1のランダムマッチは出さない)
+export const roomCode = () => (room && !room.match ? room.code : '');
 
 // --- ランダムマッチ(match.js)から使う ---
 export async function matchHost(song, diff) {

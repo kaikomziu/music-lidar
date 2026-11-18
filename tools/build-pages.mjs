@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
+import { songJsonLd, songLinksHtml, writeCollections, collectionsOf } from './collections.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SITE = 'https://kaikomziu.github.io/music-lidar/';
@@ -55,7 +56,8 @@ for (const s of songs) {
   const url = `${SITE}music/${s.urlId}/`;
   const lv = s.levels;
   const title = `${s.title}(${s.genre} / BPM ${Math.round(s.bpm)})｜MUSIC LiDAR 無料ブラウザ音ゲー`;
-  const desc = `「${s.title}」${s.artist && s.artist !== 'MUSIC LiDAR' ? `(${s.artist})` : ''}をブラウザで今すぐプレイ。` +
+  const cols = collectionsOf(s).map((c) => c.short);
+  const desc = `「${s.title}」${s.artist && s.artist !== 'MUSIC LiDAR' ? `(${s.artist})` : ''}は${s.genre}の音ゲー曲${cols.length ? `(${cols.slice(0, 2).join('・')})` : ''}。ブラウザで今すぐプレイ。` +
     `EASY Lv${lv.easy} / NORMAL Lv${lv.normal} / HARD Lv${lv.hard}。MUSIC LiDAR はインストール不要・無料の4キー音ゲー(リズムゲーム)。PC・スマホ対応。` +
     (s.credit ? ` ${s.credit}` : '');
   const og = fs.existsSync(path.join(dir, 'og.png')) ? `${url}og.png` : `${SITE}og.png`;
@@ -72,10 +74,16 @@ for (const s of songs) {
   h = setMeta(h, 'name', 'twitter:description', desc);
   h = setMeta(h, 'name', 'twitter:image', og);
   h = h.replace('<meta name="app-version"', `<meta name="song-id" content="${esc(s.id)}">\n<meta name="app-version"`);
-  h = h.replace(/<h1 class="title-lead">[^<]*<\/h1>/, `<h1 class="title-lead">「${esc(s.title)}」をプレイ ― 無料・インストール不要のブラウザ音ゲー</h1>`);
+  h = h.replace(/<h1 class="title-lead">[^<]*<\/h1>/, `<h1 class="title-lead">「${esc(s.title)}」をプレイ ― 無料・インストール不要のブラウザ音ゲー</h1>
+    ${songLinksHtml(s, songs, esc)}`);
+  h = h.replace('</head>', `${songJsonLd(s, url, SITE)}
+</head>`);
   fs.writeFileSync(path.join(dir, 'index.html'), h);
   urls.push(url);
 }
+
+// 曲のまとめページ(難易度・ジャンル別)
+urls.push(...writeCollections({ root, SITE, songs, esc, today }));
 
 // 画面ごとのページ(譜面メーカー・ガチャ・みんなの譜面)
 const SCREENS = [

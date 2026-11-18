@@ -710,6 +710,9 @@ body.playing::after { display: none; }
 .title-lead { font-family: var(--font-b); font-weight: 500; font-size: 13px; letter-spacing: 0.08em; color: rgba(200,215,255,0.65); margin: 22px 0 6px; animation: fadeUp 0.8s ease-out both 1.2s; }
 .title-links { margin: 0; font-size: 12px; animation: fadeUp 0.8s ease-out both 1.3s; }
 .title-links a { color: var(--cyan); }
+/* 曲ページだけ: 曲の情報と似た曲(検索エンジンが曲どうしをたどれるように) */
+.title-related { margin: 8px auto 0; max-width: 640px; font-size: 11px; line-height: 1.7; color: rgba(200,215,255,0.55); animation: fadeUp 0.8s ease-out both 1.4s; }
+.title-related a { color: rgba(94,242,255,0.8); }
 .title-noscript { position: absolute; bottom: 20px; left: 0; right: 0; text-align: center; color: var(--muted); }
 
 .rec-bias { font-family: var(--font-d); font-size: 11px; color: var(--muted); }
@@ -1550,3 +1553,28 @@ body.xmas .h-tile.h-event-on { border-color: rgba(255, 90, 110, 0.6); }
 .adm-inv td small { display: block; color: var(--muted); font-size: 11px; }
 .adm-invitee { display: inline-flex; flex-direction: column; margin: 2px 10px 2px 0; padding: 3px 8px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid var(--panel-line); }
 .adm-invitee small { font-size: 10px !important; }
+
+/* ホーム画面に追加の案内 */
+.install-bar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; margin-top: 10px; border: 1px solid rgba(94,242,255,0.45); border-radius: 6px; background: linear-gradient(90deg, rgba(94,242,255,0.12), rgba(255,79,216,0.08)); animation: fadeUp 0.5s ease-out both; }
+.install-bar[hidden] { display: none; }
+.ib-ico { font-size: 26px; }
+.ib-text { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.ib-text b { font-size: 14px; }
+.ib-text small { font-size: 12px; color: var(--muted); }
+.ib-share { display: inline-block; padding: 0 5px; border: 1px solid var(--cyan); border-radius: 4px; color: var(--cyan); }
+.ib-close { background: none; border: 0; color: var(--muted); font-size: 16px; cursor: pointer; padding: 4px 6px; }
+.ib-close:hover { color: var(--text); }
+
+/* 埋め込み(?embed=1): ホームや他の画面へ行くボタンを消し、右下に「フルで遊ぶ」 */
+.embed-full { display: none; }
+body.embed .embed-full { display: block; position: fixed; right: 10px; bottom: 10px; z-index: 50; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #02030a; background: var(--cyan); text-decoration: none; box-shadow: 0 0 14px rgba(94,242,255,0.5); }
+body.embed.playing .embed-full { display: none; }
+body.embed [data-home], body.embed #btn-share, body.embed #btn-embed, body.embed .coin-chip, body.embed .title-links, body.embed .title-related, body.embed .tele, body.embed #sel-title { display: none !important; }
+
+/* 配信者モード: みんなでライブの参加コードを上に大きく */
+.stream-code { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 40; display: flex; flex-direction: column; align-items: center; padding: 6px 18px; border-radius: 8px; background: rgba(2,3,10,0.82); border: 1px solid var(--cyan); box-shadow: 0 0 18px rgba(94,242,255,0.35); pointer-events: none; }
+.stream-code[hidden] { display: none; }
+.stream-code b { font: 900 30px/1.1 var(--font-d); letter-spacing: 6px; color: #ffd25e; }
+.stream-code small { font-size: 11px; color: var(--muted); }
+body.stream #live-room-code { font-size: 2em; letter-spacing: 0.2em; }
+body.stream-green .bg-canvas, body.stream-green #bg { display: none; }

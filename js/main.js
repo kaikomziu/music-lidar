@@ -17,7 +17,7 @@ import { initMeta, openAccount, renderHeader, gachaResultOpen, closeGacha, openS
 import { initMaker, openCharts, openEditor, makerKeydown } from './maker.js';
 import { fetchChartRanking, submitChartScore } from './maker-api.js';
 import { fxText } from './units.js';
-import { initLive, openLive, backToRoom } from './live.js';
+import { initLive, openLive, backToRoom, roomCode } from './live.js';
 import { initPlayer, openPlayer, playerKeydown, stop as stopPlayer } from './player.js';
 import { TUTORIAL_DEF, TUT_NOTES, tutCaptions } from './tutorial.js';
 import { initAdmin, openAdmin, stopAdmin } from './admin.js';
@@ -25,6 +25,7 @@ import { initRequest, closeRequest } from './request.js';
 import { initMotion, replay } from './motion.js';
 import { initGrowth, playerBadges, bindBadges, renderSongStats, renderWeekly, weeklyResult, resultGrowth, closeGrowth, currentRate } from './growth.js';
 import { initMatch, cancelMatch, reportMatch } from './match.js';
+import { initInstall, countPlay, maybeShowInstall } from './install.js';
 import { initKeyConfig, render as renderKeys, apply as applyKeys } from './keyconfig.js';
 import { initDan, openDan, bestDan, danName } from './dan.js';
 import { initEvent, eventActive } from './event.js';
@@ -145,7 +146,10 @@ let sel = (() => {
 const ROOT_PATH = new URL('./', document.baseURI).pathname;
 const urlSongId = document.querySelector('meta[name="song-id"]')?.content;
 // ログインしていない人が曲URLを開いたときは、普通のトップ(タイトル画面・トップURL)として扱う
-const openedBySongUrl = !!urlSongId && !!load('token', null);
+// 埋め込み(よそのサイトの <iframe> の中。曲ページ + ?embed=1): その曲の選曲・プレイ・リザルトだけ
+const EMBED = new URLSearchParams(location.search).has('embed');
+if (EMBED) document.body.classList.add('embed');
+const openedBySongUrl = !!urlSongId && (EMBED || !!load('token', null));
 if (urlSongId && !openedBySongUrl) {
   try {
     history.replaceState(null, '', ROOT_PATH + location.search.replace(/([?&])v=[^&]*&?/, '$1').replace(/[?&]$/, '') + location.hash);
@@ -296,8 +300,9 @@ function enterFromTitle(opts = {}) {
   getCtx();
   setVolumes(settings.bgm, settings.se);
   // 曲ページから来たときは最初だけ、その曲の選曲画面へ。普段はホーム(モード選択)へ
-  if (openedBySongUrl && !enteredOnce && !opts.home) goSelect(); else goHome();
+  if (EMBED || (openedBySongUrl && !enteredOnce && !opts.home)) goSelect(); else goHome();
   enteredOnce = true;
+  if (EMBED) { warmup(); return; } // 埋め込みではチュートリアルやログインの案内を出さない
   // コースの共有リンク(?course=…)から来たら、そのコースを開く
   if (courseFromUrl()) { homeLive(true); return; }
   warmup();
@@ -587,6 +592,17 @@ $('btn-share').addEventListener('click', async () => {
     if (err?.name !== 'AbortError') prompt('この曲のURL', url);
   }
 });
+// よそのサイトに貼るための埋め込みコード
+$('btn-embed').addEventListener('click', async () => {
+  const e = entries[sel];
+  if (!e.urlId) { toast('読み込んだ曲は埋め込めません'); return; }
+  const code = `<iframe src="${songUrl(e)}?embed=1" width="800" height="450" style="border:0;max-width:100%;aspect-ratio:16/9;height:auto" allow="autoplay; fullscreen" loading="lazy" title="MUSIC LiDAR「${e.title.replace(/"/g, '')}」"></iframe>`;
+  try { await navigator.clipboard.writeText(code); toast('埋め込みコードをコピーしました。ブログなどの HTML に貼ると、この曲がそのページの中で遊べます', 5000); }
+  catch { prompt('埋め込みコード(ブログなどの HTML に貼る)', code); }
+});
+// 埋め込みの「フルで遊ぶ」は、いま選んでいる曲のページを新しいタブで開く
+if (EMBED) $('embed-full').addEventListener('click', (ev) => { ev.currentTarget.href = songUrl(entries[sel]); });
+
 // 曲ページで開いたときはタイトル画面に曲名を出す
 if (openedBySongUrl && entries[sel]?.id === urlSongId) {
   $('title-song').textContent = `♪ ${entries[sel].title}`;
@@ -747,6 +763,7 @@ function countUp(el, to, ms, fmtFn) {
 
 function onGameEnd(r) {
   const { entry, diff: d, custom } = playing;
+  countPlay();
   game = null;
   lastResult = r;
   if (custom?.kind === 'test' || custom?.kind === 'tutorial' || custom?.kind === 'dan') {
@@ -999,6 +1016,7 @@ const backToSelect = goSelect;
 // ホーム(モード選択)
 // ---------------------------------------------------------------------------
 function goHome(liveMenu = false) {
+  if (EMBED) { goSelect(); return; } // 埋め込みにはホームがない
   // 曲選びの途中でホームに戻ったら、選ばずにコース画面へ戻る
   const cancelPick = pick?.cancel;
   if (pick) endPick();
@@ -1052,6 +1070,7 @@ function renderHome() {
     : `<span class="hp-hi">GUEST</span>${playerBadges()}<span class="muted">ログインすると 編成・ガチャ・クエスト・みんなでライブ が遊べます(はじめに 1000 コイン)</span><button class="btn-line hp-login" id="hp-login">ログイン / 新規登録</button>`;
   $('hp-login')?.addEventListener('click', () => openAccount());
   bindBadges();
+  maybeShowInstall();
   for (const t of document.querySelectorAll('#home .need-login')) t.classList.toggle('locked', !s);
   $('h-team').textContent = s ? fxText(acc.teamFx()) : 'キャラ5人でスキルを組み合わせる';
   $('btn-admin').hidden = !acc.isAdmin();
@@ -1086,6 +1105,7 @@ initGrowth({
   rankId: () => myRankId(), playerName: () => acc.getState()?.name || load('name', ''),
 });
 initMatch({ entries, toast, overlay, openAccount, esc, jacketURL, rate: () => currentRate() });
+initInstall({ toast });
 initKeyConfig({ settings: () => settings, saveSettings: (s) => { settings = s; setSettings(s); }, toast });
 initDan({ entries, show: (n) => { stopPreview(); show(n); }, back: () => goHome(true), current: () => state, esc, jacketURL, toast, overlay,
   play: (entry, d, custom) => startGame(entry, d, custom) });
@@ -1099,7 +1119,7 @@ initExtras({
 });
 
 // オフライン対応: 一度読み込んだファイルを端末に保存しておく(公開サイトのみ。ローカル開発では古いファイルが残らないよう使わない)
-if ('serviceWorker' in navigator && (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname) || location.search.includes('sw=1'))) {
+if (!EMBED && 'serviceWorker' in navigator && (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname) || location.search.includes('sw=1'))) {
   navigator.serviceWorker.register(ROOT_PATH + 'sw.js', { scope: ROOT_PATH }).catch((e) => console.warn('sw', e));
 }
 
@@ -1170,6 +1190,8 @@ function syncSettingsUI() {
   $('o-beam').textContent = settings.hitBeam ? 'ON' : 'OFF';
   $('s-laneopt').value = settings.lane || 'normal';
   $('s-vis').value = settings.vis || 'none';
+  $('s-stream').value = settings.stream || '';
+  applyStream();
   $('s-ghost').checked = settings.ghost !== false;
   $('o-ghost').textContent = settings.ghost !== false ? 'ON' : 'OFF';
   $('s-mv').checked = settings.mv !== false;
@@ -1178,6 +1200,20 @@ function syncSettingsUI() {
 }
 $('s-laneopt').addEventListener('change', () => { settings.lane = $('s-laneopt').value; setSettings(settings); });
 $('s-vis').addEventListener('change', () => { settings.vis = $('s-vis').value; setSettings(settings); });
+$('s-stream').addEventListener('change', () => { settings.stream = $('s-stream').value; setSettings(settings); applyStream(); });
+// 配信者モード: body に印を付け、みんなでライブの参加コードを画面の上に出し続ける
+function applyStream() {
+  document.body.classList.toggle('stream', !!settings.stream);
+  document.body.classList.toggle('stream-green', settings.stream === 'green');
+}
+setInterval(() => {
+  const el = $('stream-code');
+  const code = settings.stream ? roomCode() : '';
+  const show = !!code && (state === 'game' || state === 'live' || state === 'result');
+  if (show) el.innerHTML = `<small>みんなでライブ 参加コード</small><b>${esc(code)}</b><small>「MUSIC LiDAR」で検索 → みんなでライブ → コードで参加</small>`;
+  el.hidden = !show;
+}, 1000);
+applyStream();
 $('s-ghost').addEventListener('change', () => { settings.ghost = $('s-ghost').checked; $('o-ghost').textContent = settings.ghost ? 'ON' : 'OFF'; setSettings(settings); });
 $('s-mv').addEventListener('change', () => {
   settings.mv = $('s-mv').checked;

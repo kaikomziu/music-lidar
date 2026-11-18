@@ -493,15 +493,18 @@ export class Game {
     const bg = g.createLinearGradient(0, 0, 0, H);
     bg.addColorStop(0, '#02030a'); bg.addColorStop(1, '#070a1c');
     g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    // 配信者モードのグリーンバック: 背景を緑一色にする(配信ソフトのクロマキーで抜ける)。MVと点群は描かない
+    const green = this.settings.stream === 'green';
+    if (green) { g.fillStyle = '#00ff00'; g.fillRect(0, 0, W, H); }
     const F = this.F;
     const energy = (0.35 + Math.min(1, this.tCombo / 60) * 0.65) * F.pulse;
-    const mvOn = !!this.mv && this.settings.mv !== false;
+    const mvOn = !green && !!this.mv && this.settings.mv !== false;
     if (mvOn) {
       // MVは背景。ノーツが見やすいように少し暗くし、点群の演出は弱める
       this.mv.draw(g, W, H, Math.max(0, t));
       g.fillStyle = 'rgba(2,3,10,0.38)'; g.fillRect(0, 0, W, H);
     }
-    this.cloud.draw(g, W, H, Math.max(0, t), this.bpm, energy, this.color, F.cloud * (mvOn ? 0.3 : 1));
+    if (!green) this.cloud.draw(g, W, H, Math.max(0, t), this.bpm, energy, this.color, F.cloud * (mvOn ? 0.3 : 1));
 
     // レーン床(始まりは奥へ伸びていく)
     const zNear = Z_J * 0.82;
@@ -819,14 +822,15 @@ export class Game {
     g.font = `700 ${small ? 9 : 10}px "Orbitron", sans-serif`;
     g.fillStyle = 'rgba(160,180,230,0.7)';
     g.fillText('S C O R E', W - 16, 10);
-    g.font = `800 ${small ? 20 : 30}px "Orbitron", sans-serif`;
+    const big = this.settings.stream ? 1.7 : 1; // 配信者モードはスコアを大きく(配信の画面でも読めるように)
+    g.font = `800 ${Math.round((small ? 20 : 30) * big)}px "Orbitron", sans-serif`;
     g.fillStyle = '#fff';
     g.shadowColor = this.color; g.shadowBlur = this.F.glow;
     g.fillText(String(this.teamScore).padStart(7, '0'), W - 16, small ? 22 : 24);
     g.shadowBlur = 0;
     g.font = `600 ${small ? 11 : 13}px "Orbitron", sans-serif`;
     g.fillStyle = 'rgba(200,220,255,0.85)';
-    const accY = small ? 46 : 60;
+    const accY = (small ? 46 : 60) + (big > 1 ? (small ? 14 : 22) : 0);
     g.fillText(this.accuracy.toFixed(2) + '%', W - 16, accY);
     if (this.ghost) { // ゴースト: 同じ時点の自己ベストとの差
       const dlt = this.score - this.ghostScore(t);
@@ -855,7 +859,8 @@ export class Game {
       const fs = Math.round(G.laneW * 0.62);
       g.font = `900 ${fs}px "Orbitron", sans-serif`;
       const cg = g.createLinearGradient(0, -fs / 2, 0, fs / 2);
-      cg.addColorStop(0, 'rgba(255,255,255,0.4)'); cg.addColorStop(1, hexA(stColor, 0.22));
+      const ca = this.settings.stream ? 2.1 : 1; // 配信者モードはコンボをはっきり
+      cg.addColorStop(0, `rgba(255,255,255,${0.4 * ca})`); cg.addColorStop(1, hexA(stColor, 0.22 * ca));
       g.fillStyle = cg;
       g.fillText(this.tCombo, 0, 0);
       g.strokeStyle = 'rgba(255,255,255,0.12)'; g.lineWidth = 1;

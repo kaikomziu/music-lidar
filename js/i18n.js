@@ -15,7 +15,7 @@ export function setLang(v) { save('lang', v); location.reload(); }
 const EN = {
   // タイトル・共通
   '無料・インストール不要で遊べるブラウザ音ゲー': 'A free browser rhythm game — no install needed',
-  '遊び方・収録曲': 'How to play & songs', '曲のまとめ': 'Song collections', '更新履歴': 'Changelog',
+  '遊び方・収録曲': 'How to play & songs', '実況・配信ガイドライン': 'Streaming guidelines', '曲のまとめ': 'Song collections', '更新履歴': 'Changelog',
   '設定': 'Settings', 'チュートリアル': 'Tutorial', 'リクエスト': 'Feedback', '管理': 'Admin', '閉じる': 'Close',
   '← 戻る': '← Back', '← ホーム': '← Home', 'ホームへ': 'Home', 'あとで': 'Later', 'スタート': 'Start', '読み込み中…': 'Loading…',
   '↻ 更新': '↻ Refresh', '決定': 'OK', '削除': 'Delete', 'やめる': 'Cancel', 'もう一度': 'Again',

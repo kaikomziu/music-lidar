@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>実況・配信ガイドライン｜MUSIC LiDAR(無料ブラウザ音ゲー)</title>
+<meta name="description" content="無料のブラウザ4キー音ゲー「MUSIC LiDAR」の実況・配信・動画投稿のガイドライン。連絡なしで自由に配信・投稿でき、オリジナル曲は収益化もOKです。外部の曲の扱い、概要欄の例、配信に便利な機能も紹介。">
+<link rel="canonical" href="https://music-lidar.com/streaming.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="MUSIC LiDAR">
+<meta property="og:title" content="実況・配信ガイドライン｜MUSIC LiDAR">
+<meta property="og:description" content="MUSIC LiDAR の実況・配信・動画投稿は自由です。オリジナル曲は収益化もOK。">
+<meta property="og:url" content="https://music-lidar.com/streaming.html">
+<meta property="og:image" content="https://music-lidar.com/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#02030a">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+:root { --bg: #02030a; --text: #e6f0ff; --muted: #8a97c0; --line: rgba(110, 140, 255, 0.22); --cyan: #5ef2ff; --pink: #ff4fd8; }
+* { box-sizing: border-box; }
+body { margin: 0; background: radial-gradient(circle at 50% -10%, #0d1640, var(--bg) 60%) fixed, var(--bg); color: var(--text); font-family: 'Noto Sans JP', system-ui, sans-serif; line-height: 1.8; }
+a { color: var(--cyan); }
+.wrap { width: min(860px, 100%); margin: 0 auto; padding: 32px 16px 64px; }
+header { text-align: center; padding: 24px 0 8px; }
+.logo { font-family: Orbitron, 'Noto Sans JP', sans-serif; font-weight: 900; font-size: clamp(36px, 9vw, 64px); letter-spacing: 0.05em; margin: 0; text-shadow: 0 0 20px rgba(94, 242, 255, 0.6); }
+.logo small { display: block; font-size: 0.32em; letter-spacing: 0.5em; color: var(--muted); }
+.lead { color: var(--muted); margin: 8px 0 20px; }
+.play { display: inline-block; padding: 14px 34px; border: 1px solid var(--cyan); color: #fff; text-decoration: none; font-weight: 700; letter-spacing: 0.2em; background: rgba(94, 242, 255, 0.12); box-shadow: 0 0 20px rgba(94, 242, 255, 0.35); }
+.play:hover { background: rgba(94, 242, 255, 0.25); }
+img.hero { width: 100%; height: auto; border: 1px solid var(--line); margin: 24px 0 8px; }
+h2 { font-size: 22px; margin: 44px 0 12px; padding-left: 12px; border-left: 3px solid var(--cyan); }
+h3 { font-size: 16px; margin: 20px 0 6px; color: var(--cyan); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; }
+td.lv { font-family: Orbitron, sans-serif; white-space: nowrap; }
+kbd { display: inline-block; min-width: 28px; text-align: center; border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; background: rgba(10, 16, 40, 0.8); color: var(--cyan); font-weight: 700; }
+ul { padding-left: 1.3em; }
+.table-wrap { overflow-x: auto; }
+footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; text-align: center; }
+</style>
+<style>
+.ok, .ng { list-style: none; padding: 0; }
+.ok li, .ng li { position: relative; padding: 6px 0 6px 30px; border-bottom: 1px solid var(--line); }
+.ok li::before { content: '○'; position: absolute; left: 4px; color: #9dff4f; font-weight: 900; }
+.ng li::before { content: '×'; position: absolute; left: 6px; color: #ff5a8a; font-weight: 900; }
+.box { border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; background: rgba(10, 16, 40, 0.6); }
+.big { font-size: 18px; font-weight: 700; }
+pre { white-space: pre-wrap; background: rgba(0, 0, 0, 0.45); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.7; }
+code { background: rgba(0, 0, 0, 0.4); border-radius: 4px; padding: 1px 5px; font-size: 13px; }
+.toc { font-size: 14px; }
+.date { color: var(--muted); font-size: 12px; }
+.en { margin-top: 64px; padding-top: 8px; border-top: 2px solid var(--line); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="logo"><small>MUSIC</small>LiDAR</p>
+    <h1 class="lead">実況・配信ガイドライン</h1>
+    <p class="toc"><a href="#en">English version</a> ・ <a href="./">▶ ゲームを開く</a> ・ <a href="guide.html">遊び方・収録曲</a></p>
+  </header>
+
+  <div class="box">
+    <p class="big">MUSIC LiDAR の実況・配信・動画投稿は、連絡なしで自由にどうぞ。</p>
+    <p>個人・法人を問わず、どのサイトでも大丈夫です。オリジナル曲(ほとんどの曲)は<strong>収益化もOK</strong>です。<br>
+    ほかの作者さんの曲が4曲だけあり、それらはそれぞれのルールに従ってください(<a href="#songs">下の表</a>)。</p>
+  </div>
+
+  <h2>やっていいこと</h2>
+  <ul class="ok">
+    <li>生配信・実況動画・プレイ動画の投稿(YouTube・Twitch・ニコニコ・TikTok・X など、どこでも)</li>
+    <li>切り抜き・ショート動画・編集・字幕・解説動画・攻略動画・譜面の紹介</li>
+    <li><strong>収益化</strong>(広告収入・スーパーチャット・投げ銭・メンバーシップ・サブスクなど)。オリジナル曲ならOKです</li>
+    <li>サムネイルにゲーム画面・ロゴ・ジャケットを使う</li>
+    <li>視聴者と「みんなでライブ」で一緒に遊ぶ、ランキングで競う、大会やイベントを開く</li>
+    <li>譜面メーカーで作った譜面を配信で紹介する、視聴者のリクエスト譜面を遊ぶ</li>
+    <li>辛口のレビューや感想も歓迎です</li>
+  </ul>
+
+  <h2>やめてほしいこと</h2>
+  <ul class="ng">
+    <li>曲の音源だけを取り出して配る・音楽配信サービスに登録する・自分の曲として出す(配信や動画の中で流れるのは問題ありません)</li>
+    <li>自動プレイなどのツールや、書き換えた記録で、ランキングやスコアアタックに記録を残す(ツールを使うなら、ログインしないで遊んでください)</li>
+    <li>「公式」と名乗る、公式のお知らせのように見せる</li>
+    <li>ゲームを改造・複製したものを、本物のように配る</li>
+    <li>ほかのプレイヤーへの嫌がらせ、配信サイトのルールや法律に反すること</li>
+  </ul>
+
+  <h2 id="songs">ほかの作者さんの曲(4曲)</h2>
+  <p>次の4曲は、ほかの作者さんの曲を、許可やライセンスのもとで使わせてもらっています。<strong>収益化している配信・動画では、シャイニングスター以外の3曲は遊ばないでください。</strong>収益化していなければ、クレジットを書けば4曲とも遊んでOKです。<br>
+  選曲画面で作者名(クレジット)が出ている曲が、ほかの作者さんの曲です。それ以外の曲は、すべてオリジナル曲です。</p>
+  <div class="table-wrap"><table>
+    <tr><th>曲名</th><th>作者</th><th>収益化なし</th><th>収益化あり</th></tr>
+    <tr><td>シャイニングスター</td><td><a href="https://maou.audio/" rel="noopener">魔王魂</a></td><td>OK(クレジット必須)</td><td>OK(クレジット必須)<br><small>魔王魂の利用規約に従ってください</small></td></tr>
+    <tr><td>INMU KING(動画MVを含む)</td><td>YAJU-MC(やじゅまん)<br><a href="https://commons.nicovideo.jp/works/nc499430" rel="noopener">ニコニ・コモンズ nc499430</a></td><td>OK(クレジット必須)<br><small>ニコニコ動画では、親作品に nc499430 を登録してください</small></td><td>×</td></tr>
+    <tr><td>SUMMER TRIANGLE</td><td>しゃろう(<a href="https://opentracks.com/" rel="noopener">OpenTracks</a>)</td><td>OK(クレジット必須)</td><td>×</td></tr>
+    <tr><td>水の追憶</td><td>ああああ</td><td>OK(クレジット必須)</td><td>×<br><small>収益化には作者さんへの連絡が必要なため</small></td></tr>
+  </table></div>
+  <p>クレジットの例: <code>音楽:魔王魂</code> / <code>音楽:YAJU-MC「INMU KING」 ニコニ・コモンズ nc499430</code> / <code>音楽:しゃろう「SUMMER TRIANGLE」(OpenTracks)</code> / <code>音楽:ああああ「水の追憶」</code></p>
+
+  <h2>クレジット・概要欄</h2>
+  <p>ゲームそのもののクレジットは<strong>なくても大丈夫</strong>です。書いてもらえると、見た人が遊びに来られるのでうれしいです。ほかの作者さんの曲を遊んだときは、上の表のクレジットを書いてください。</p>
+  <p>コピーして使える例:</p>
+<pre>🎮 MUSIC LiDAR(無料のブラウザ音ゲー)
+https://music-lidar.com/
+#MUSICLiDAR</pre>
+  <p>ハッシュタグ <strong>#MUSICLiDAR</strong> を付けてもらえると、見つけて見に行くかもしれません。</p>
+
+  <h2>配信に便利な機能</h2>
+  <ul>
+    <li><strong>配信者モード</strong>(設定): スコアとコンボを大きく表示し、「みんなでライブ」のルームコードを画面の上に出します。「グリーンバック」にすると背景が緑一色になり、配信ソフトのクロマキーで抜けます</li>
+    <li><strong>みんなでライブ</strong>: 最大8人で同じ曲を同時にプレイ。ルームコードを配信で伝えれば、視聴者と一緒に遊べます</li>
+    <li><strong>曲のURL</strong>: 選曲画面の「🔗 この曲のURLを共有」で、その曲を開くURLを概要欄やチャットに貼れます</li>
+    <li><strong>埋め込み</strong>: 「⧉ 埋め込みコード」で、ブログやサイトに曲を貼って遊んでもらえます</li>
+    <li><strong>判定タイミングの自動調整</strong>(設定): 配信ソフトやBluetoothイヤホンで音がずれるときに使ってください</li>
+    <li>インストール不要なので、視聴者もURLを開くだけですぐ遊べます(PC・スマホ)</li>
+  </ul>
+
+  <h2>そのほか</h2>
+  <ul>
+    <li>配信・投稿の報告はいりません。教えてもらえたら喜んで見に行きます(ゲーム内の「リクエスト」から送れます)</li>
+    <li>このガイドラインに書いていないことも、常識の範囲なら基本的に自由です。迷ったら、ゲーム内の「リクエスト」から聞いてください</li>
+    <li>ガイドラインは変わることがあります。そのときも、配信・投稿した時点のガイドラインに沿っていれば大丈夫です</li>
+  </ul>
+  <p class="date">2026年11月18日 制定</p>
+
+  <section class="en" id="en" lang="en">
+    <h2>Streaming &amp; Video Guidelines (English)</h2>
+    <div class="box">
+      <p class="big">You are free to stream, record and upload MUSIC LiDAR — no need to ask.</p>
+      <p>Individuals and companies, on any platform. <strong>Monetization is OK</strong> for the original songs (almost all songs). Four songs are by other artists and follow their own rules (see below).</p>
+    </div>
+    <h3>You can</h3>
+    <ul class="ok">
+      <li>Live stream and upload let’s plays and gameplay videos (YouTube, Twitch, Niconico, TikTok, X — anywhere)</li>
+      <li>Make clips, shorts, edits, subtitles, guides and chart showcases</li>
+      <li><strong>Monetize</strong> (ads, Super Chat, tips, memberships, subscriptions) when playing original songs</li>
+      <li>Use screenshots, the logo and song jackets in thumbnails</li>
+      <li>Play with viewers in Multiplayer live, compete in rankings, host tournaments and events</li>
+      <li>Show off charts made with the chart maker or play charts requested by viewers</li>
+    </ul>
+    <h3>Please don’t</h3>
+    <ul class="ng">
+      <li>Rip the songs and redistribute them, upload them to music services or claim them as your own (playing them in streams and videos is fine)</li>
+      <li>Submit scores to rankings or score attack using auto-play tools or edited records (if you use tools, play without logging in)</li>
+      <li>Present yourself as official or make posts that look like official announcements</li>
+      <li>Distribute modified or copied versions of the game as if they were the real one</li>
+      <li>Harass other players or break platform rules or the law</li>
+    </ul>
+    <h3>Songs by other artists (4 songs)</h3>
+    <p>Songs that show an artist credit on the song select screen are by other artists. <strong>In monetized streams or videos, please do not play the three songs other than “Shining Star”.</strong> In non-monetized content, all four are fine with a credit.</p>
+    <div class="table-wrap"><table>
+      <tr><th>Song</th><th>Artist</th><th>Non-monetized</th><th>Monetized</th></tr>
+      <tr><td>Shining Star (シャイニングスター)</td><td><a href="https://maou.audio/" rel="noopener">Maou Damashii</a></td><td>OK (credit required)</td><td>OK (credit required; follow their terms)</td></tr>
+      <tr><td>INMU KING (incl. the video)</td><td>YAJU-MC (<a href="https://commons.nicovideo.jp/works/nc499430" rel="noopener">Niconi Commons nc499430</a>)</td><td>OK (credit required)</td><td>No</td></tr>
+      <tr><td>SUMMER TRIANGLE</td><td>Sharou (<a href="https://opentracks.com/" rel="noopener">OpenTracks</a>)</td><td>OK (credit required)</td><td>No</td></tr>
+      <tr><td>Mizu no Tsuioku (水の追憶)</td><td>ああああ</td><td>OK (credit required)</td><td>No</td></tr>
+    </table></div>
+    <h3>Credits</h3>
+    <p>A credit for the game itself is <strong>not required</strong>, but appreciated:</p>
+<pre>🎮 MUSIC LiDAR (free browser rhythm game)
+https://music-lidar.com/
+#MUSICLiDAR</pre>
+    <h3>Handy features</h3>
+    <ul>
+      <li><strong>Streamer mode</strong> (Settings): bigger score and combo, the room code on screen, and a green-screen background for chroma key</li>
+      <li><strong>Multiplayer live</strong>: up to 8 players — share the room code with your viewers</li>
+      <li><strong>Auto timing adjustment</strong> (Settings): fixes audio delay from streaming software or Bluetooth headphones</li>
+      <li>No install needed — viewers can join just by opening the URL on PC or phone</li>
+    </ul>
+    <p>No need to tell us about your streams, but we’d love to watch — send a message via “Feedback” in the game. Anything not covered here is generally fine within common sense. These guidelines may change; content made under the guidelines at the time is fine.</p>
+    <p class="date">Established November 18, 2026</p>
+  </section>
+
+  <footer>
+    <p><a class="play" href="./">▶ MUSIC LiDAR で遊ぶ</a></p>
+    <p>制作:kaikomziu ・ <a href="guide.html">遊び方・収録曲</a> ・ <a href="collections/">曲のまとめ</a></p>
+  </footer>
+</div>
+</body>
+</html>

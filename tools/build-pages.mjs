@@ -46,7 +46,7 @@ function setMeta(html, attr, key, value) {
 }
 
 const seen = new Set();
-const urls = [SITE, SITE + 'guide.html'];
+const urls = [SITE, SITE + 'guide.html', SITE + 'streaming.html'];
 for (const s of songs) {
   if (!s.urlId || !/^[a-z0-9]{6,16}$/.test(s.urlId)) throw new Error('urlId がない/不正: ' + s.id);
   if (seen.has(s.urlId)) throw new Error('urlId が重複: ' + s.urlId);

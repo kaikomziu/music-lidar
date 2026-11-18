@@ -82,7 +82,7 @@ export function initGrowth(api) {
   });
   // 招待リンク(?invite=CODE)と、プレイヤーページのリンク(?player=名前)
   const q = new URLSearchParams(location.search);
-  if (q.get('invite')) save('inviteCode', q.get('invite').toUpperCase().slice(0, 8));
+  if (q.get('invite')) { save('inviteCode', q.get('invite').toUpperCase().slice(0, 8)); showInviteBanner(load('inviteCode', '')); }
   if (q.get('player')) setTimeout(() => openProfile(q.get('player')), 1500);
   renderWeekly();
 }
@@ -406,6 +406,28 @@ function inviteHtml() {
     <div class="pf-code"><b id="inv-code">……</b><button class="btn-line small" data-copy-inv>リンクをコピー</button></div>
     ${canRedeem ? `<form class="pf-redeem" data-redeem><input id="inv-input" maxlength="8" placeholder="もらった招待コード" autocomplete="off"><button class="btn-line small">使う</button></form><p class="muted small">招待コードは、始めてから14日以内に1回だけ使えます</p>`
       : s.meta?.invited_by ? `<p class="muted small">${ui.esc(s.meta.invited_by)} さんの招待で始めました</p>` : ''}</section>`;
+}
+// 招待リンクで来た人に「〇〇さんから招待されました」を画面の上に出す(まだログインしていない人だけ。ログイン中なら自動で使われてお知らせが出る)
+async function showInviteBanner(code) {
+  if (!code || acc.getToken() || document.body.classList.contains('embed')) return;
+  let r = null;
+  try { r = await rpc('mlidar_invite_lookup', { p_code: code }); } catch { return; }
+  if (!r?.name || acc.getToken()) return;
+  const bar = document.createElement('div');
+  bar.id = 'invite-banner';
+  bar.className = 'invite-banner';
+  bar.setAttribute('role', 'status');
+  bar.innerHTML = `<span class="ivb-ico" aria-hidden="true">🎁</span>
+    <span class="ivb-text"><b><em>${ui.esc(r.name)}</em> さんから招待されました!</b>${r.rate > 0 ? titleTag(r.rate) : ''}
+      <small>ログインして始めると、2人とも ◎300 と限定の着せ替え「フレンド」がもらえます</small></span>
+    <button type="button" class="btn-glow small" data-ivb-login>ログインして受け取る</button>
+    <button type="button" class="ib-close" data-ivb-close aria-label="閉じる">✕</button>`;
+  bar.addEventListener('click', (ev) => {
+    if (ev.target.closest('[data-ivb-close]')) bar.remove();
+    else if (ev.target.closest('[data-ivb-login]')) ui.openAccount();
+  });
+  document.body.appendChild(bar);
+  acc.onChange((st) => { if (st) bar.remove(); }); // ログインしたら消す(招待コードはログイン後に自動で使う)
 }
 async function loadInviteCode() {
   try { const c = await rpc('mlidar_invite_code', { p_token: acc.getToken() }); if ($('inv-code')) $('inv-code').textContent = c; } catch { /* noop */ }

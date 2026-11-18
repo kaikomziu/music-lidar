@@ -1578,3 +1578,14 @@ body.embed [data-home], body.embed #btn-share, body.embed #btn-embed, body.embed
 .stream-code small { font-size: 11px; color: var(--muted); }
 body.stream #live-room-code { font-size: 2em; letter-spacing: 0.2em; }
 body.stream-green .bg-canvas, body.stream-green #bg { display: none; }
+
+/* 招待リンクで来た人へのお知らせ(growth.js showInviteBanner) */
+.invite-banner { position: fixed; z-index: 25; top: 10px; left: 50%; transform: translateX(-50%); width: min(720px, calc(100% - 20px)); display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid rgba(255,210,94,0.6); border-radius: 8px; background: linear-gradient(90deg, rgba(40,30,8,0.94), rgba(30,10,40,0.94)); box-shadow: 0 0 24px rgba(255,210,94,0.25); animation: ivbIn 0.5s var(--ease-out, ease-out) both; }
+.invite-banner .ivb-ico { font-size: 26px; }
+.invite-banner .ivb-text { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.invite-banner .ivb-text b { font-size: 15px; }
+.invite-banner .ivb-text em { font-style: normal; color: #ffd25e; }
+.invite-banner .ivb-text small { flex-basis: 100%; font-size: 12px; color: var(--muted); }
+@keyframes ivbIn { from { opacity: 0; transform: translate(-50%, -12px); } }
+@media (max-width: 560px) { .invite-banner { flex-wrap: wrap; } .invite-banner .btn-glow { flex: 1; } }
+@media (prefers-reduced-motion: reduce) { .invite-banner { animation: none; } }

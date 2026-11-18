@@ -1,6 +1,9 @@
 // Web Audio: リアルタイム再生系 + 内蔵曲のオフライン合成
 
+import { makeTap, tapKind, onEquip } from './skins.js';
 let ctx = null, bgmGain = null, seGain = null, tapBuf = null;
+// 着せ替えでタップ音を変えたら作り直す
+onEquip(() => { if (ctx) tapBuf = makeTap(ctx, tapKind()); });
 
 export function getCtx() {
   if (!ctx) {
@@ -9,7 +12,7 @@ export function getCtx() {
     seGain = ctx.createGain();
     bgmGain.connect(ctx.destination);
     seGain.connect(ctx.destination);
-    tapBuf = makeTapBuffer(ctx);
+    tapBuf = makeTap(ctx, tapKind());
   }
   if (ctx.state === 'suspended') ctx.resume();
   return ctx;
@@ -57,16 +60,6 @@ export function nowAudio(perfNow = performance.now()) {
     if (ts.performanceTime > 0 && ts.contextTime > 0) return ts.contextTime + (perfNow - ts.performanceTime) / 1000;
   }
   return c.currentTime - (c.outputLatency || c.baseLatency || 0);
-}
-
-function makeTapBuffer(c) {
-  const sr = c.sampleRate, len = Math.floor(sr * 0.06);
-  const b = c.createBuffer(1, len, sr), d = b.getChannelData(0);
-  for (let i = 0; i < len; i++) {
-    const t = i / sr;
-    d[i] = (Math.sin(2 * Math.PI * 2100 * t) * 0.5 + (Math.random() * 2 - 1) * 0.35) * Math.exp(-t * 90);
-  }
-  return b;
 }
 
 export function playTap() {

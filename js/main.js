@@ -23,6 +23,8 @@ import { TUTORIAL_DEF, TUT_NOTES, tutCaptions } from './tutorial.js';
 import { initAdmin, openAdmin, stopAdmin } from './admin.js';
 import { initRequest, closeRequest } from './request.js';
 import { initMotion, replay } from './motion.js';
+import { initGrowth, playerBadges, bindBadges, renderSongStats, renderWeekly, weeklyResult, resultGrowth, closeGrowth, currentRate } from './growth.js';
+import { initMatch, cancelMatch, reportMatch } from './match.js';
 import { initKeyConfig, render as renderKeys, apply as applyKeys } from './keyconfig.js';
 import { initDan, openDan, bestDan, danName } from './dan.js';
 import { initEvent, eventActive } from './event.js';
@@ -537,6 +539,7 @@ function renderDetail() {
   $('btn-play').classList.toggle('wait', !ready);
   $('play-sub').textContent = ready ? 'ENTER' : e.loadFailed ? '読み込み失敗・押して再試行' : '音源を準備中…(初回のみ)';
   loadRanking();
+  renderSongStats(e, diff);
 }
 
 const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -546,7 +549,7 @@ const rankCache = new Map();
 const myRankId = () => acc.getState()?.id || clientId();
 function rankRows(rows) {
   if (!rows.length) return '<li class="empty">まだ記録がありません。一番乗りしよう</li>';
-  return rows.map((r) => `<li class="${r.is_me ? 'me' : ''}"><span class="rk">${r.rank}</span><span class="nm">${esc(r.name)}</span>
+  return rows.map((r) => `<li class="${r.is_me ? 'me' : ''}"><span class="rk">${r.rank}</span><span class="nm" data-player="${esc(r.name)}" title="プレイヤーページを見る">${esc(r.name)}</span>
     <span>${r.ap ? '<span class="badge ap">AP</span>' : r.fc ? '<span class="badge fc">FC</span>' : ''}</span><span class="sc">${fmtScore(r.score)}</span></li>`).join('');
 }
 function loadRanking(force = false) {
@@ -788,7 +791,10 @@ function onGameEnd(r) {
   drawJudgeGraph(r, entry.buffer?.duration || entry.duration || 120);
   setShareResult(entry, playing.label, r);
   $('r-daily').hidden = true;
+  $('r-weekly').hidden = true;
+  $('r-growth').innerHTML = custom ? '' : resultGrowth(null, r); // ログイン中は記録を送ったあとに XP なども足して出し直す
   if (playing.extra?.daily) dailyResult(playing.extra.daily, r, () => state === 'result' && lastResult === r);
+  if (playing.extra?.weekly) weeklyResult(playing.extra.weekly, d, r, () => state === 'result' && lastResult === r);
   const on = $('r-online');
   const name = load('name', '');
   if (custom) {
@@ -811,6 +817,7 @@ function onGameEnd(r) {
         (res.gained === 0 ? ' <span class="muted">(連続送信のため報酬なし)</span>' : '') +
         (n ? ` ・ <button class="link-btn" data-nav-q>受け取れるクエストが ${n} 件</button>` : '');
       $('r-reward').querySelector('[data-nav-q]')?.addEventListener('click', () => { import('./meta.js').then((m) => m.openScreen('quest')); });
+      $('r-growth').innerHTML = resultGrowth(res, r);
       if (entry.local) { on.innerHTML = '<p class="r-msg">読み込んだ曲はランキング対象外です。</p>'; return; }
       rankCache.delete(entry.id + '/' + d);
       const rows = await fetchRanking(entry.id, d, myRankId(), 10);
@@ -876,6 +883,7 @@ window.addEventListener('keydown', (ev) => {
       else if (ev.key === '3') { ev.preventDefault(); openDan(); }
       else if (ev.key === '4') { ev.preventDefault(); $('btn-daily').click(); }
       else if (ev.key === '5') { ev.preventDefault(); $('btn-course').click(); }
+      else if (ev.key === '6') { ev.preventDefault(); $('btn-match').click(); }
       else if (ev.key === 'Enter' && !onBtn) { ev.preventDefault(); goSelect(); }
     } else if (ev.key === 'Enter' && !onBtn) { ev.preventDefault(); homeLive(true); }
     return;
@@ -897,7 +905,7 @@ window.addEventListener('keydown', (ev) => {
   if (state === 'player') { playerKeydown(ev); return; }
   if (state === 'admin') { if (ev.key === 'Escape') $('adm-back').click(); return; }
   if (state === 'dan') { if (ev.key === 'Escape' && !modalOpen()) $('dan-back').click(); return; }
-  if (state === 'quest' || state === 'gacha' || state === 'team') {
+  if (state === 'quest' || state === 'gacha' || state === 'team' || state === 'pass') {
     if (ev.key === 'Escape') { if (gachaResultOpen()) closeGacha(); else goHome(); }
     return;
   }
@@ -976,6 +984,8 @@ function closeModals() {
   overlay('dan-result', false);
   overlay('course', false);
   overlay('calib', false);
+  closeGrowth();
+  if ($('match-modal').classList.contains('on')) cancelMatch();
 }
 function goSelect() {
   homeLive(false);
@@ -1026,7 +1036,7 @@ function homeLive(on) {
   $('home-main').hidden = on;
   $('home-live').hidden = !on;
   $('h-live').classList.toggle('open', on);
-  if (on) renderDaily();
+  if (on) { renderDaily(); renderWeekly(); }
   if (on) setTimeout(() => { if (state === 'home') $('btn-solo').focus({ preventScroll: true }); }, 30);
 }
 const homeLiveOpen = () => !$('home-live').hidden;
@@ -1038,9 +1048,10 @@ function renderHome() {
     jk.innerHTML = pick.map((e) => `<img src="${jacketURL(e, 128)}" alt="">`).join('');
   }
   $('h-player').innerHTML = s
-    ? `<span class="hp-hi">WELCOME BACK</span><b>${esc(s.name)}</b>${bestDan() ? `<span class="hp-dan">${danName(bestDan())}</span>` : ''}<span class="hp-sep"></span><span class="coin-ico">◎</span>${s.coins.toLocaleString()}<span class="hp-sep"></span><span class="muted">編成: ${esc(fxText(acc.teamFx()))}</span>`
-    : `<span class="hp-hi">GUEST</span><span class="muted">ログインすると 編成・ガチャ・クエスト・みんなでライブ が遊べます(はじめに 1000 コイン)</span><button class="btn-line hp-login" id="hp-login">ログイン / 新規登録</button>`;
+    ? `<span class="hp-hi">WELCOME BACK</span><b>${esc(s.name)}</b>${playerBadges()}${bestDan() ? `<span class="hp-dan">${danName(bestDan())}</span>` : ''}<span class="hp-sep"></span><span class="coin-ico">◎</span>${s.coins.toLocaleString()}<span class="hp-sep"></span><span class="muted">編成: ${esc(fxText(acc.teamFx()))}</span>`
+    : `<span class="hp-hi">GUEST</span>${playerBadges()}<span class="muted">ログインすると 編成・ガチャ・クエスト・みんなでライブ が遊べます(はじめに 1000 コイン)</span><button class="btn-line hp-login" id="hp-login">ログイン / 新規登録</button>`;
   $('hp-login')?.addEventListener('click', () => openAccount());
+  bindBadges();
   for (const t of document.querySelectorAll('#home .need-login')) t.classList.toggle('locked', !s);
   $('h-team').textContent = s ? fxText(acc.teamFx()) : 'キャラ5人でスキルを組み合わせる';
   $('btn-admin').hidden = !acc.isAdmin();
@@ -1068,6 +1079,13 @@ initAdmin({ entries, show: (n) => { stopPreview(); show(n); }, back: () => goHom
 $('btn-admin').addEventListener('click', () => openAdmin());
 initMotion();
 initRequest({ esc, toast });
+initGrowth({
+  entries, bestOf, esc, toast, overlay, jacketURL, openAccount, rankRows, diffColor: DIFF_COLOR,
+  show: (n) => { stopPreview(); show(n); }, back: () => goHome(), current: () => state,
+  play: (entry, d, custom, live, extra) => startGame(entry, d, custom, live, extra),
+  rankId: () => myRankId(), playerName: () => acc.getState()?.name || load('name', ''),
+});
+initMatch({ entries, toast, overlay, openAccount, esc, jacketURL, rate: () => currentRate() });
 initKeyConfig({ settings: () => settings, saveSettings: (s) => { settings = s; setSettings(s); }, toast });
 initDan({ entries, show: (n) => { stopPreview(); show(n); }, back: () => goHome(true), current: () => state, esc, jacketURL, toast, overlay,
   play: (entry, d, custom) => startGame(entry, d, custom) });
@@ -1095,6 +1113,7 @@ initLive({
   entries, show: (n) => { stopPreview(); show(n); }, toast, back: () => goHome(true), current: () => state, esc, jacketURL, openAccount,
   diffColor: DIFF_COLOR, selected: () => entries[sel], diff: () => diff, isFav, toggleFav, bestOf,
   startLive: (entry, d, hooks) => startGame(entry, d, null, hooks),
+  onMatchResult: (win) => reportMatch(win),
 });
 $('btn-maker').addEventListener('click', () => openEditor(entries[sel]));
 acc.onChange(() => { if (state === 'select') { renderList(); renderDetail(); } if (state === 'home') renderHome(); });

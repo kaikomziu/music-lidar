@@ -1,6 +1,7 @@
 // ゲーム本体: 判定・スコア・3D風レーン描画・LiDAR演出
 import { getCtx, bgmOut, bgmOutFor, nowAudio, playTap } from './audio.js';
 import { NO_SCROLL } from './gimmick.js';
+import { noteColors, lineColors, hitKind, drawPart, partColor } from './skins.js';
 
 export const LANE_COLORS = ['#5ef2ff', '#ff4fd8', '#ff4fd8', '#5ef2ff'];
 // 初期のキー配置 [メイン, 連打用の2つ目]。2つ目は2本の指で交互に押して速い連打をするためのキー
@@ -463,11 +464,12 @@ export class Game {
     if (beam && F.laser > 0) this.fx.lasers.push({ lane, at: now, res });
     if (beam && F.scan > 0) this.fx.scans.push({ lane, at: now, wide: res === 'PERFECT' && F.scan >= 1 });
     if (res === 'PERFECT') {
-      const n = F.parts;
+      const kind = hitKind(); // 着せ替えの「ヒット演出」
+      const n = kind === 'ring' ? Math.max(1, Math.round(F.parts / 3)) : F.parts;
       for (let i = 0; i < n; i++) {
         const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.6;
         const sp = 140 + Math.random() * 360;
-        this.fx.parts.push({ lane, ox: (Math.random() - 0.5) * 0.8, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, at: now, life: 380 + Math.random() * 300, c: LANE_COLORS[lane] });
+        this.fx.parts.push({ lane, ox: (Math.random() - 0.5) * 0.8, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, at: now, life: 380 + Math.random() * 300, c: partColor(kind, noteColors()[lane]), kind, i, rot: Math.random() * 6 });
       }
     }
   }
@@ -523,7 +525,7 @@ export class Game {
         this.quad(G, u0, u1, Z_J, Z_J + 9);
         const [, y0] = this.proj(G, 0, Z_J), [, y1] = this.proj(G, 0, Z_J + 9);
         const gr = g.createLinearGradient(0, y0, 0, y1);
-        gr.addColorStop(0, hexA(LANE_COLORS[l], 0.38)); gr.addColorStop(1, hexA(LANE_COLORS[l], 0));
+        gr.addColorStop(0, hexA(noteColors()[l], 0.38)); gr.addColorStop(1, hexA(noteColors()[l], 0));
         g.fillStyle = gr; g.fill();
       }
     }
@@ -574,7 +576,7 @@ export class Game {
       const z = Z_J + k * (Z_FAR - Z_J);
       const u0 = s.wide ? -2 : s.lane - 2, u1 = s.wide ? 2 : s.lane - 1;
       this.quad(G, u0, u1, z, z + 0.35);
-      g.fillStyle = hexA(LANE_COLORS[s.lane], (1 - k) * (s.wide ? 0.55 : 0.8) * F.scan);
+      g.fillStyle = hexA(noteColors()[s.lane], (1 - k) * (s.wide ? 0.55 : 0.8) * F.scan);
       g.fill();
     }
     // レーザー
@@ -583,7 +585,7 @@ export class Game {
       const k = (perfNow - s.at) / 260;
       const u = s.lane - 1.5;
       const [x0, y0] = this.proj(G, u, Z_J), [x1, y1] = this.proj(G, u, Z_FAR);
-      g.strokeStyle = hexA(LANE_COLORS[s.lane], (1 - k) * F.laser);
+      g.strokeStyle = hexA(noteColors()[s.lane], (1 - k) * F.laser);
       g.lineWidth = (1 - k) * G.laneW * 0.5 * F.laser;
       g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
       g.strokeStyle = `rgba(255,255,255,${(1 - k) * F.laser})`;
@@ -626,7 +628,7 @@ export class Game {
     // 判定ラインの下のキー(押すと光る)
     g.save();
     for (let l = 0; l < 4; l++) {
-      const c = LANE_COLORS[l], on = this.pressed[l];
+      const c = noteColors()[l], on = this.pressed[l];
       const flash = Math.max(0, 1 - (perfNow - this.fx.flash[l]) / 160);
       this.quad(G, l - 2 + 0.06, l - 1 - 0.06, Z_J * 0.915, Z_J * 0.985);
       const [, ky0] = this.proj(G, 0, Z_J * 0.915), [, ky1] = this.proj(G, 0, Z_J * 0.985);
@@ -656,11 +658,12 @@ export class Game {
     // 判定ライン(光が左右に走る)
     g.globalCompositeOperation = 'lighter';
     const [jx0, jy] = this.proj(G, -2.06, Z_J), [jx1] = this.proj(G, 2.06, Z_J);
-    g.shadowColor = '#7ff9ff'; g.shadowBlur = F.judgeGlow;
-    g.strokeStyle = 'rgba(220,255,255,0.95)'; g.lineWidth = 3;
+    const [lineCore, lineGlow] = lineColors(); // 着せ替えの「判定ライン」
+    g.shadowColor = lineGlow; g.shadowBlur = F.judgeGlow;
+    g.strokeStyle = lineCore; g.lineWidth = 3;
     g.beginPath(); g.moveTo(jx0, jy); g.lineTo(jx1, jy); g.stroke();
     g.shadowBlur = 0;
-    g.strokeStyle = 'rgba(94,242,255,0.35)'; g.lineWidth = 1;
+    g.strokeStyle = hexA(lineGlow, 0.35); g.lineWidth = 1;
     g.beginPath(); g.moveTo(jx0, jy - 5); g.lineTo(jx1, jy - 5); g.stroke();
     const sx = jx0 + (jx1 - jx0) * ((perfNow / 1700) % 1);
     const sh = g.createLinearGradient(sx - 60, 0, sx + 60, 0);
@@ -678,8 +681,8 @@ export class Game {
       const [bx, by] = this.proj(G, p.lane - 1.5 + p.ox * 0.5, Z_J);
       const x = bx + p.vx * s, y = by + p.vy * s + 900 * s * s;
       const k = 1 - (perfNow - p.at) / p.life;
-      g.fillStyle = hexA(p.c, k);
-      g.fillRect(x - 2, y - 2, 4 * k + 1, 4 * k + 1);
+      if (p.kind === 'ring') { p.bx = bx; p.by = by; } // 輪はレーンの判定位置を中心に広がる
+      drawPart(g, p.kind, x, y, k, p.c, p);
     }
     g.restore();
 
@@ -688,7 +691,7 @@ export class Game {
 
   drawNote(G, n, t) {
     const g = this.g;
-    const c = LANE_COLORS[n.lane];
+    const c = noteColors()[n.lane];
     const u0 = n.lane - 2 + 0.05, u1 = n.lane - 1 - 0.05;
     const thick = 0.55;
     const fade = (z) => Math.max(0, Math.min(1, (Z_FAR - z) / 4));

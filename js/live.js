@@ -45,6 +45,7 @@ let comboTimer = 0, pingTimer = 0, castTimer = 0, cbTimer = 0, aliveTimer = 0;
 let lastHeard = 0;
 let sfu = null; // SFU(Daily.co)の通話 { call, peers: Map(Daily のID → メンバーID)(ホスト) }
 let sfuTrying = false, sfuFailed = false;
+let reportedRound = 0;
 let lobbyTimer = 0, listTimer = 0, lobbyKey = ''; // 部屋一覧(Supabase)の掲示・読み込み // 参加者: 最後にホストから何か届いた時刻
 
 const hostNow = () => Date.now() + clockOff;
@@ -56,7 +57,7 @@ const myName = () => acc.getState()?.name || load('name', '') || 'ゲスト';
 export function initLive(api) {
   ui = api;
   $('btn-live').addEventListener('click', openLive);
-  $('live-create').addEventListener('click', createRoom);
+  $('live-create').addEventListener('click', () => createRoom());
   $('live-join-form').addEventListener('submit', (ev) => { ev.preventDefault(); joinRoom($('live-code').value); });
   $('live-leave').addEventListener('click', leaveRoom);
   $('live-reload').addEventListener('click', () => loadRooms());
@@ -169,9 +170,9 @@ function hostAccept(conn) {
     if (!msg || typeof msg !== 'object') return;
     conn.seen = Date.now();
     if (msg.t === 'hello') {
-      if (room.members.length >= (room.sfu ? MAX_MEMBERS : P2P_MAX)) { conn.send({ t: 'err', e: 'ROOM_FULL' }); setTimeout(() => conn.close(), 300); return; }
+      if (room.members.length >= (room.cap || (room.sfu ? MAX_MEMBERS : P2P_MAX))) { conn.send({ t: 'err', e: 'ROOM_FULL' }); setTimeout(() => conn.close(), 300); return; }
       net.conns.set(conn.peer, conn);
-      if (!room.members.some((m) => m.id === conn.peer)) room.members.push(newMember(conn.peer, msg.name, msg.diff));
+      if (!room.members.some((m) => m.id === conn.peer)) room.members.push(newMember(conn.peer, msg.name, room.match ? room.diff : msg.diff));
       conn.send({ t: 'welcome', id: conn.peer });
       broadcast();
       return;
@@ -198,6 +199,7 @@ function hostHandle(id, msg, conn = null) {
   switch (msg.t) {
     case 'ready': m.ready = !!msg.v; break;
     case 'diff':
+      if (room.match) return; // 1対1は同じ難易度で勝負
       if (room.status === 'play' && m.in && !m.done) return; // プレイ中は変えられない
       if (['easy', 'normal', 'hard'].includes(msg.d)) m.diff = msg.d;
       break;
@@ -334,7 +336,7 @@ async function clientSfu(info) {
 
 // --- 部屋一覧への掲示(ホストだけ)。人数・曲・状態が変わったときと、20秒ごとの生存報告 ---
 function publish(force = false) {
-  if (!net?.host || !room) return;
+  if (!net?.host || !room || room.match) return;
   const playing = room.status === 'play' && room.members.some((m) => m.in && !m.done);
   const key = [room.song, room.members.length, playing].join('|');
   if (!force && key === lobbyKey) return;
@@ -410,6 +412,7 @@ function onRoomUpdate() {
   if (room.sfu && !isHost()) clientSfu(room.sfu);
   if (mode === 'room') {
     if (ui.current() === 'live') { prepare(); renderRoom(); }
+    matchAutoStart();
     checkStart();
   } else if (mode === 'result') {
     renderResult();
@@ -457,10 +460,11 @@ function renderView() {
   $('live-roombox').hidden = !room;
 }
 
-async function createRoom() {
-  if (busy) return;
+// opts.match: ランダムマッチ用の1対1ルーム(一覧に出さない・曲と難易度はホストが決めて固定・そろったら自動スタート)
+async function createRoom(opts = {}) {
+  if (busy) return null;
   const cur = ui.selected();
-  const e = cur && !cur.local ? cur : ui.entries.find((x) => !x.local);
+  const e = (opts.song && entryOf(opts.song)) || (cur && !cur.local ? cur : ui.entries.find((x) => !x.local));
   busy = true;
   $('live-create').disabled = true;
   try {
@@ -475,20 +479,23 @@ async function createRoom() {
     peer.on('connection', hostAccept);
     aliveTimer = setInterval(sweepDead, ALIVE_MS);
     peer.on('disconnected', () => { try { peer.reconnect(); } catch { /* noop */ } }); // 仲介サーバーとだけ切れた(つながっている人とは続く)
+    const diff = opts.diff || ui.diff();
     room = {
-      id: code, code, host: peer.id, me: peer.id, song: e.id, diff: ui.diff(), status: 'wait', round: 0, start_at: 0,
-      members: [newMember(peer.id, myName(), ui.diff())],
+      id: code, code, host: peer.id, me: peer.id, song: e.id, diff, status: 'wait', round: 0, start_at: 0,
+      members: [newMember(peer.id, myName(), diff)],
+      ...(opts.match ? { match: true, cap: 2 } : {}),
     };
     playedRound = 0;
     enterRoom();
-    publish(true);
-  } catch (err) { closeNet(); room = null; ui.toast(errText(err)); }
+    if (!room.match) publish(true);
+    return code;
+  } catch (err) { closeNet(); room = null; ui.toast(errText(err)); return null; }
   finally { busy = false; $('live-create').disabled = false; }
 }
 
 async function joinRoom(code) {
   code = String(code || '').trim().toUpperCase();
-  if (!code || busy) return;
+  if (!code || busy) return false;
   busy = true;
   try {
     const peer = await openPeer();
@@ -520,7 +527,8 @@ async function joinRoom(code) {
     pingTimer = setInterval(ping, ALIVE_MS);
     playedRound = room.status === 'play' ? room.round : 0; // ライブ中に入ったら次の曲から
     enterRoom();
-  } catch (err) { closeNet(); room = null; ui.toast(errText(err)); }
+    return true;
+  } catch (err) { closeNet(); room = null; ui.toast(errText(err)); return false; }
   finally { busy = false; }
 }
 
@@ -562,7 +570,7 @@ function renderRoom() {
   $('live-pickmsg').textContent = host ? (room.status === 'play' ? 'ライブ中は曲を変えられません' : '曲リストから選べます') : '曲はホストが選びます';
   renderPick();
   const my = me();
-  const lockDiff = room.status === 'play' && my?.in && !my.done;
+  const lockDiff = room.match || room.status === 'play' && my?.in && !my.done;
   $('live-diffs').innerHTML = ['easy', 'normal', 'hard'].map((d) =>
     `<button class="diff-btn ${d}${my?.diff === d ? ' sel' : ''}" data-diff="${d}" ${lockDiff ? 'disabled' : ''}><div class="dn">${d.toUpperCase()}</div><div class="dl">${e ? e.levels[d] : '-'}</div><div class="dc">${e ? e.stats[d].notes + ' notes' : ''}</div></button>`).join('');
   // メンバー
@@ -581,8 +589,9 @@ function renderRoom() {
   btn.hidden = !host;
   btn.disabled = anyPlaying || !isReady();
   btn.innerHTML = anyPlaying ? 'ライブ中…' : !isReady() ? '音源を準備中…' : notReady ? `スタート <small>(準備中 ${notReady}人)</small>` : 'ライブ スタート!';
-  $('live-msg').textContent =
-    anyPlaying ? (me()?.in ? '' : '次の曲から参加できます。終わるまで待っていてね') :
+  $('live-msg').textContent = room.match && room.round === 0 && !anyPlaying
+    ? (room.members.length < 2 ? '対戦相手がルームに入るのを待っています…' : '2人そろいました。準備ができたら自動でスタートします')
+    : anyPlaying ? (me()?.in ? '' : '次の曲から参加できます。終わるまで待っていてね') :
     host ? (room.members.length < 2 ? 'ルームコードを友だちに教えて呼ぼう。1人でもスタートできます(このページを閉じるとルームは解散します)' : '全員そろったらスタート!') :
     'ホストがスタートするのを待っています…';
 }
@@ -643,9 +652,17 @@ function renderPick(force = false) {
 
 const diffTag = (d) => `<i class="lm-diff" style="--dc:${ui.diffColor[d] || '#fff'}">${String(d || '').toUpperCase()}${entryOf(room?.song) ? ' ' + entryOf(room.song).levels[d] : ''}</i>`;
 
+// 1対1: 2人そろって準備ができたら、少し待って自動でスタート(最初の1曲だけ。2曲目からはホストが押す)
+let autoTimer = 0;
+function matchAutoStart() {
+  const ok = isHost() && room?.match && room.round === 0 && room.status === 'wait' && room.members.length === 2 && room.members.every((m) => m.ready);
+  if (ok && !autoTimer) autoTimer = setTimeout(() => { autoTimer = 0; if (isHost() && room?.match && room.round === 0 && room.members.length === 2) startRound(); }, 2500);
+  if (!ok && autoTimer) { clearTimeout(autoTimer); autoTimer = 0; }
+}
+
 function setMyDiff(d) {
   const m = me();
-  if (!room || !m || m.diff === d) return;
+  if (!room || !m || m.diff === d || room.match) return;
   m.diff = d; // 先に見た目だけ変える
   renderRoom();
   send({ t: 'diff', d });
@@ -743,7 +760,12 @@ function renderResult() {
   }).join('');
   const my = list.find((m) => m.id === room.me);
   const myRank = my?.done ? 1 + list.filter((m) => m.done && (m.score ?? 0) > (my.score ?? 0)).length : 0;
-  const head = waiting ? `みんなの結果を待っています…(残り ${waiting}人)` :
+  if (room.match && !waiting && list.length === 2 && my?.done && reportedRound !== room.round) {
+    reportedRound = room.round;
+    const rival = list.find((m) => m.id !== room.me);
+    ui.onMatchResult?.((my.score ?? 0) >= (rival?.score ?? 0), rival?.name || '');
+  }
+  const head = room.match && !waiting && list.length === 2 ? (myRank === 1 ? '🏆 対戦に勝ちました!' : '対戦に負けました…もう一戦!') : waiting ? `みんなの結果を待っています…(残り ${waiting}人)` :
     list.length < 2 ? 'ソロライブ' : myRank === 1 ? '🏆 あなたが1位!' : `あなたは ${myRank}位`;
   box.innerHTML = `<div class="lv-head"><b>LIVE RESULT</b><span>${head}</span></div>
     <p class="muted small">編成の効果込みのスコアで競います</p><ol class="rank-list lv-list">${rows}</ol>`;
@@ -762,3 +784,22 @@ export function backToRoom() {
 }
 
 export const inRoom = () => !!room;
+
+// --- ランダムマッチ(match.js)から使う ---
+export async function matchHost(song, diff) {
+  if (room) leaveRoom();
+  reportedRound = 0;
+  ui.show('live');
+  mode = 'room';
+  return createRoom({ song, diff, match: true });
+}
+export async function matchJoin(code) {
+  if (room) leaveRoom();
+  reportedRound = 0;
+  ui.show('live');
+  mode = 'lobby';
+  renderView();
+  return joinRoom(code);
+}
+export const memberCount = () => room?.members.length || 0;
+export function leaveMatch() { if (room?.match) leaveRoom(); }

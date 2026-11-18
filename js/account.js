@@ -3,6 +3,8 @@ import { rpc } from './ranking.js';
 import { load, save } from './storage.js';
 
 const ERR = {
+  OWNED: 'もう持っています',
+  BAD_SKIN: 'その着せ替えは使えません',
   AUTH: 'ログインの有効期限が切れました。もう一度ログインしてください',
   BAD_NAME: '名前は1〜16文字で入力してください',
   BAD_PASS: 'パスワードは6〜72文字で入力してください',
@@ -130,6 +132,8 @@ export async function logout() {
   try { await window.KaAccount?.logout(); } catch { /* ignore */ }
 }
 
+// ほかのモジュールがサーバーから受け取った最新の状態を反映する
+export function applyState(s) { if (s) { state = s; emit(); } }
 export async function refresh() { if (token) { state = await call('mlidar_state', {}); emit(); } }
 
 export async function gacha(count) {

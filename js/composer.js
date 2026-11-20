@@ -350,7 +350,7 @@ export function shapeHolds(notes, diff, opts) {
 
     // 形を決める
     const wave = hard && L >= 2.5 * spb && intensity >= cut * 1.3 && rng() < 0.5;
-    const pad = sameGap;
+    const pad = Math.max(sameGap, iv * 1.5); // トリルの前後に同じレーンの速い連打(縦連)ができないように
     const free = (l) => l >= 0 && l <= 3 && !busyLane(l, n.t - pad, n.end + pad, n);
     let lanes = null;
     if (wave) {

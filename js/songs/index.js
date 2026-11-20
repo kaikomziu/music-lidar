@@ -20,6 +20,8 @@ import mizuNoTsuioku from './mizu-no-tsuioku.js';
 import hydrangea from './hydrangea.js';
 import ao from './ao.js';
 import summerTriangle from './summer-triangle.js';
+import camelliaGhost from './camellia-ghost.js';
+import camelliaGhostVip from './camellia-ghost-vip.js';
 import wubFracture from './wub-fracture.js';
 import overdriveRiot from './overdrive-riot.js';
 import freezeFrame from './freeze-frame.js';
@@ -149,7 +151,7 @@ export default [
   progAscent, dragonGate, cloudPoint, pixelQuest, pulseGrid, swingCircuit, lowOrbit, ironPulse, garageShuffle, neonBoulevard, gamelanMoon, thunderRoad, swingKid,
   // むずかしめ
   sakuraLattice, lastHorizon, celticRun, bigRoomBlast, glitchGarden, salsaFuego, blueNoteLane, glitterIdol, liquidSky, stellarGate, skyPrism, synthRacer, riddimRiot,
-  kawaiiBubble, lidarRush, shiningStar, inmuKing, mizuNoTsuioku, hydrangea, ao, summerTriangle, wubFracture, offbeatSkater, nightDrift, psyForest, neonSamurai, braveHorizon, shamisenStorm, crystalFortress, hyperSakura, jungleLights,
+  kawaiiBubble, lidarRush, shiningStar, inmuKing, mizuNoTsuioku, hydrangea, ao, summerTriangle, camelliaGhost, camelliaGhostVip, wubFracture, offbeatSkater, nightDrift, psyForest, neonSamurai, braveHorizon, shamisenStorm, crystalFortress, hyperSakura, jungleLights,
   phonkGarage, overdriveRiot, hardReflector, darkShinobi, bluegrassRush, crimsonRumba,
   // 期間限定(クリスマス)
   jingleCircuit, snowlightCarol,

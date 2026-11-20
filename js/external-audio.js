@@ -82,13 +82,22 @@ function unscramble(buffer, key) {
   return bytes.buffer;
 }
 
+// 'aes:<base64>' の鍵: tools/encrypt_audio.mjs で AES-GCM 暗号化した .bin([iv 12バイト][暗号文])を復号する
+async function decryptAes(buffer, keyB64) {
+  const u8 = new Uint8Array(buffer);
+  const raw = Uint8Array.from(atob(keyB64), (c) => c.charCodeAt(0));
+  const k = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
+  return crypto.subtle.decrypt({ name: 'AES-GCM', iv: u8.subarray(0, 12) }, k, u8.subarray(12));
+}
+
 export async function loadExternalAudio(url, key = null, onProgress = null) {
   let lastError;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     try {
       if (attempt > 0) onProgress?.(0);
       let bytes = await fetchAudio(url, attempt, onProgress);
-      if (key) bytes = unscramble(bytes, key);
+      if (key?.startsWith('aes:')) bytes = await decryptAes(bytes, key.slice(4));
+      else if (key) bytes = unscramble(bytes, key);
       // decodeAudioDataが入力をdetachする実装があるため、試行ごとに複製を渡す。
       return await new OfflineAudioContext(2, 1, 44100).decodeAudioData(bytes.slice(0));
     } catch (error) {

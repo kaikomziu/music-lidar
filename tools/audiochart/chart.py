@@ -1,6 +1,6 @@
 # 音源ファイルの曲: 鳴っている音(オンセット)を16分の格子で拾い、メロディの高さでレーンを決めて3難易度の譜面を作る(水の追憶で作り、ほかの曲にも使えるようにした)
 # 使い方: python chart.py <曲.wav> <出力.data.js> [譜面を終える秒 T_END] [曲の長さ(秒)] [曲名]
-import sys, json
+import sys, json, os
 import numpy as np
 from scipy.io import wavfile
 from scipy.signal import stft
@@ -58,6 +58,7 @@ while True:
         # 一番強い帯域の実際の立ち上がり時刻に寄せる(格子から±20ms以内)
         real = [tm, th, tl][int(np.argmax([vm, 0.75 * vh, 0.55 * vl]))]
         if abs(real - g) > 0.021: real = g
+        if os.environ.get('CHART_FAST') == '1': real = g  # 速い曲は格子どおり(8分より狭くならないように)
         cands.append(dict(k=k, g=g, t=real, s=score, m=vm, h=vh, l=vl, pos=k % 16))
     k += 1
 print('candidates', len(cands))
@@ -79,6 +80,17 @@ LEVEL = {
     'normal': dict(grid=2, nmin=2, nmax=7, thr=0.22, gap=2),
     'hard':   dict(grid=1, nmin=3, nmax=12, thr=0.18, gap=1),
 }
+
+# 速い曲(BPM 200 前後より上)用: 環境変数 CHART_FAST=1 で、キーボードで叩ける細かさにおさえる
+#   HARD は8分まで(16分を置かない)、NORMAL は4分まで、EASY は2分まで。同じレーンの8分連打もしない(下の MIN_SAME)
+import os
+FAST = os.environ.get('CHART_FAST') == '1'
+if FAST:
+    LEVEL = {
+        'easy':   dict(grid=8, nmin=1, nmax=2, thr=0.28, gap=8),
+        'normal': dict(grid=4, nmin=2, nmax=4, thr=0.22, gap=4),
+        'hard':   dict(grid=2, nmin=3, nmax=6, thr=0.18, gap=2),
+    }
 
 def pick(lv):
     P = LEVEL[lv]

@@ -48,7 +48,7 @@
 | `submit-music.html` | 作曲者さん向けの楽曲募集ページ(日本語・英語)。フォームは `mlidar_request_send`(種類 `song`、本文の頭に【楽曲の応募】)で、管理者ページのお問い合わせに届く |
 | `card.html` | ブログに貼る軽い「曲カード」(`?s=<urlId>`、`&theme=light`)。ゲーム本体は読まず、`data/cards.json` と曲の共有画像だけを使う |
 | `data/cards.json` | 曲カード用の曲の一覧(自動生成。`build-pages.mjs`) |
-| `music-guidelines.html` | オリジナル曲の使用ガイドライン(動画・配信の BGM・ゲーム・アレンジ・収益化 OK、クレジット必須、音源の再配布は NG だが Scratch の作品は OK、音源は配らず「きくだけ」の録音で使ってもらう)。クレジットページ・遊び方・配信ガイドラインからリンク |
+| `music-guidelines.html` | オリジナル曲の使用ガイドライン(動画・配信の BGM・ゲーム・アレンジ・収益化 OK、クレジット必須、音源の再配布は NG だが Scratch の作品は OK、音源は公開では配らず「きくだけ」の録音で使ってもらう。mp3 がほしい人はページのフォームから申請 → `mlidar_audio_request` がメールアドレスを pgcrypto で暗号化して `mlidar_requests.email_enc` に保存(鍵は Supabase Vault の `mlidar_request_key`。`kind = 'audio'`)。管理者ページの「リクエスト・お問い合わせ」で復号して表示され、メールで音源を送る)。クレジットページ・遊び方・配信ガイドラインからリンク |
 | `credits.html` | クレジットページ(ほかの作者さんの曲・フォント・ライブラリ)。外部の曲を足したら表に足す。タイトル画面・ガイド・楽曲募集のリンクから入る |
 | `streaming.html` | 実況・配信ガイドライン(日本語と英語)。外部の曲10曲の収益化の扱いもここに書いてある。外部の曲を足したら表に足す |
 | `audio/` `video/` | 音源ファイル曲の音・動画MV。ライセンスの都合で並べ替えた `.bin`(`tools/scramble_audio.py`)か、AES-GCM で暗号化した `.bin`(`tools/encrypt_audio.mjs`)。**平文の mp3 / mp4 は絶対にコミットしない**(2026-11-18 に履歴から取り除き、強制 push 済み。鍵は公開JSにあるので完全な防止ではない) |

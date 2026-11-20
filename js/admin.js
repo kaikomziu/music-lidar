@@ -2,7 +2,8 @@
 // 中身はサーバー(mlidar_admin_overview)が管理者かどうかを確かめてから返す
 import { rpc } from './ranking.js';
 import { load } from './storage.js';
-import { KIND, STATUS } from './request.js';
+import { KIND as REQ_KIND, STATUS } from './request.js';
+const KIND = { ...REQ_KIND, audio: '音源の申請' }; // 音源の申請はガイドラインのページから届く(ゲーム内のフォームには出さない)
 
 const $ = (id) => document.getElementById(id);
 let ui = null; // { entries, show, back, current, esc, toast }
@@ -89,6 +90,7 @@ function render() {
     ${requests.length ? `<ul class="adm-online adm-rq">${requests.map((r) => `<li data-rq="${r.id}">
       <div class="rq-top"><span class="rq-kind">${KIND[r.kind] || r.kind}</span><span class="rq-st st-${r.status}">${STATUS[r.status] || r.status}</span><b>${esc(r.name || '名無し')}</b>${r.login ? '' : '<small>(ゲスト)</small>'}<small>${ago(r.at, now)} ・ ${jst(r.at)}</small></div>
       <p class="rq-body">${esc(r.body)}</p>
+      ${r.email ? `<p class="rq-mail">✉ <a href="mailto:${esc(r.email)}?subject=${encodeURIComponent('MUSIC LiDAR 音源ファイルの件')}">${esc(r.email)}</a> <small>(暗号化して保存。ここでだけ表示)</small></p>` : ''}
       <div class="rq-edit"><select data-rq-status>${Object.entries(STATUS).map(([k, v]) => `<option value="${k}" ${k === r.status ? 'selected' : ''}>${v}</option>`).join('')}</select>
         <input data-rq-reply maxlength="500" placeholder="返信(本人の画面に出ます)" value="${esc(r.reply || '')}"><button class="chip" data-rq-save>保存</button></div></li>`).join('')}</ul>`
       : '<p class="muted small">まだリクエストはありません</p>'}

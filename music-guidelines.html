@@ -38,6 +38,15 @@ th { color: var(--muted); white-space: nowrap; }
 code { background: rgba(94, 242, 255, 0.1); padding: 2px 6px; border-radius: 4px; }
 ul { padding-left: 1.3em; }
 .en { color: var(--muted); font-size: 14px; }
+form.rq-form label { display: block; margin: 10px 0 4px; font-weight: 700; font-size: 14px; }
+form.rq-form label small { color: var(--muted); font-weight: 400; }
+form.rq-form input, form.rq-form textarea { width: 100%; font: inherit; font-size: 16px; color: var(--text); background: #070b20; border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; margin-top: 4px; }
+form.rq-form textarea { min-height: 90px; }
+form.rq-form .rq-check { display: flex; gap: 8px; align-items: center; font-weight: 400; }
+form.rq-form .rq-check input { width: auto; margin: 0; }
+form.rq-form button { margin-top: 14px; padding: 10px 30px; border: 1px solid var(--cyan); color: #fff; font: inherit; font-weight: 700; background: rgba(94, 242, 255, 0.15); cursor: pointer; }
+form.rq-form button:disabled { opacity: 0.5; }
+#rq-msg.ok { color: var(--ok); } #rq-msg.ng { color: var(--ng); }
 footer { margin-top: 48px; color: var(--muted); font-size: 13px; text-align: center; }
 </style>
 </head>
@@ -78,7 +87,17 @@ footer { margin-top: 48px; color: var(--muted); font-size: 13px; text-align: cen
   <p>書き方は多少ちがっても大丈夫です。英語の作品では <code>Music: Karuwaka (MUSIC LiDAR) "曲名"</code> でも OK です。</p>
 
   <h2>音源について</h2>
-  <p>音源ファイルの配布はしていません。曲を使いたいときは、ゲームの「きくだけ」モード(ホームの MUSIC)で流した音を録音して使ってください。ほかの方法で音源がほしいときは、ゲーム内のリクエストからご相談ください。</p>
+  <p>音源ファイルの配布はしていません。曲を使いたいときは、ゲームの「きくだけ」モード(ホームの MUSIC)で流した音を録音して使ってください。</p>
+  <p><b>音源ファイル(mp3)が必要なときは</b>、下のフォームから申請してください。内容を確認して、書いてもらったメールアドレスに音源ファイルをお送りします。</p>
+  <form class="box rq-form" id="rq-form">
+    <label>お名前(ニックネーム可) <input id="rq-name" maxlength="16" required></label>
+    <label>メールアドレス <small>(音源ファイルの送り先。暗号化して保存し、お返事以外には使いません)</small> <input id="rq-email" type="email" maxlength="200" required autocomplete="email"></label>
+    <label>使いたい曲 <small>(複数でも可)</small> <input id="rq-song" maxlength="200" required placeholder="例: Lemon Soda、Hello, Lane"></label>
+    <label>使い方 <small>(どんな動画・作品で使うか)</small> <textarea id="rq-use" maxlength="600" required placeholder="例: 自作のスマホゲームの BGM に使いたいです"></textarea></label>
+    <label class="rq-check"><input type="checkbox" id="rq-agree" required> このガイドラインを読んで、同意しました</label>
+    <button type="submit" id="rq-send">申請する</button>
+    <p id="rq-msg"></p>
+  </form>
 
   <h2>連絡について</h2>
   <ul>
@@ -97,9 +116,32 @@ footer { margin-top: 48px; color: var(--muted); font-size: 13px; text-align: cen
 
   <h2>English (summary)</h2>
   <p class="en">The original songs of MUSIC LiDAR (composed by Karuwaka; songs shown without an artist credit) may be used as background music for videos and streams, in your own games, apps and other works, and in arrangements/remixes — including monetized and paid works — as long as you credit them, e.g. <code>Music: Karuwaka (MUSIC LiDAR) "Song title"</code> with https://music-lidar.com/ if possible.
-  You may not redistribute the audio files themselves (except inside Scratch projects), present the songs as your own, sell or publish them unchanged on music services, register them with Content ID, or use them for hateful or illegal content. Audio files are not distributed; you may record the audio from the in-game "Listen" mode. No permission request is needed. Songs by other artists are not covered.</p>
+  You may not redistribute the audio files themselves (except inside Scratch projects), present the songs as your own, sell or publish them unchanged on music services, register them with Content ID, or use them for hateful or illegal content. Audio files are not distributed publicly; you may record the audio from the in-game "Listen" mode, or request the mp3 files with the form above (your email address is stored encrypted and used only to reply). No permission request is needed. Songs by other artists are not covered.</p>
 
   <footer><a href="./">MUSIC LiDAR で遊ぶ</a> ・ <a href="guide.html">遊び方・収録曲</a> ・ <a href="streaming.html">実況・配信ガイドライン</a> ・ <a href="credits.html">クレジット</a><br>制作: かるわか</footer>
 </div>
+<script type="module">
+// 音源ファイルの申請: メールアドレスはサーバー(mlidar_audio_request)で暗号化して保存する。管理者ページの「リクエスト・お問い合わせ」に届く
+import { rpc } from './js/ranking.js';
+import { clientId, load } from './js/storage.js';
+const $ = (id) => document.getElementById(id);
+$('rq-form').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const v = (id) => $(id).value.trim();
+  const body = `【音源ファイルの申請】
+曲: ${v('rq-song')}
+使い方: ${v('rq-use')}`.slice(0, 1000);
+  $('rq-send').disabled = true;
+  $('rq-msg').className = ''; $('rq-msg').textContent = '送信中…';
+  try {
+    await rpc('mlidar_audio_request', { p_token: load('token', null), p_client: clientId(), p_name: v('rq-name'), p_email: v('rq-email'), p_body: body });
+    $('rq-msg').className = 'ok'; $('rq-msg').textContent = '申請を受け付けました。内容を確認して、メールで音源ファイルをお送りします。';
+    $('rq-form').reset();
+  } catch (e) {
+    $('rq-msg').className = 'ng';
+    $('rq-msg').textContent = e?.message === 'BAD_EMAIL' ? 'メールアドレスを確かめてください。' : e?.message === 'TOO_MANY' ? '送信が多すぎます。しばらくしてからもう一度お試しください。' : '送信できませんでした。時間をおいてもう一度お試しください。';
+  } finally { $('rq-send').disabled = false; }
+});
+</script>
 </body>
 </html>

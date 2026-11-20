@@ -54,6 +54,7 @@
 | `version.json` | 今のバージョン。ページが起動時に読み、HTMLが古ければ `?v=` を付けて読み直す |
 | `sitemap.xml` | 自動生成 |
 | `supabase/functions/mlidar-daily/` | Edge Function(Daily.co の SFU 部屋を発行。今は使っていない) |
+| `supabase/functions/mlidar-audio/` | Edge Function(譜面メーカーで管理者が選んだ音声の置き場所を発行・確認・削除。下の「自分で選んだ音声」) |
 | `tools/` | `release.py`(公開前に必ず実行)、`build-pages.mjs`、`collections.mjs`、`export.py` / `export.html`(mp3・mp4 書き出し)、`scramble_audio.py`、`og.html`(曲ごとの共有画像。受け取って保存するローカルサーバー `og_save_server.py` と一緒に使う。手順はファイルの先頭)、`make_zh_hant.py`(繁体字の辞書を簡体字から作る) |
 | `AI_GUIDE.md` | ほかの仕組みが自動で作るメモ。**コミットしない** |
 
@@ -108,6 +109,7 @@
 | `dan.js` | 段位道場(初段〜皆伝の11段) |
 | `extras.js` | デイリーチャレンジ・コースモード・判定グラフ・共有画像・判定タイミングの自動調整・ゲームパッド |
 | `maker.js` / `maker-api.js` | 譜面メーカーと「みんなの譜面」 |
+| `custom-audio.js` | 譜面メーカーで管理者が自分で選んだ音声(暗号化・アップロード・復号、曲のエントリー) |
 | `player.js` | きくだけモード(音楽プレーヤー) |
 | `event.js` | 季節イベント(クリスマス 12/1〜1/31。`?event=xmas` / `?event=off` で確認できる) |
 | `keyconfig.js` | キー配置の設定 |
@@ -150,6 +152,15 @@ export default {
   - ほかの作者さんの曲を足したら、`credit`(と `creditUrl`)、タイトル右下のクレジット、`guide.html` のフッター、`streaming.html` の表、README のクレジットにも足す
 - 曲を足す手順: ファイルを作る → `js/songs/index.js` に import を1行 → `tools/og.html?ids=曲ID` で共有画像 `og.jpg` を作る → `python tools/release.py`(曲ページとサイトマップができる)→ `python tools/export.py` で `D:\MUSIC_LiDAR_export` に mp3 / mp4 を書き出す
 - 週替わりスコアアタックとデイリーは、曲一覧から乱数で選ぶ。**曲を足すと、選ばれる曲が変わることがある**
+
+### 譜面メーカーで自分で選んだ音声(`custom-audio.js`)
+- **管理者だけ**が使える(`acc.isAdmin()`、サーバーでは `mlidar_is_admin`)。譜面メーカーの曲の選択の「自分で選んだ音声」→「＋ 音声ファイルを選ぶ…」
+- 選んだ時点では手元で解析するだけ(推定 BPM・自動譜面の下敷き・録音補正の音の位置)。曲名・BPM・1拍目の位置を直して作り、**投稿したときに**音声を暗号化して置く
+- 暗号化: ブラウザの WebCrypto で AES-GCM(256bit・音声ごとにランダムな鍵)。ファイルは `[iv 12バイト][暗号文]`。Edge Function `mlidar-audio` の `begin` が `mlidar_audio` に行(鍵つき・`uploaded=false`)を作って署名つきアップロードURLを返し、ブラウザが storage の公開バケット `mlidar-audio/<id>.bin` へ直接送り、`done` で `uploaded=true`。**暗号化前の音声はどこにも送らない**
+- 遊ぶとき: `mlidar_audio_get` で鍵を受け取り、`.bin` を取ってきて復号する。鍵は遊ぶ人のブラウザに届くので、内蔵の音源の並べ替え(`audioKey`)と同じく「そのままでは取り出せない」ための仕組みで、完全な防止ではない
+- 譜面の曲は `a:<音声id>`(`mlidar_charts_song_check` で許可。`mlidar_chart_save` は音声を置いた本人の管理者だけ通す)。曲一覧(`entries`)には入れず、`audioEntry(id)` で作るエントリー(`genre: 'UPLOAD'`・`local: true` なので曲のランキング・MV・コースの対象外)。みんなの譜面から遊べる
+- 「音声を削除」で、音声のファイル・鍵・それを使う譜面(記録・いいねも)を消す(`mlidar-audio` の `delete`)。大きさは 25MB まで
+- **使う音声の権利は管理者が確かめる**(だれでも遊べる場所に出るため)
 
 ### 譜面ギミック(`gimmick.js`)
 | type | 内容 | to |
@@ -377,7 +388,8 @@ export default {
 | `mlidar_scores` | ランキング(`song`, `diff`, `client_id`, 名前, スコアなど)。週替わりも `weekly-YYYYMMDD` でここ |
 | `mlidar_units` / `mlidar_banners` | キャラ図鑑 / 期間限定ガチャ |
 | `mlidar_skins` | 着せ替えの一覧(値段・入手方法) |
-| `mlidar_charts` / `mlidar_chart_scores` / `mlidar_chart_likes` | みんなの譜面 |
+| `mlidar_charts` / `mlidar_chart_scores` / `mlidar_chart_likes` | みんなの譜面(`song` は曲の id か `a:<音声id>`) |
+| `mlidar_audio` | 管理者が置いた音声の情報と復号の鍵(RLS でポリシーなし。関数からだけ触る) |
 | `mlidar_live_lobby` | 公開中の部屋一覧(今使っている) |
 | `mlidar_live_rooms` / `mlidar_live_members` | 昔のライブ方式。**消さない** |
 | `mlidar_match_queue` | ランダムマッチの待ち行列 |
@@ -395,6 +407,7 @@ export default {
 - フレンド: `mlidar_friend_request` / `_respond` / `_remove` / `_list` / `_ranking`
 - ゴースト・投票・イベント: `mlidar_ghost_put` / `_get`, `mlidar_poll_create` / `_vote` / `_get` / `_close`, `mlidar_event_join`
 - 譜面: `mlidar_chart_save` / `_list` / `_get` / `_delete` / `_like` / `_play` / `_ranking` / `_submit`
+- 自分で選んだ音声: `mlidar_audio_get`(だれでも。曲の情報と鍵)/ `mlidar_audio_list` / `mlidar_audio_meta`(管理者)。置く・消すは Edge Function `mlidar-audio`
 - お問い合わせ・管理: `mlidar_request_send` / `_mine` / `_list` / `_set`, `mlidar_admin_overview`
 - 内部用(ブラウザから呼ばない): `mlidar_auth`, `mlidar_friend_ids`, `mlidar_state_of`, `mlidar_play_result_core`, `mlidar_missions`, `mlidar_team_fx`, `mlidar_daily`, `mlidar_today`, `mlidar_week_key`, `mlidar_season_key`, `mlidar_season_reward`, `mlidar_give_skin`, `mlidar_event_open`
 

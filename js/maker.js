@@ -7,6 +7,7 @@ import { LANE_COLORS, laneOf, keyNames } from './game.js';
 import * as api from './maker-api.js';
 import { openAccount } from './meta.js';
 import { jacketImg } from './jacket.js';
+import * as ca from './custom-audio.js';
 
 const $ = (id) => document.getElementById(id);
 let ui = null;
@@ -138,10 +139,26 @@ export function initMaker(api_) {
   for (let i = 1; i <= 15; i++) lv.insertAdjacentHTML('beforeend', `<option value="${i}">${i}</option>`);
 
   $('ed-back').addEventListener('click', closeEditor);
-  $('ed-song').addEventListener('change', () => {
-    const e = ui.entries.find((x) => x.id === $('ed-song').value);
-    if (e) openEditor(e);
+  $('ed-song').addEventListener('change', () => onSongPick($('ed-song').value));
+  // 管理者: 自分で選んだ音声で作る(投稿するときに暗号化して置く)
+  const fi = document.createElement('input');
+  fi.type = 'file'; fi.accept = 'audio/*,.mp3,.wav,.ogg,.m4a,.flac,.aac,.opus'; fi.hidden = true; fi.id = 'ed-audio-file';
+  document.body.appendChild(fi);
+  fi.addEventListener('change', () => { const f = fi.files[0]; fi.value = ''; if (f) pickAudioFile(f); });
+  $('ed-audio-del').addEventListener('click', async (ev) => {
+    ev.preventDefault();
+    const e = ed.entry;
+    if (!e?.uploaded) return;
+    if (!confirm(`音声「${e.title}」を削除します。この音声を使う譜面(記録・いいねも)も消え、元に戻せません。よろしいですか?`)) return;
+    try {
+      const r = await ca.deleteAudio(e.audioId);
+      save('draft:' + e.id, null);
+      myAudio = null;
+      ui.toast(`音声を削除しました(譜面 ${r.charts} 個も削除)`);
+      openEditor(ui.selectedEntry());
+    } catch (err) { console.error(err); ui.toast(ca.AUDIO_ERR[err.message] || '削除できませんでした'); }
   });
+  $('ed-songname').addEventListener('input', () => { if (ed.entry?.genre === 'UPLOAD') { ed.entry.title = $('ed-songname').value.trim() || ed.entry.title; ed.metaDirty = true; } });
   $('ed-title').addEventListener('input', () => { ed.title = $('ed-title').value; changed(false); });
   lv.addEventListener('change', () => { ed.level = +lv.value; changed(false); });
   $('ed-snap').addEventListener('change', () => { ed.snap = +$('ed-snap').value; save('edSnap', ed.snap); });
@@ -170,8 +187,8 @@ export function initMaker(api_) {
     ui.toast(`${d.toUpperCase()} の譜面を読み込みました。自由に手直ししてください`);
   });
   for (const b of $('ed-tools').querySelectorAll('button')) b.addEventListener('click', () => setTool(b.dataset.tool));
-  $('ed-bpm').addEventListener('change', () => { const v = +$('ed-bpm').value; if (v >= 40 && v <= 300) { ed.bpm = v; changed(false); } });
-  $('ed-offset').addEventListener('change', () => { ed.offset = +$('ed-offset').value || 0; changed(false); });
+  $('ed-bpm').addEventListener('change', () => { const v = +$('ed-bpm').value; if (v >= 40 && v <= 300) { ed.bpm = v; syncAudioMeta(); changed(false); } });
+  $('ed-offset').addEventListener('change', () => { ed.offset = +$('ed-offset').value || 0; syncAudioMeta(); changed(false); });
   $('ed-pos').addEventListener('input', () => { if (ed.playing) stopPlay(); ed.cur = (+$('ed-pos').value / 1000) * duration(); });
   $('ed-post').addEventListener('click', post);
   ed.recFix = load('edRecFix', 'music');
@@ -217,6 +234,67 @@ export function initMaker(api_) {
 }
 const chartsQ = {};
 
+// --- 自分で選んだ音声(管理者) ---
+let myAudio = null; // 置いた音声の一覧(管理者のときだけ読む)
+const pendings = []; // 選んだけれどまだ置いていない音声
+async function loadMyAudio() {
+  if (!acc.isAdmin()) return [];
+  if (!myAudio) { try { myAudio = await ca.listMyAudio(); } catch (e) { console.error(e); myAudio = []; } }
+  return myAudio;
+}
+async function renderSongOptions(entry) {
+  const sel = $('ed-song');
+  const opt = (id, label) => `<option value="${ui.esc(id)}">${ui.esc(label)}</option>`;
+  let html = ui.entries.map((e) => opt(e.id, e.title + (e.local ? '(読込曲・投稿不可)' : ''))).join('');
+  if (acc.isAdmin()) {
+    const mine = await loadMyAudio();
+    const up = [...pendings.map((e) => opt(e.id, e.title + '(未アップロード)')), ...mine.map((a) => opt('a:' + a.id, a.title))];
+    html += `<optgroup label="自分で選んだ音声">${up.join('')}${opt('__upload', '＋ 音声ファイルを選ぶ…')}</optgroup>`;
+  }
+  sel.innerHTML = html;
+  if (entry.genre === 'UPLOAD' && ![...sel.options].some((o) => o.value === entry.id)) sel.insertAdjacentHTML('beforeend', opt(entry.id, entry.title));
+  sel.value = entry.id;
+}
+async function onSongPick(v) {
+  if (v === '__upload') { $('ed-song').value = ed.entry?.id || ''; $('ed-audio-file').click(); return; }
+  const p = pendings.find((e) => e.id === v);
+  if (p) { openEditor(p); return; }
+  if (v.startsWith('a:')) {
+    const info = (myAudio || []).find((a) => 'a:' + a.id === v);
+    try {
+      $('ed-saved').textContent = '音声を復号しています…';
+      const e = info ? ca.entryFromInfo(info) : await ca.audioEntry(v.slice(2));
+      await ca.prepareForEditor(e);
+      openEditor(e);
+    } catch (err) { console.error(err); ui.toast('音声を読み込めませんでした'); $('ed-saved').textContent = ''; }
+    return;
+  }
+  const e = ui.entries.find((x) => x.id === v);
+  if (e) openEditor(e);
+}
+async function pickAudioFile(f) {
+  if (!acc.isAdmin()) { ui.toast(ca.AUDIO_ERR.NOT_ADMIN); return; }
+  $('ed-saved').textContent = '音声を解析しています…';
+  try {
+    const e = await ca.pendingEntry(f);
+    const old = pendings.findIndex((x) => x.id === e.id);
+    if (old >= 0) pendings.splice(old, 1);
+    pendings.unshift(e);
+    await openEditor(e);
+    ui.toast(`「${e.title}」を読み込みました(推定 BPM ${Math.round(e.bpm)})。BPM と1拍目の位置を合わせてから作ってください。投稿するときに音声を暗号化してアップロードします`, 6000);
+  } catch (err) {
+    console.error(err);
+    ui.toast(ca.AUDIO_ERR[err.message] || 'この音声ファイルは読み込めませんでした');
+    $('ed-saved').textContent = '';
+  }
+}
+// 音声の BPM などを、エディタの値に合わせる(置いた音声は投稿のときにサーバーへも送る)
+function syncAudioMeta() {
+  if (ed.entry?.genre !== 'UPLOAD') return;
+  ed.entry.bpm = ed.bpm; ed.entry.offset = ed.offset;
+  ed.metaDirty = true;
+}
+
 const clampT = (t) => Math.max(0, Math.min(duration(), t));
 
 // ---------------------------------------------------------------------------
@@ -243,14 +321,20 @@ export async function openEditor(entry, opts = {}) {
   }
   if (!entry.local) { ed.bpm = entry.bpm; ed.offset = entry.offset || 0; }
   ed.cur = 0;
-  $('ed-song').innerHTML = ui.entries.map((e) => `<option value="${e.id}">${ui.esc(e.title)}${e.local ? '(読込曲・投稿不可)' : ''}</option>`).join('');
-  $('ed-song').value = entry.id;
+  const isAudio = entry.genre === 'UPLOAD';
+  if (isAudio && !d && !opts.chart) { ed.bpm = entry.bpm; ed.offset = entry.offset || 0; }
+  if (isAudio) { entry.bpm = ed.bpm; entry.offset = ed.offset; }
+  ed.metaDirty = false;
+  renderSongOptions(entry);
+  $('ed-songname-wrap').hidden = !isAudio;
+  $('ed-songname').value = isAudio ? entry.title : '';
+  $('ed-audio-del').hidden = !entry.uploaded;
   $('ed-title').value = ed.title;
   $('ed-level').value = ed.level;
   $('ed-bpm-wrap').hidden = !entry.local;
   $('ed-bpm').value = ed.bpm.toFixed(2); $('ed-offset').value = ed.offset.toFixed(3);
   $('ed-post').textContent = ed.chartId ? '更新して投稿' : '投稿';
-  $('ed-post').disabled = !!entry.local;
+  $('ed-post').disabled = !!entry.local && !isAudio;
   ui.show('editor');
   if (opts.chart) saveDraft();
   updateInfo();
@@ -446,13 +530,31 @@ function testPlay() {
 }
 
 async function post() {
-  if (ed.entry.local) { ui.toast('読み込んだ曲の譜面は投稿できません(内蔵曲のみ)'); return; }
+  const isAudio = ed.entry.genre === 'UPLOAD';
+  if (ed.entry.local && !isAudio) { ui.toast('読み込んだ曲の譜面は投稿できません(内蔵曲のみ)'); return; }
+  if (isAudio && !acc.isAdmin()) { ui.toast(ca.AUDIO_ERR.NOT_ADMIN); return; }
   if (!acc.isLoggedIn()) { ui.toast('投稿するにはログインしてください'); openAccount(); return; }
   if (!ed.title.trim()) { ui.toast('譜面のタイトルを入れてください'); $('ed-title').focus(); return; }
   if (ed.notes.length < 10) { ui.toast('ノーツを10個以上置いてください'); return; }
   if (ed.chartId && !confirm('投稿済みの譜面を更新します。この譜面のランキング記録はリセットされます。よろしいですか?')) return;
+  if (isAudio && ed.entry.pending && !confirm(`音声「${ed.entry.title}」(${(ed.entry.fileBytes.byteLength / 1048576).toFixed(1)}MB)を暗号化してアップロードし、譜面を投稿します。投稿した譜面はみんなが遊べます。よろしいですか?`)) return;
   $('ed-post').disabled = true;
   try {
+    if (isAudio && ed.entry.pending) {
+      // 音声を暗号化して置き、置いたあとのエントリーに切り替える(下書きも移す)
+      const pend = ed.entry;
+      const aid = await ca.uploadAudio(pend.fileBytes, { title: pend.title, artist: pend.artist, bpm: ed.bpm, offset: ed.offset, duration: pend.duration }, (t) => { $('ed-saved').textContent = t; });
+      const e = ca.promote(pend, aid);
+      pendings.splice(pendings.indexOf(pend), 1);
+      myAudio = null;
+      ed.entry = e;
+      save('draft:' + pend.id, null);
+      renderSongOptions(e);
+      ed.metaDirty = false;
+    } else if (isAudio && ed.metaDirty) {
+      await ca.saveAudioMeta(ed.entry.audioId, { title: ed.entry.title, artist: ed.entry.artist, bpm: ed.bpm, offset: ed.offset });
+      ed.metaDirty = false; myAudio = null;
+    }
     const id = await api.saveChart({ id: ed.chartId, song: ed.entry.id, title: ed.title.trim(), level: ed.level, notes: ed.notes, gimmicks: engineGimmicks() });
     const wasNew = !ed.chartId;
     ed.chartId = id;
@@ -461,7 +563,8 @@ async function post() {
     ui.toast(wasNew ? '投稿しました!「みんなの譜面」から遊べます' : '譜面を更新しました');
   } catch (e) {
     if (e.message === 'NOT_OWNER') { ed.chartId = null; saveDraft(); }
-    ui.toast(api.CHART_ERR[e.message] || acc.errText(e));
+    ui.toast(api.CHART_ERR[e.message] || ca.AUDIO_ERR[e.message] || acc.errText(e));
+    $('ed-saved').textContent = '';
   } finally {
     $('ed-post').disabled = false;
   }
@@ -812,6 +915,11 @@ export function openCharts() {
 }
 
 let chartRows = [];
+// 譜面の曲を探す('a:<id>' は自分で選んだ音声)
+async function songEntry(song) {
+  if (song.startsWith('a:')) return ca.audioEntry(song.slice(2));
+  return ui.entries.find((e) => e.id === song && !e.local) || null;
+}
 async function loadCharts() {
   const list = $('chart-list');
   list.innerHTML = '<li class="list-empty">読み込み中…</li>';
@@ -832,14 +940,16 @@ function renderCharts() {
     list.innerHTML = '<li class="list-empty">まだ譜面がありません。「＋ 譜面を作る」から最初の1つを作ってみよう</li>';
     return;
   }
-  const songTitle = (id) => ui.entries.find((e) => e.id === id)?.title || id;
-  const color = (id) => ui.entries.find((e) => e.id === id)?.color || '#5ef2ff';
-  list.innerHTML = chartRows.map((c) => `<li class="chart-row" data-id="${c.id}" style="--c:${color(c.song)}">
-    ${(() => { const e = ui.entries.find((x) => x.id === c.song); return e ? jacketImg(e, 96, 'cr-jacket') : ''; })()}
+  // 自分で選んだ音声の曲は、曲名からジャケットを作る
+  const ent = (c) => ui.entries.find((e) => e.id === c.song) || (c.song.startsWith('a:') ? { id: c.song, title: c.song_title || '?', genre: 'UPLOAD', color: '#c58bff', bpm: 120 } : null);
+  const songTitle = (c) => ent(c)?.title || c.song;
+  const color = (c) => ent(c)?.color || '#5ef2ff';
+  list.innerHTML = chartRows.map((c) => `<li class="chart-row" data-id="${c.id}" style="--c:${color(c)}">
+    ${(() => { const e = ent(c); return e ? jacketImg(e, 96, 'cr-jacket') : ''; })()}
     <div class="cr-lv"><small>Lv</small>${c.level}</div>
     <div class="cr-main">
       <div class="cr-title">${ui.esc(c.title)}</div>
-      <div class="cr-sub">${ui.esc(songTitle(c.song))} ・ by ${ui.esc(c.author)} ・ ${c.note_count} ノーツ ・ ▶ ${c.plays}</div>
+      <div class="cr-sub">${ui.esc(songTitle(c))} ・ by ${ui.esc(c.author)} ・ ${c.note_count} ノーツ ・ ▶ ${c.plays}</div>
     </div>
     <div class="cr-actions">
       <button class="btn-glow cr-play" data-act="play">▶ プレイ</button>
@@ -862,7 +972,7 @@ async function onChartAction(ev) {
     if (act === 'play') {
       b.disabled = true;
       const c = await api.getChart(id);
-      const entry = ui.entries.find((e) => e.id === c.song && !e.local);
+      const entry = await songEntry(c.song).catch(() => null);
       if (!entry) { ui.toast('この曲が見つかりません'); return; }
       api.countPlay(id);
       ui.play(entry, {
@@ -884,7 +994,8 @@ async function onChartAction(ev) {
       }
     } else if (act === 'edit') {
       const c = await api.getChart(id);
-      const entry = ui.entries.find((e) => e.id === c.song && !e.local);
+      const entry = await songEntry(c.song).catch(() => null);
+      if (entry?.uploaded) { b.textContent = '音声を準備中…'; await ca.prepareForEditor(entry); b.textContent = '編集'; }
       if (entry) openEditor(entry, { chart: c });
     } else if (act === 'del') {
       if (!confirm(`「${row.title}」を削除しますか?(元に戻せません)`)) return;

@@ -1701,4 +1701,4 @@ body.playing .season-fx { display: none; }
 .poll-mini div::before { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--w, 0%); background: rgba(94, 242, 255, 0.25); transition: width 0.5s; }
 .poll-mini span, .poll-mini em { position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: normal; }
 .poll-mini em { font-family: var(--font-d); font-weight: 700; }
-.btn-quick[hidden], .r-video[hidden], .r-next[hidden], .poll-mini[hidden] { display: none; }
+.btn-quick[hidden], .r-video[hidden], .r-next[hidden], .poll-mini[hidden], .tb[hidden], .chip[hidden] { display: none; }

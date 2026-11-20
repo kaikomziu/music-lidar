@@ -1,6 +1,6 @@
 import { langPref, setLang } from './i18n.js'; // 多言語表示(いちばん先に読んで、画面の文字を置き換える)
 import SONGS from './songs/index.js';
-import { composeSong, candidatesFromEvents, generateChart, chartStats, DIFFS, hashStr } from './composer.js';
+import { composeSong, candidatesFromEvents, generateChart, shapeHolds, chartStats, DIFFS, hashStr } from './composer.js';
 import { getCtx, setVolumes, playPreview, stopPreview } from './audio.js';
 import { loadSongAudio } from './audio-cache.js';
 import { loadExternalAudio } from './external-audio.js';
@@ -73,12 +73,15 @@ function touchBuffer(e) {
   while (recentBuf.length > KEEP_BUFFERS) { const old = recentBuf.shift(); old.buffer = null; old.rendering = null; }
 }
 
+// のばす音をトリルなどに変える(composer.js の shapeHolds)。曲ファイルで holdStyle: false にすると今までのロングノーツのまま
+const holds = (notes, d, def) => (def.holdStyle === false ? notes : shapeHolds(notes, d, { bpm: def.bpm, level: def.levels?.[d], seed: hashStr(def.id) }));
+
 function fileSongEntry(def) {
   const charts = {}, stats = {};
   const unpack = (arr) => arr.map(([t, lane, e]) => (e ? { t: t / 1000, lane, end: e / 1000 } : { t: t / 1000, lane }));
   const scroll = buildScroll(def.gimmicks, def.bpm);
   for (const d of DIFFS) {
-    charts[d] = dropNotesInStops(unpack(def.fixedCharts[d]), scroll.stops);
+    charts[d] = dropNotesInStops(holds(unpack(def.fixedCharts[d]), d, def), scroll.stops);
     stats[d] = chartStats(charts[d]);
   }
   const onsets = onsetList(DIFFS.flatMap((d) => charts[d].map((n) => n.t)));
@@ -125,7 +128,7 @@ function builtinEntry(def) {
     const onsets = onsetList(events.filter((e) => !NOT_ONSET.has(e.type)).map((e) => e.t));
     const charts = {}, stats = {};
     for (const d of DIFFS) {
-      charts[d] = dropNotesInStops(generateChart(cands, d, duration, hashStr(def.id), def.chart?.[d]), scroll.stops);
+      charts[d] = dropNotesInStops(holds(generateChart(cands, d, duration, hashStr(def.id), def.chart?.[d]), d, def), scroll.stops);
       stats[d] = chartStats(charts[d]);
     }
     return (built = { events, duration, onsets, charts, stats });

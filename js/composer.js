@@ -182,6 +182,11 @@ const PARAM = {
   hard: { minGap: 0.105, minScore: 0.9, maxNps: 7.5, chordMax: 3, chordP: 0.36, lnMin: 0.3, sameGap: 0.105, lnExclusive: false },
 };
 
+// key で小さい順に並べる(key は1要素1回だけ計算。同じ値ならもとの順)
+function byKey(arr, key) {
+  return arr.map((v, i) => ({ v, i, k: key(v) })).sort((a, b) => a.k - b.k || a.i - b.i).map((o) => o.v);
+}
+
 function lowerBound(arr, x) {
   let lo = 0, hi = arr.length;
   while (lo < hi) { const m = (lo + hi) >> 1; if (arr[m] < x) lo = m + 1; else hi = m; }
@@ -248,15 +253,15 @@ export function generateChart(cands, diff, duration, seed = 1, override = null) 
     else if (k.has('snare')) want = rng() < 0.5 ? 1 : 2;
     else want = Math.floor(rng() * 4);
 
-    const order = [0, 1, 2, 3].sort((a, b) => Math.abs(a - want) - Math.abs(b - want) + (rng() - 0.5) * 0.5);
+    // 乱数は先に1レーン1回ずつ引いてから並べる(比べるたびに乱数を引く sort は、ブラウザやそのバージョンで結果が変わり、譜面がずれる)
+    const order = byKey([0, 1, 2, 3], (l) => Math.abs(l - want) + (rng() - 0.5) * 0.35);
     const primary = order.find((l) => free[l] <= c.t);
     if (primary == null) continue;
     const lanes = [primary];
     for (let j = 1; j < n; j++) {
       const opts = [0, 1, 2, 3].filter((l) => !lanes.includes(l) && free[l] <= c.t);
       if (!opts.length) break;
-      opts.sort((a, b) => Math.abs(b - primary) - Math.abs(a - primary) + (rng() - 0.5) * 2.2);
-      lanes.push(opts[0]);
+      lanes.push(byKey(opts, (l) => -Math.abs(l - primary) + (rng() - 0.5) * 1.6)[0]);
     }
     for (const l of lanes) {
       const note = { t: c.t, lane: l };
@@ -270,6 +275,113 @@ export function generateChart(cands, diff, duration, seed = 1, override = null) 
   }
   notes.sort((a, b) => a.t - b.t || a.lane - b.lane);
   return notes;
+}
+
+// ---------------------------------------------------------------------------
+// のばす音の表現(「あ〜〜」のような伸ばし)
+// 生成した譜面(内蔵曲)と音源曲の譜面の両方に、あとからかける。ロングノーツを、前後の盛り上がりに合わせて形を変える:
+//   - 静かな所 … ロングノーツのまま(ゆったり押しっぱなし)
+//   - 盛り上がっている所 … トリル(となりの2レーンを交互に。NORMAL は8分、HARD は高レベルなら16分)
+//   - HARD のとても長い伸ばしで特に盛り上がる所 … うねり(3レーンを 0→1→2→1… と往復する。こぶしや声の揺れのイメージ)
+//   - とても長い伸ばし … トリルのあと、最後のノーツを押しっぱなしにして締める
+//   - 歌い終わりの伸ばし(後ろが2拍以上あく) … ロングのまま、最後に離す所を残す
+// その前に untangleHolds で、何本も重なったロングをほどく(EASY も)
+// EASY は変えない。同じ形ばかり続かないように、トリルの次の伸ばしはロングに戻しやすくする
+// opts: { bpm, level(その難易度のレベル), seed }
+// 重なったロングノーツをほどく: ロングを押している間に別のロングが始まる所(歌の音節ごとの伸ばしが何本も重なる所)は、
+// 前のロングを次のロングの始まりの 1/4 拍前で切る(声は同時に1音なので、次の音節で前の伸ばしは終わる)。1拍より短くなったら普通のノーツ
+function untangleHolds(notes, spb) {
+  const list = notes.map((n) => ({ ...n })).sort((a, b) => a.t - b.t || a.lane - b.lane);
+  for (const n of list) {
+    if (!n.end) continue;
+    const nx = list.find((o) => o !== n && o.end && o.t > n.t + 0.01 && o.t < n.end - 0.01);
+    if (!nx) continue;
+    const end = nx.t - spb / 4;
+    if (end - n.t < spb - 0.01) delete n.end;
+    else n.end = end;
+  }
+  return list;
+}
+
+export function shapeHolds(notes, diff, opts) {
+  if (!opts?.bpm || notes.length < 8) return notes;
+  const spb = 60 / opts.bpm;
+  const hard = diff === 'hard';
+  const rng = mulberry32(((opts.seed || 1) ^ hashStr('hold-' + diff)) >>> 0);
+  const list = untangleHolds(notes, spb);
+  if (diff === 'easy') return list;
+  const span = Math.max(1, list[list.length - 1].t - list[0].t);
+  const avgNps = list.length / span;
+  // トリルの間隔: 速すぎない範囲で細かく
+  let iv = hard ? spb / 4 : spb / 2;
+  const minIv = hard ? (opts.level >= 10 ? 0.1 : 0.15) : 0.2;
+  while (iv < minIv) iv *= 2;
+  const sameGap = hard ? 0.1 : 0.2;
+
+  const busyLane = (lane, a, b, self) => list.some((o) => o !== self && o.lane === lane && o.t < b && (o.end ?? o.t) > a);
+  // 1) 形を変えられる伸ばしを集め、前後の盛り上がりを測る
+  const elig = [];
+  for (const n of list) {
+    if (!n.end) continue;
+    const L = n.end - n.t;
+    if (L < (hard ? 1 : 1.5) * spb - 0.01) continue;
+    // 伸ばしている間にほかのノーツがある(押しながら叩く形)ならそのまま。押し始めと同時の和音は数えない
+    if (list.some((o) => o !== n && o.t > n.t + 0.01 && o.t < n.end - 0.01)) continue;
+    if (list.some((o) => o !== n && o.end && o.t <= n.t + 0.01 && o.end > n.t + 0.05)) continue;
+    // 盛り上がり: 前4秒と後2秒のノーツの密度(伸ばしている間は空なので数えない)を曲全体の平均とくらべる
+    const near = list.filter((o) => o !== n && ((o.t >= n.t - 4 && o.t < n.t - 0.01) || (o.t > n.end && o.t <= n.end + 2))).length;
+    const next = list.find((o) => o.t > n.t + 0.01);
+    elig.push({ n, L, it: near / 6 / avgNps, tail: next ? next.t - n.end : 99 });
+  }
+  if (!elig.length) return list;
+  // その曲の中で盛り上がっている方の伸ばしを選ぶ(HARD は上位55%、NORMAL は上位35%。ただし静かすぎる所は除く)
+  const sorted = elig.map((e) => e.it).sort((x, y) => x - y);
+  const cut = Math.max(hard ? 0.35 : 0.5, sorted[Math.floor(sorted.length * (hard ? 0.45 : 0.65))] ?? 0);
+
+  const out = [];
+  const removed = new Set();
+  let prevStyle = 'hold';
+  for (const { n, L, it: intensity, tail } of elig) {
+    // 歌い終わり(後ろが2拍以上あく)はロングで締める
+    if (tail >= 2 * spb && intensity < cut * 1.4) { prevStyle = 'hold'; continue; }
+    if (intensity < cut) { prevStyle = 'hold'; continue; }
+    // 同じ形ばかり続かないように
+    if (prevStyle !== 'hold' && rng() < 0.45) { prevStyle = 'hold'; continue; }
+
+    // 形を決める
+    const wave = hard && L >= 2.5 * spb && intensity >= cut * 1.3 && rng() < 0.5;
+    const pad = sameGap;
+    const free = (l) => l >= 0 && l <= 3 && !busyLane(l, n.t - pad, n.end + pad, n);
+    let lanes = null;
+    if (wave) {
+      // 元のレーンを含む3レーンを選び、元のレーンから往復する
+      const starts = [n.lane - 2, n.lane - 1, n.lane].filter((s) => s >= 0 && s <= 1);
+      if (starts.length > 1 && rng() < 0.5) starts.reverse(); // 乱数つきの sort はブラウザで結果が変わるので使わない
+      const s = starts.find((s0) => [s0, s0 + 1, s0 + 2].every((l) => l === n.lane || free(l)));
+      if (s != null) {
+        if (n.lane === s) lanes = [s, s + 1, s + 2, s + 1];
+        else if (n.lane === s + 2) lanes = [s + 2, s + 1, s, s + 1];
+        else lanes = rng() < 0.5 ? [s + 1, s + 2, s + 1, s] : [s + 1, s, s + 1, s + 2];
+      }
+    }
+    if (!lanes) {
+      const side = (rng() < 0.5 ? [n.lane + 1, n.lane - 1] : [n.lane - 1, n.lane + 1]).find((l) => free(l));
+      if (side == null) { prevStyle = 'hold'; continue; }
+      lanes = [n.lane, side];
+    }
+    // とても長い伸ばしは、トリルを最大 HARD 3拍・NORMAL 2拍で止め、最後のノーツをそのまま押しっぱなしにして締める
+    const trillEnd = Math.min(n.end, n.t + (hard ? 3 : 2) * spb);
+    const taps = [];
+    for (let k = 0; n.t + k * iv <= trillEnd - iv * 0.4; k++) taps.push({ t: n.t + k * iv, lane: lanes[k % lanes.length] });
+    if (taps.length < (hard ? 4 : 3)) { prevStyle = 'hold'; continue; }
+    const last = taps[taps.length - 1];
+    if (n.end - last.t >= spb - 0.01) last.end = n.end;
+    removed.add(n);
+    out.push(...taps);
+    prevStyle = lanes.length > 2 ? 'wave' : 'trill';
+  }
+  if (!removed.size) return list;
+  return list.filter((n) => !removed.has(n)).concat(out).sort((a, b) => a.t - b.t || a.lane - b.lane);
 }
 
 export function chartStats(notes) {

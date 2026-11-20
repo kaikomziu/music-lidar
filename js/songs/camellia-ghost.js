@@ -2,7 +2,8 @@
 // 音楽: かめりあ(Camellia)「GHOST」。ゲームでの使用は作者さんから許可をもらっている(2026-11-20)。
 // 音源は tools/encrypt_audio.mjs で AES-GCM 暗号化した .bin で置き、ゲーム内(js/external-audio.js)で復号して鳴らす。平文の音源は置かない。
 // 「きくだけ」モードには入れない(player.js はクレジットのある曲を入れない)。
-// 譜面は tools/audiochart の chart.py を CHART_FAST=1 で作ったもの(キーボードで叩ける細かさ: HARD は8分まで・同じキーの8分連打なし)。
+// 譜面: EASY は chart.py(CHART_FAST=1)、NORMAL・HARD は tools/audiochart/layered.py で裏の音も拾って重ねた高難易度(左手=キック・ベース、右手=シンセ・声・ハット)。
+// 刻みは8分まで・同じキーの8分連打なし(キーボードで叩ける細かさ)。
 import data from './camellia-ghost.data.js';
 
 export default {
@@ -18,7 +19,7 @@ export default {
   audio: 'audio/camellia-ghost.bin',
   audioKey: 'aes:sKmtHS+3tyiP7FiZDVV3ODkO8MKvm68tw4SPRtpsnZo=',
   fixedCharts: data.charts,
-  levels: { easy: 2, normal: 4, hard: 8 },
+  levels: { easy: 2, normal: 8, hard: 13 },
   previewAt: 90, // 秒
   credit: '音楽:かめりあ(Camellia)「GHOST」',
 };

@@ -148,6 +148,7 @@ export default {
 - 音源ファイル曲は `audio` / `bpm` / `offset` / `fixedCharts`(または `*.data.js`)を使う
   - 譜面は `tools/audiochart`(`analyze.py` → `tempo.py [BPMの下限 上限]` → `chart.py <wav> <出力> [T_END] [長さ] [曲名]`)で作る。`tempo.py` は引数なしなら 70〜200 を探す
   - **暗号化を求められた曲(かめりあさんの GHOST 2曲)と Crying Red は `node tools/encrypt_audio.mjs 入力.mp3 audio/<id>.bin`** で AES-GCM 暗号化し、表示された `aes:...` を `audioKey` に書く(`external-audio.js` が `aes:` で始まる鍵なら復号する)。鍵は公開JSに入るので完全な防止ではない。m4a は Firefox でも鳴るように mp3 にしてから、埋め込みのジャケット画像を外して暗号化する
+  - **高難易度で裏の音も拾う譜面(GHOST 2曲の NORMAL・HARD)は `python tools/audiochart/layered.py <既存の.data.js> <T_END> <HARDの目標nps> <NORMALの目標nps>`**(chart.py のあと、同じ作業フォルダで)。左手(D・F)=低い音(キック・ベース)、右手(J・K)=中高い音(シンセ・声・ハット)で別々に拾って重ねる。8分まで・同じ手で8分が続けば2つのキーを交互・同じキーは 0.2 秒以上あける。NORMAL は同じ手の8分の連続を作らない。EASY は既存のまま
   - 速い曲(BPM 200 前後より上)の譜面は `CHART_FAST=1 python chart.py …` で作る(HARD は8分まで・NORMAL は4分まで・EASY は2分まで、時刻は拍の格子どおり、同じキーの8分連打なし)。キーボードで叩ける細かさにするため
   - ライセンスで「取り出しにくくする」必要がある曲は `tools/scramble_audio.py` で並べ替えて `.bin` + `audioKey`。**CC BY の曲は技術的な制限をかけてはいけないので、並べ替えずに mp3 のまま置く**(`audioKey` なし。`.gitignore` の `!audio/<名前>.mp3` で個別に許す)
   - **OpenTracks の曲(SUMMER TRIANGLE)**: OpenTracks は、音楽ゲーム・リズムゲームでの利用を通常ライセンスの範囲外としている(2026-11-11 のお知らせ。範囲内に含めるかは検討中)。2026-11-11 より前に公開したゲームに入っている音源は、そこから3年をめどに使ってよい猶予がある。SUMMER TRIANGLE は 2026-10-23 に入れたので猶予の対象。**OpenTracks の曲を新しく足すのは不可**。2029-11 ごろまでに、OpenTracks の方針を確かめて、使い続けてよいか(または外すか)を決める。並べ替えて「通常の操作で取り出せない」形にしておくこと、「きくだけ」に入れないことも続ける

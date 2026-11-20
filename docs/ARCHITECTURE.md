@@ -48,7 +48,7 @@
 | `submit-music.html` | 作曲者さん向けの楽曲募集ページ(日本語・英語)。フォームは `mlidar_request_send`(種類 `song`、本文の頭に【楽曲の応募】)で、管理者ページのお問い合わせに届く |
 | `card.html` | ブログに貼る軽い「曲カード」(`?s=<urlId>`、`&theme=light`)。ゲーム本体は読まず、`data/cards.json` と曲の共有画像だけを使う |
 | `data/cards.json` | 曲カード用の曲の一覧(自動生成。`build-pages.mjs`) |
-| `streaming.html` | 実況・配信ガイドライン(日本語と英語)。外部の曲8曲の収益化の扱いもここに書いてある。外部の曲を足したら表に足す |
+| `streaming.html` | 実況・配信ガイドライン(日本語と英語)。外部の曲9曲の収益化の扱いもここに書いてある。外部の曲を足したら表に足す |
 | `audio/` `video/` | 音源ファイル曲の音・動画MV。ライセンスの都合で並べ替えた `.bin`(`tools/scramble_audio.py`)か、AES-GCM で暗号化した `.bin`(`tools/encrypt_audio.mjs`)。**平文の mp3 / mp4 は絶対にコミットしない**(2026-11-18 に履歴から取り除き、強制 push 済み。鍵は公開JSにあるので完全な防止ではない) |
 | `sw.js` | Service Worker(オフライン対応)。ページはネット優先、`?v=` 付きの JS・CSS・画像はキャッシュ優先 |
 | `version.json` | 今のバージョン。ページが起動時に読み、HTMLが古ければ `?v=` を付けて読み直す |
@@ -147,7 +147,7 @@ export default {
 ```
 - 音源ファイル曲は `audio` / `bpm` / `offset` / `fixedCharts`(または `*.data.js`)を使う
   - 譜面は `tools/audiochart`(`analyze.py` → `tempo.py [BPMの下限 上限]` → `chart.py <wav> <出力> [T_END] [長さ] [曲名]`)で作る。`tempo.py` は引数なしなら 70〜200 を探す
-  - **暗号化を求められた曲(かめりあさんの GHOST 2曲)は `node tools/encrypt_audio.mjs 入力.mp3 audio/<id>.bin`** で AES-GCM 暗号化し、表示された `aes:...` を `audioKey` に書く(`external-audio.js` が `aes:` で始まる鍵なら復号する)。鍵は公開JSに入るので完全な防止ではない。m4a は Firefox でも鳴るように mp3 にしてから、埋め込みのジャケット画像を外して暗号化する
+  - **暗号化を求められた曲(かめりあさんの GHOST 2曲)と Crying Red は `node tools/encrypt_audio.mjs 入力.mp3 audio/<id>.bin`** で AES-GCM 暗号化し、表示された `aes:...` を `audioKey` に書く(`external-audio.js` が `aes:` で始まる鍵なら復号する)。鍵は公開JSに入るので完全な防止ではない。m4a は Firefox でも鳴るように mp3 にしてから、埋め込みのジャケット画像を外して暗号化する
   - 速い曲(BPM 200 前後より上)の譜面は `CHART_FAST=1 python chart.py …` で作る(HARD は8分まで・NORMAL は4分まで・EASY は2分まで、時刻は拍の格子どおり、同じキーの8分連打なし)。キーボードで叩ける細かさにするため
   - ライセンスで「取り出しにくくする」必要がある曲は `tools/scramble_audio.py` で並べ替えて `.bin` + `audioKey`。**CC BY の曲は技術的な制限をかけてはいけないので、並べ替えずに mp3 のまま置く**(`audioKey` なし。`.gitignore` の `!audio/<名前>.mp3` で個別に許す)
   - **OpenTracks の曲(SUMMER TRIANGLE)**: OpenTracks は、音楽ゲーム・リズムゲームでの利用を通常ライセンスの範囲外としている(2026-11-11 のお知らせ。範囲内に含めるかは検討中)。2026-11-11 より前に公開したゲームに入っている音源は、そこから3年をめどに使ってよい猶予がある。SUMMER TRIANGLE は 2026-10-23 に入れたので猶予の対象。**OpenTracks の曲を新しく足すのは不可**。2029-11 ごろまでに、OpenTracks の方針を確かめて、使い続けてよいか(または外すか)を決める。並べ替えて「通常の操作で取り出せない」形にしておくこと、「きくだけ」に入れないことも続ける
@@ -437,7 +437,7 @@ export default {
 - 画面の切り欠き(ノッチ)は `.screen` の `env(safe-area-inset-*)` で避けている
 
 ### 気をつけること
-- 外部の曲(魔王魂・INMU KING〔ニコニ・コモンズ〕・しゃろう〔OpenTracks〕・ああああ さん・かめりあ さん〔許可を得て使用。音源は必ず暗号化〕)のクレジットを消さない。広告や収益のある場所に出すときはライセンスを確かめ直す(ああああ さんの曲は収益化のとき連絡が必要)
+- 外部の曲(魔王魂・INMU KING〔ニコニ・コモンズ〕・しゃろう〔OpenTracks〕・ああああ さん・かめりあ さん〔許可を得て使用。音源は必ず暗号化〕・御箸ねくらぁ。さん〔ゲーム使用可の BGM〕)のクレジットを消さない。広告や収益のある場所に出すときはライセンスを確かめ直す(ああああ さんの曲は収益化のとき連絡が必要)
 - 全曲の先読みはしない(合成にCPUを数分・メモリを数GB使うため)。選んだ曲だけ用意する
 - 曲の `id` と `urlId` は公開後に変えない(ランキングと曲ページのURLが変わってしまう)
 - 関係するほかのリポジトリ: **game-links**(ポータル・かるわかGAMESアカウント・`oauth.html` の `ALLOWED`・`mlidar-move.html`・ポータルの MUSIC LiDAR へのリンク)

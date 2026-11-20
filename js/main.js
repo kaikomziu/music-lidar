@@ -874,6 +874,7 @@ async function startGame(entry = entries[sel], d = diff, custom = null, live = n
 async function startGameInner(entry, d, custom, live, extra) {
   document.activeElement?.blur?.();
   getCtx();
+  selectSong.token = {}; // 選曲画面で「音源ができたら試聴」を待っていたら取りやめる(読み込み中に始めると曲と試聴が重なるため)
   stopPreview();
   // 読み込み中画面(準備済みでも曲名とTipsを少し見せる)
   const isRetry = state === 'retry';
@@ -905,6 +906,7 @@ async function startGameInner(entry, d, custom, live, extra) {
   }
   await hideLoading(isRetry ? 500 : 1400);
   playing = { entry, diff: d, custom, live, extra, label };
+  stopPreview(); // 念のため、始める直前にも試聴を止める
   document.body.classList.toggle('live', !!live || custom?.kind === 'dan');
   show('game');
   setVolumes(settings.bgm, settings.se);

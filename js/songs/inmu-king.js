@@ -4,7 +4,6 @@
 // MV: YAJU-MC が個別に配布している映像素材を、曲の頭にそろえて切り出したもの(video/inmu-king.bin に並べ替えて保存。js/mv.js の VIDEO_MVS で元に戻して再生)
 // 譜面は歌声(原曲 − オフボーカル)の音節に合わせ、BPM 133 の16分グリッドにそろえたもの(inmu-king.data.js)。
 import data from './inmu-king.data.js';
-import lyrics from './inmu-king.lyrics.js'; // 歌詞(プレイ中に画面の上に出す)
 
 export default {
   id: 'inmu-king',
@@ -19,7 +18,6 @@ export default {
   audio: 'audio/inmu-king.bin',
   audioKey: 'xbrgE5EWB89kvsep46gSDTYcp5sAw3wz',
   fixedCharts: data.charts,
-  lyrics,
   levels: { easy: 2, normal: 6, hard: 9 },
   previewAt: 70, // 秒
   credit: '音楽:YAJU-MC(やじゅまん)「INMU KING」 ニコニ・コモンズ nc499430',

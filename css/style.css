@@ -1740,3 +1740,10 @@ body.playing .season-fx { display: none; }
 .omk-paper p { margin: 0; font-size: 13px; }
 /* バレンタインのペアスコア */
 .lv-pair { margin: 6px 0; padding: 6px 10px; border-radius: 8px; border: 1px solid #ff7eb6; background: rgba(255,126,182,0.12); color: #ffd3e6; font-size: 14px; }
+
+/* 管理者ページ: 受信メール */
+.adm-mail li { display: block; padding: 8px 10px; }
+.adm-mail li.unread { border-left: 3px solid #5ef2ff; }
+.adm-mail details { margin: 4px 0; }
+.adm-mail li.read { opacity: 0.7; }
+.adm-mail .mail-body { white-space: pre-wrap; word-break: break-word; font: 13px/1.6 system-ui, sans-serif; background: rgba(4,8,22,0.6); padding: 8px 10px; border-radius: 6px; max-height: 360px; overflow: auto; }

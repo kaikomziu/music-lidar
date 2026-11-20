@@ -34,6 +34,7 @@ export function initAdmin(api) {
     const th = ev.target.closest('[data-sort]'); if (th) { sortKey = th.dataset.sort; render(); }
     const sv = ev.target.closest('[data-rq-save]'); if (sv) saveRequest(sv.closest('[data-rq]'));
     const wb = ev.target.closest('[data-wish]'); if (wb) setWish(wb);
+    const mr = ev.target.closest('[data-mail-read]'); if (mr) setMailRead(+mr.dataset.mailRead, mr.dataset.v === '1');
   });
 }
 
@@ -51,6 +52,7 @@ async function refresh() {
     data = await rpc('mlidar_admin_overview', { p_token: load('token', null) });
     requests = await rpc('mlidar_request_list', { p_token: load('token', null) }).catch(() => requests);
     wishes = await rpc('mlidar_wish_admin', { p_token: load('token', null) }).catch(() => wishes);
+    mails = await rpc('mlidar_mail_list', { p_token: load('token', null) }).catch(() => mails);
     // 返信を書いている途中なら描き直さない(入力が消えるので)
     if (!document.activeElement?.closest?.('.adm-rq')) render();
   } catch (e) {
@@ -85,6 +87,15 @@ function render() {
       ${card('ランキング記録', t.records, `投稿譜面 ${t.charts}`)}
       ${card('招待で始めた人', t.invited ?? 0, '友だち招待')}
     </div>
+
+    <h3 class="adm-h">受信メール(karubiwakame@gmail.com ・ 未読 ${mails.filter((m) => !m.read).length}通)</h3>
+    <p class="muted small">Gmail に入れた Apps Script(tools/gmail-to-mlidar.gs)が5分ごとに送ってきます。差出人・件名・本文は暗号化して保存しています。</p>
+    ${mails.length ? `<ul class="adm-online adm-mail">${mails.map((m) => `<li class="${m.read ? 'read' : 'unread'}">
+      <div class="rq-top">${m.read ? '' : '<span class="rq-st st-new">未読</span>'}<b>${esc(m.subject || '(件名なし)')}</b><small>${esc(m.from)} ・ ${ago(m.at, now)} ・ ${jst(m.at)}</small></div>
+      <details><summary>本文を読む</summary><pre class="mail-body">${esc(m.body)}</pre></details>
+      <div class="rq-edit"><a class="chip" href="mailto:${esc((m.from.match(/<([^>]+)>/) || [, m.from])[1])}?subject=${encodeURIComponent('Re: ' + (m.subject || ''))}">返信する</a>
+        <button class="chip" data-mail-read="${m.id}" data-v="${m.read ? '0' : '1'}">${m.read ? '未読に戻す' : '既読にする'}</button></div></li>`).join('')}</ul>`
+      : '<p class="muted small">まだ受信メールはありません(Apps Script を入れると、ここに届きます)</p>'}
 
     <h3 class="adm-h">リクエスト・お問い合わせ(未対応 ${requests.filter((r) => r.status === 'new').length}件 / 全${requests.length}件)</h3>
     ${requests.length ? `<ul class="adm-online adm-rq">${requests.map((r) => `<li data-rq="${r.id}">
@@ -135,6 +146,16 @@ function render() {
 }
 
 export const stopAdmin = stop;
+
+// 受信メールの既読・未読
+let mails = [];
+async function setMailRead(id, read) {
+  try {
+    await rpc('mlidar_mail_read', { p_token: load('token', null), p_id: id, p_read: read });
+    const m = mails.find((x) => x.id === id); if (m) m.read = read;
+    render();
+  } catch (e) { ui.toast('保存できませんでした: ' + e.message); }
+}
 
 // 七夕の願いごとを出す/出さない
 let wishes = [];

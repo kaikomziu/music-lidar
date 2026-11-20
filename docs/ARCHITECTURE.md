@@ -159,6 +159,10 @@ export default {
 - 曲を足す手順: ファイルを作る → `js/songs/index.js` に import を1行 → `tools/og.html?ids=曲ID` で共有画像 `og.jpg` を作る → `python tools/release.py`(曲ページとサイトマップができる)→ `python tools/export.py` で `D:\MUSIC_LiDAR_export` に mp3 / mp4 を書き出す
 - 週替わりスコアアタックとデイリーは、曲一覧から乱数で選ぶ。**曲を足すと、選ばれる曲が変わることがある**
 
+### エイプリルフール
+- 日本時間の4月1日だけ、名前を「Booing LiDAR」(ブーイング ライダー)にする。`index.html` の起動画面のすぐ後のインラインのスクリプトで、起動画面のロゴ(MUSIC → BOOING)・タイトルのロゴ・左上の表示・タブの題名(`<title>` を MutationObserver で見張って置き換え)を入れ替え、ロゴの下に「ブーイング ライダー ・ 4月1日だけ」と出す。`window.APRIL_FOOL` が true になる
+- ほかの日に確かめるときは `?event=aprilfool`(季節イベントと同じ `mlidar:eventPreview`。戻すときは `?event=off`)。曲ページ・共有画像・検索向けの情報(meta)は変えない
+
 ### 歌詞の表示(`lyrics.js`)
 - 歌詞はサーバーの `mlidar_lyrics`(曲id → `[[歌い始めの秒, 歌い終わりの秒, 行], ...]`)に置く。読むのは `mlidar_lyrics_get`(だれでも)、歌詞のある曲の一覧は `mlidar_lyrics_songs`、保存は `mlidar_lyrics_save`(管理者だけ)
 - 起動時に一覧を読み、歌詞のない曲は問い合わせない。曲を選んだときに先読みし、遊ぶ直前に最大 1.5 秒だけ待つ(`lyricsQuick`。遅ければ歌詞なしで始める)。曲ファイルに `lyrics` を書いた場合はそちらを使う

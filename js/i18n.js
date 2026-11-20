@@ -110,6 +110,7 @@ const EN = {
   '▶ いますぐ1曲遊ぶ': '▶ Play a song now', '説明なしで、やさしい曲から': 'Jump straight into an easy song', '楽曲募集': 'Call for music',
   '𝕏 に投稿': 'Post on 𝕏', '結果を X(旧 Twitter)に投稿': 'Post your result on X (Twitter)', '🎬 縦動画で録る': '🎬 Record vertical video',
   'もう一度遊んで、ショート動画向けの縦型動画を録画': 'Play again and record a vertical video for Shorts', '動画を保存・共有': 'Save / share video', '次はこれがおすすめ': 'Recommended next',
+  '歌詞を表示': 'Show lyrics', '歌詞のある曲で、プレイ中の画面の上に歌詞を表示します': 'Shows lyrics at the top of the screen while playing songs that have them',
   'ゴースト(スコアの差を表示)': 'Ghost (score gap)', '自己ベスト': 'Personal best', 'すぐ上のライバル': 'Rival just above you', 'ランキング1位': 'Ranking #1', 'なし': 'None',
   '📊 視聴者投票': '📊 Viewer poll', '配信を見ている人に次の曲を投票してもらう': 'Let your viewers vote for the next song', '🔗 招待リンク': '🔗 Invite link', '招待リンクをコピー(開くだけで入れる)': 'Copy invite link (opens straight into the room)', 'X で募集する': 'Recruit on X',
   '挑戦する': 'Take the challenge', '埋め込みコード': 'Embed code', 'ブログ・サイトに貼る': 'For your blog or site', 'カード(軽い・おすすめ)': 'Card (light, recommended)', 'ゲームまるごと': 'Full game', 'コピー': 'Copy',

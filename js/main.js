@@ -88,7 +88,7 @@ function fileSongEntry(def) {
   return {
     id: def.id, urlId: def.urlId, title: def.title, artist: def.artist, genre: def.genre, bpm: def.bpm, offset: def.offset || 0, color: def.color,
     event: def.event || null, levels: def.levels, charts, stats, local: false, duration: def.duration, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [],
-    previewAt: def.previewAt ?? def.duration * 0.3, credit: def.credit, creditUrl: def.creditUrl, onsets,
+    previewAt: def.previewAt ?? def.duration * 0.3, credit: def.credit, creditUrl: def.creditUrl, onsets, lyrics: def.lyrics || null,
     // MV用の情報(区間は譜面の密度から)
     mvAuto() { return (this._mv ||= { title: def.title, artist: def.artist, genre: def.genre, color: def.color, sections: chartSections(charts.normal, def.bpm, def.offset || 0, def.duration) }); },
     buffer: null, rendering: null,
@@ -187,6 +187,9 @@ const urlSongId = document.querySelector('meta[name="song-id"]')?.content;
 // ログインしていない人が曲URLを開いたときは、普通のトップ(タイトル画面・トップURL)として扱う
 // 埋め込み(よそのサイトの <iframe> の中。曲ページ + ?embed=1): その曲の選曲・プレイ・リザルトだけ
 const EMBED = new URLSearchParams(location.search).has('embed');
+// 歌詞の時刻合わせモード(?lyricsync=1): プレイ中に各行の歌い始めで Enter を押すと、その時刻に置き直して、全体をクリップボードにコピーする
+const LYRIC_SYNC = new URLSearchParams(location.search).has('lyricsync');
+let lyricMarks = { game: null, n: 0 };
 if (EMBED) document.body.classList.add('embed');
 const openedBySongUrl = !!urlSongId && (EMBED || !!load('token', null));
 if (urlSongId && !openedBySongUrl) {
@@ -783,6 +786,7 @@ async function startGameInner(entry, d, custom, live, extra) {
     jacket: jacketURL(entry, 128),
     label,
     captions: custom?.captions || extra?.captions || null,
+    lyrics: settings.lyrics !== false && custom?.kind !== 'tutorial' && entry.lyrics ? entry.lyrics.map((x) => x.slice()) : null,
     life: custom?.life || null,
     rivals: live ? () => live.rivals() : null,
     mv: entry.local || custom?.kind === 'tutorial' ? null : createMV(entry.id, entry.bpm, entry.offset || 0, {}, entry.mvAuto?.()),
@@ -981,6 +985,19 @@ window.addEventListener('keydown', (ev) => {
       if (!game.pressed[lane]) set.clear(); // 一時停止などで離した通知を取りこぼしていても、ここで元に戻す
       set.add(ev.code);
       game.press(lane, ev.timeStamp, set.size > 1);
+      return;
+    }
+    if (LYRIC_SYNC && ev.key === 'Enter' && game.lyrics) {
+      // 歌詞の時刻合わせ: 押した時刻を次の行の歌い始めにする(行の長さはそのまま)
+      ev.preventDefault();
+      if (lyricMarks.game !== game) lyricMarks = { game, n: 0 }; // プレイごとに最初の行から
+      const L = game.lyrics, k = lyricMarks.n++;
+      if (k < L.length) {
+        const at = Math.round(game.songTime(ev.timeStamp) * 100) / 100, d = at - L[k][0];
+        L[k][0] = at; L[k][1] = Math.round((L[k][1] + d) * 100) / 100;
+        navigator.clipboard?.writeText(JSON.stringify(L)).catch(() => {});
+        toast(`歌詞 ${k + 1}/${L.length}「${L[k][2]}」${at.toFixed(2)}秒(全体をコピーしました)`, 1500);
+      }
       return;
     }
     if (ev.key === 'Escape') {
@@ -1318,6 +1335,7 @@ function syncSettingsUI() {
   applyStream();
   $('s-ghost').value = settings.ghostMode || (settings.ghost === false ? 'off' : 'self');
   $('s-mv').checked = settings.mv !== false;
+  $('s-lyrics').checked = settings.lyrics !== false;
   $('o-mv').textContent = settings.mv !== false ? 'ON' : 'OFF';
   applyKeys(); renderKeys();
 }
@@ -1341,6 +1359,7 @@ setInterval(() => {
 }, 1000);
 applyStream();
 $('s-ghost').addEventListener('change', () => { settings.ghostMode = $('s-ghost').value; settings.ghost = settings.ghostMode !== 'off'; setSettings(settings); });
+$('s-lyrics').addEventListener('change', () => { settings.lyrics = $('s-lyrics').checked; setSettings(settings); });
 $('s-mv').addEventListener('change', () => {
   settings.mv = $('s-mv').checked;
   $('o-mv').textContent = settings.mv ? 'ON' : 'OFF';

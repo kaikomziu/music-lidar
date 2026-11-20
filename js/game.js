@@ -133,12 +133,13 @@ export class PointCloud {
 
 // ---------------------------------------------------------------------------
 export class Game {
-  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd, team, scroll, offset, jacket, label, rivals, captions, life, mv, opts, ghost }) {
+  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd, team, scroll, offset, jacket, label, rivals, captions, life, mv, opts, ghost, lyrics }) {
     // 段位道場の体力 { start, miss, good, great, perfect }(%)
     this.lifeOpt = life || null;
     this.life = life ? life.start : 100;
     this.failed = false;
     this.captions = captions || null; // チュートリアル: [{ t, until, text, sub }]
+    this.lyrics = lyrics?.length ? lyrics : null; // 歌詞: [[歌い始めの秒, 歌い終わりの秒, 行], ...]
     this.rivals = rivals || null; // みんなでライブ: () => [{ name, combo, me, done }]
     this.label = label || String(diff || '').toUpperCase();
     if (jacket) { this.jacketImg = new Image(); this.jacketImg.src = jacket; }
@@ -935,7 +936,8 @@ export class Game {
       }
       g.restore();
     }
-    if (this.captions) this.drawCaption(g, W, H, t, small);
+    if (this.captions && this.captions.some((x) => t >= x.t && t < x.until)) this.drawCaption(g, W, H, t, small);
+    else if (this.lyrics) this.drawLyrics(g, W, H, t, small);
     // 最後のノーツの後: FULL COMBO / ALL PERFECT
     if (this.fx.finishAt && status) {
       const k = Math.min(1, (perfNow - this.fx.finishAt) / 450);
@@ -953,6 +955,49 @@ export class Game {
       g.fillText(text.split('').join(' '), G.cx, y);
       g.restore();
     }
+  }
+
+  // 歌詞(画面の上のほうに今の行、その下に次の行を小さく)。歌っている所までを曲の色でぬる
+  drawLyrics(g, W, H, t, small) {
+    const L = this.lyrics;
+    let i = -1;
+    for (let k = 0; k < L.length; k++) { if (L[k][0] - 0.3 <= t) i = k; else break; }
+    // 今の行: 歌い終わって 1.2 秒たつか、次の行が出るまで
+    const cur = i >= 0 && t < Math.min(L[i][1] + 1.2, (L[i + 1]?.[0] ?? 1e9) - 0.3) ? L[i] : null;
+    const nx = L[i + 1];
+    const showNext = nx && nx[0] - t < 4;
+    if (!cur && !showNext) return;
+    const y = H * (small ? 0.16 : 0.14);
+    const big = small ? 18 : 26, sm = small ? 12 : 15;
+    const font = (w, px) => `${w} ${px}px "Noto Sans JP", sans-serif`;
+    const fit = (text, w, px) => { let p = px; g.font = font(w, p); while (g.measureText(text).width > W - 40 && p > 10) { p -= 1; g.font = font(w, p); } return p; };
+    g.save();
+    g.textAlign = 'left'; g.textBaseline = 'middle';
+    if (cur) {
+      const fade = Math.min(1, (t - (cur[0] - 0.3)) / 0.25, ((L[i + 1]?.[0] ?? 1e9) - 0.3 - t) / 0.2, (cur[1] + 1.2 - t) / 0.4);
+      g.globalAlpha = Math.max(0, fade);
+      const px = fit(cur[2], 800, big);
+      const w = g.measureText(cur[2]).width, x = W / 2 - w / 2;
+      g.fillStyle = 'rgba(4,8,22,0.55)';
+      g.fillRect(x - 14, y - px * 0.85, w + 28, px * 1.7);
+      g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,0.6)'; g.strokeText(cur[2], x, y);
+      g.fillStyle = 'rgba(235,240,255,0.95)'; g.fillText(cur[2], x, y);
+      // 歌っている所までをぬる
+      const k = Math.max(0, Math.min(1, (t - cur[0]) / Math.max(0.2, cur[1] - 0.35 - cur[0])));
+      if (k > 0) {
+        g.save(); g.beginPath(); g.rect(x, y - px, w * k, px * 2); g.clip();
+        g.fillStyle = this.color; g.shadowColor = this.color; g.shadowBlur = 10; g.fillText(cur[2], x, y);
+        g.restore();
+      }
+    }
+    if (showNext) {
+      g.globalAlpha = Math.min(0.75, (4 - (nx[0] - t)) / 1.0 * 0.75);
+      const px = fit(nx[2], 600, sm);
+      const w = g.measureText(nx[2]).width;
+      g.fillStyle = 'rgba(200,215,255,0.9)';
+      g.fillText(nx[2], W / 2 - w / 2, y + (small ? 24 : 32));
+    }
+    g.restore();
   }
 
   // チュートリアルの説明(画面上のほうに大きく)

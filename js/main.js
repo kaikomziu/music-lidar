@@ -190,6 +190,37 @@ const EMBED = new URLSearchParams(location.search).has('embed');
 // 歌詞の時刻合わせモード(?lyricsync=1): プレイ中に各行の歌い始めで Enter を押すと、その時刻に置き直して、全体をクリップボードにコピーする
 const LYRIC_SYNC = new URLSearchParams(location.search).has('lyricsync');
 let lyricMarks = { game: null, n: 0 };
+// 押した時刻を次の行の歌い始めにする(行の長さはそのまま)。全体をクリップボードにコピー
+function lyricStamp(ts) {
+  if (state !== 'game' || !game?.lyrics) return;
+  if (lyricMarks.game !== game) lyricMarks = { game, n: 0 }; // プレイごとに最初の行から
+  const L = game.lyrics, k = lyricMarks.n++;
+  if (k >= L.length) { toast('最後の行まで記録しました。コピーした内容をチャットに貼ってください'); return; }
+  const at = Math.round(game.songTime(ts) * 100) / 100, d = at - L[k][0];
+  L[k][0] = at; L[k][1] = Math.round((L[k][1] + d) * 100) / 100;
+  const json = JSON.stringify(L);
+  navigator.clipboard?.writeText(json).catch(() => {});
+  save('lyricSync', { song: playing?.entry?.id, lyrics: json });
+  toast(`歌詞 ${k + 1}/${L.length}「${L[k][2]}」${at.toFixed(2)}秒(全体をコピーしました)`, 1500);
+  syncBadge();
+}
+// 時刻合わせモードの表示(画面の上)。プレイ中はスマホでも押せる「歌い始め」ボタンになる
+function syncBadge() {
+  if (!LYRIC_SYNC) return;
+  let b = document.getElementById('lyric-sync');
+  if (!b) {
+    b = document.createElement('button');
+    b.id = 'lyric-sync'; b.type = 'button';
+    b.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:9999;padding:8px 16px;border-radius:999px;border:1px solid #ffd25e;background:rgba(20,16,4,.9);color:#ffd25e;font:700 13px system-ui,sans-serif;touch-action:manipulation';
+    b.addEventListener('pointerdown', (ev) => { ev.preventDefault(); ev.stopPropagation(); lyricStamp(ev.timeStamp); });
+    document.body.appendChild(b);
+  }
+  const inGame = state === 'game' && game?.lyrics;
+  const n = lyricMarks.game === game ? lyricMarks.n : 0;
+  b.textContent = inGame ? `🎤 歌い始め(Enter)${n}/${game.lyrics.length}` : '🎤 歌詞の時刻合わせモード: 歌詞のある曲を遊び、各行の歌い始めで Enter かこのボタン';
+  b.style.pointerEvents = inGame ? 'auto' : 'none';
+}
+if (LYRIC_SYNC) { syncBadge(); setInterval(syncBadge, 500); }
 if (EMBED) document.body.classList.add('embed');
 const openedBySongUrl = !!urlSongId && (EMBED || !!load('token', null));
 if (urlSongId && !openedBySongUrl) {
@@ -987,19 +1018,7 @@ window.addEventListener('keydown', (ev) => {
       game.press(lane, ev.timeStamp, set.size > 1);
       return;
     }
-    if (LYRIC_SYNC && ev.key === 'Enter' && game.lyrics) {
-      // 歌詞の時刻合わせ: 押した時刻を次の行の歌い始めにする(行の長さはそのまま)
-      ev.preventDefault();
-      if (lyricMarks.game !== game) lyricMarks = { game, n: 0 }; // プレイごとに最初の行から
-      const L = game.lyrics, k = lyricMarks.n++;
-      if (k < L.length) {
-        const at = Math.round(game.songTime(ev.timeStamp) * 100) / 100, d = at - L[k][0];
-        L[k][0] = at; L[k][1] = Math.round((L[k][1] + d) * 100) / 100;
-        navigator.clipboard?.writeText(JSON.stringify(L)).catch(() => {});
-        toast(`歌詞 ${k + 1}/${L.length}「${L[k][2]}」${at.toFixed(2)}秒(全体をコピーしました)`, 1500);
-      }
-      return;
-    }
+    if (LYRIC_SYNC && ev.key === 'Enter' && game.lyrics) { ev.preventDefault(); lyricStamp(ev.timeStamp); return; }
     if (ev.key === 'Escape') {
       // みんなでライブは止めない(全員同時に進むため)。メニューだけ出す
       if (playing?.live) overlay('pause', !$('pause').classList.contains('on'));

@@ -18,7 +18,7 @@ export default {
   audio: 'audio/crying-red.bin',
   audioKey: 'aes:Z2mu/j7uX8GTgBzIX6NU7K+InjyXWrWFjFWbSJBUDBY=',
   fixedCharts: data.charts,
-  levels: { easy: 2, normal: 5, hard: 8 },
+  levels: { easy: 2, normal: 5, hard: 8, extra: 11 }, // EXTRA: layered.py で裏の音も拾った最高難度
   previewAt: 88, // 秒
   credit: '音楽:御箸ねくらぁ。「Crying Red」',
   creditUrl: 'https://youtu.be/PWKgh4ZqHTg',

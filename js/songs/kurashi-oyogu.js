@@ -18,7 +18,7 @@ export default {
   audio: 'audio/kurashi-oyogu.bin',
   audioKey: 'aes:yhOYA+KYkg+gEgrKY6qajxV2eunyUOC07NZuiDY9vaU=',
   fixedCharts: data.charts,
-  levels: { easy: 2, normal: 4, hard: 6 },
+  levels: { easy: 2, normal: 4, hard: 6, extra: 9 }, // EXTRA: layered.py(16分まで)で裏の音も拾った最高難度
   previewAt: 126, // 秒
   credit: '音楽:ナツメダ ユキ「暮らし泳ぐ」(歌:音街ウナ)',
   creditUrl: 'https://piapro.jp/YukiNatsumeda',

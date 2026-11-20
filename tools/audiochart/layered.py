@@ -6,13 +6,17 @@
 # 使い方: 作業フォルダ(feat.npz と grid.npy がある所)で
 #   python layered.py <既存の .data.js> <T_END> <HARDの目標 nps> <NORMALの目標 nps>
 #   EASY は既存の .data.js のまま。HARD と NORMAL を作り直して同じファイルに書き戻す
-import sys, json, re
+import sys, json, re, os
 import numpy as np
+# 環境変数: LAYERED_TARGET=extra なら EXTRA だけを作る(HARDの目標 nps を EXTRA に使い、NORMAL・HARD はそのまま)
+#          LAYERED_GRID=16 なら16分まで置く(遅い曲用。同じ手で続くときは2つのキーを交互、同じキーは0.2秒以上あける)
+TARGET = os.environ.get('LAYERED_TARGET', '')
+GRID16 = os.environ.get('LAYERED_GRID') == '16'
 
 DATA, T_END, HARD_NPS, NORMAL_NPS = sys.argv[1], float(sys.argv[2]), float(sys.argv[3]), float(sys.argv[4])
 d = np.load('feat.npz'); t = d['t']; dt = t[1] - t[0]
 low, mid, high = d['low'], d['mid'], d['high']
-bpm, ph = np.load('grid.npy'); spb = 60 / bpm; e8 = spb / 2
+bpm, ph = np.load('grid.npy'); spb = 60 / bpm; e8 = spb / 4 if GRID16 else spb / 2
 
 def at(v, tm, w=2):
     i = int(round((tm - t[0]) / dt))
@@ -26,7 +30,8 @@ while True:
     g = ph + k * e8
     if g > T_END: break
     if g >= 0.15:
-        slots.append(dict(k=k, t=g, l=at(low, g), m=at(mid, g), h=at(high, g), beat=(k % 2 == 0), bar=(k % 8 == 0)))
+        per = 4 if GRID16 else 2
+        slots.append(dict(k=k, t=g, l=at(low, g), m=at(mid, g), h=at(high, g), beat=(k % per == 0), bar=(k % (per * 4) == 0)))
     k += 1
 L = np.array([s['l'] for s in slots]); R = np.array([max(s['m'], 0.8 * s['h']) for s in slots])
 dur = T_END - slots[0]['t']
@@ -82,16 +87,24 @@ def build(on_l, on_r, triple):
 src = open(DATA, encoding='utf-8').read()
 m = re.search(r'export default (\{.*\});', src, re.S)
 data = json.loads(m.group(1))
-on_l, on_r = pick(HARD_NPS, False)
-data['charts']['hard'] = build(on_l, on_r, True)
-on_l, on_r = pick(NORMAL_NPS, True)
-data['charts']['normal'] = build(on_l, on_r, False)
-for lv in ('easy', 'normal', 'hard'):
+if TARGET == 'extra':
+    on_l, on_r = pick(HARD_NPS, False)
+    data['charts']['extra'] = build(on_l, on_r, True)
+else:
+    on_l, on_r = pick(HARD_NPS, False)
+    data['charts']['hard'] = build(on_l, on_r, True)
+    on_l, on_r = pick(NORMAL_NPS, True)
+    data['charts']['normal'] = build(on_l, on_r, False)
+for lv in [x for x in ('easy', 'normal', 'hard', 'extra') if x in data['charts']]:
     c = data['charts'][lv]
     print(lv, len(c), 'notes', f'{len(c) / dur:.2f} nps', 'lanes', np.bincount([n[1] for n in c], minlength=4).tolist())
 head = src[:m.start()]
+old_comment = (re.match(r'^// .*\n', head) or [''])[0]
 head = re.sub(r'^// .*\n', '', head, count=1)
+if TARGET == 'extra':  # EXTRA だけ足したときは、元の説明の後ろに書き足す
+    comment = old_comment.rstrip('\n') + ' EXTRA は layered.py(裏の音も拾って左右の手で重ねた最高難度)。\n'
+else:
+    comment = '// 譜面データ(EASY は chart.py、NORMAL・HARD は layered.py: 裏の音も拾い、左手=低い音・右手=中高い音で重ねた高難易度。8分まで)。[ms, レーン, 終端ms?]\n'
 open(DATA, 'w', encoding='utf-8').write(
-    head.replace('export default ', '') +
-    f'// 譜面データ(EASY は chart.py、NORMAL・HARD は layered.py: 裏の音も拾い、左手=低い音・右手=中高い音で重ねた高難易度。8分まで)。[ms, レーン, 終端ms?]\n'
+    head.replace('export default ', '') + comment +
     'export default ' + json.dumps(data, separators=(',', ':')) + ';\n')

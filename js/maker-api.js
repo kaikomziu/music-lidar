@@ -28,6 +28,8 @@ export async function getChart(id) {
   if (!c) throw new Error('NOT_FOUND');
   return { ...c, notes: unpackNotes(c.notes) };
 }
+export const featuredCharts = () => rpc('mlidar_chart_featured', {}).catch(() => []);
+export const featureChart = (id, on) => rpc('mlidar_chart_feature', { p_token: token(), p_id: id, p_on: on });
 export const likeChart = (id) => rpc('mlidar_chart_like', { p_token: token(), p_id: id });
 export const countPlay = (id) => rpc('mlidar_chart_play', { p_id: id }).catch(() => {});
 export const fetchChartRanking = (id, client, limit = 20) => rpc('mlidar_chart_ranking', { p_id: id, p_client: client, p_limit: limit });

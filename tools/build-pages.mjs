@@ -26,7 +26,7 @@ for (const f of ['index.html', 'guide.html']) {
     const rows = new Map();
     for (const m of h.matchAll(/<tr><td><a href="music\/([a-z0-9]+)\/">[\s\S]*?<\/tr>/g)) rows.set(m[1], m[0]);
     const body = songs.map((s) => {
-      const lv = `${s.levels.easy} / ${s.levels.normal} / ${s.levels.hard}`;
+      const lv = `${s.levels.easy} / ${s.levels.normal} / ${s.levels.hard}${s.levels.extra ? ` / EX ${s.levels.extra}` : ""}`;
       let row = rows.get(s.urlId) ||
         `<tr><td><a href="music/${s.urlId}/">${esc(s.title)}</a></td><td>${esc(s.genre)}</td><td>${Math.round(s.bpm)}</td><td class="lv">${lv}</td></tr>`;
       row = row.replace(/<td class="lv">[^<]*<\/td>/, `<td class="lv">${lv}</td>`); // レベルは曲ファイルに合わせる

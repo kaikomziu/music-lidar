@@ -110,6 +110,7 @@
 | `dan.js` | 段位道場(初段〜皆伝の11段) |
 | `extras.js` | デイリーチャレンジ・コースモード・判定グラフ・共有画像・判定タイミングの自動調整・ゲームパッド |
 | `maker.js` / `maker-api.js` | 譜面メーカーと「みんなの譜面」 |
+| `replay.js` | リプレイ(入力の記録の符号化・端末とサーバーへの保存・読み込み) |
 | `lyrics.js` | 歌詞の読み込み・保存(サーバーの `mlidar_lyrics`)と歌い終わりの自動決め |
 | `custom-audio.js` | 譜面メーカーで管理者が自分で選んだ音声(暗号化・アップロード・復号、曲のエントリー) |
 | `player.js` | きくだけモード(音楽プレーヤー) |
@@ -209,6 +210,11 @@ export default {
 - 体力(`life`)は段位・コースのときだけ使う。0 になったら不合格
 - キー: レーンごとに [メイン, 連打用の2つ目]。初期は D/S・F/G・J/H・K/L。同じレーンの2つのキーを交互に押すと、速い連打ができる
 - 演出の強さは `settings.fx`(0 オフ / 1 控えめ / 2 派手)
+- 見やすさの設定: `settings.noteSize`(small / normal / large。ノーツの厚みと横の余白、`NOTE_SIZE`)、`settings.palette`(skin / cvd。cvd は外側を青・内側をオレンジにした色覚に配慮した配色 `CVD_COLORS` で、着せ替えより優先。ノーツの色は `game.colors()` から取る)、`settings.bgDim`(0〜80%。MV・点群の上に黒を重ねる)
+- **判定タイミングのおすすめ**: リザルトで、そのプレイの叩いたずれ(`r.log` の3つ目、今の判定タイミングを引いたあとの値)の中央値が 12ms 以上なら「判定タイミングを ±Nms にする」ボタンを出す(40 回以上叩いたときだけ。`offsetHint`)。音に合わせて叩いて測る画面(設定の「タイミング調整」`extras.js`)も前からある
+- **練習モード**(選曲画面の「🎯 練習モード」): 区間(はじめ・おわり)・速さ(×0.5〜1.0)・くり返しを選ぶ。`custom.kind = 'practice'`、記録・ランキング・ゴースト・録画なし。遅くするときは、区間の前後を WAV にして `<audio>`(`preservesPitch`)で鳴らし、ゲームの時計をその再生位置に合わせる(`Game.startMedia`、`this.rate`。`songTime` は rate 倍で進む)。くり返すときは終わるたびに同じ条件でもう一度始める(やめるときは Esc →「選曲へ」)。選んだ条件は `mlidar:practice:<曲id>`
+- **リプレイ**(`replay.js`): ふつうのプレイ中はキーの押し・離し `[判定の時刻, レーン, 1/0]` を `game.inputs` に記録。リプレイは `custom.kind = 'replay'` で `replay` を渡し、その時刻が来たら `pressAt` / `releaseAt` を呼ぶ(キー入力は受け付けない)。自己ベストを更新したら、端末(`mlidar:replay:<曲id>/<難易度>`、最大 15 譜面)とサーバー(`mlidar_replays`。ランキングに記録したスコア以下だけ受け付ける)に残す。レーンがランダムのプレイは残さない。選曲画面の「▶ リプレイ」で自分のベストと上位 10 人、リザルトの「▶ リプレイを見る」でいまのプレイを見られる
+- **EXTRA**(4つ目の難易度): 曲ファイルの `levels.extra` と `fixedCharts.extra` がある曲だけ(今は Crying Red・暮らし泳ぐ)。ひとりでライブだけ(みんなでライブ・週替わり・段位などは3つのまま)。曲一覧の絞り込み・並び替えは EXTRA を選んでいても HARD で見る。EXTRA のない曲では HARD を見せる。サーバーの `mlidar_scores.diff` と `mlidar_play_result_core` は `extra` も受け付ける(コインは HARD より少し多い)。譜面は `LAYERED_TARGET=extra python tools/audiochart/layered.py <data.js> <T_END> <目標nps> 0`(遅い曲は `LAYERED_GRID=16` で16分まで)
 
 ---
 
@@ -403,6 +409,7 @@ export default {
 | `mlidar_units` / `mlidar_banners` | キャラ図鑑 / 期間限定ガチャ |
 | `mlidar_skins` | 着せ替えの一覧(値段・入手方法) |
 | `mlidar_charts` / `mlidar_chart_scores` / `mlidar_chart_likes` | みんなの譜面(`song` は曲の id か `a:<音声id>`) |
+| `mlidar_replays` | リプレイ(1人1譜面1つ。キーの押し・離しの記録) |
 | `mlidar_lyrics` | 曲の歌詞と時刻(RLS でポリシーなし。関数からだけ触る) |
 | `mlidar_audio` | 管理者が置いた音声の情報と復号の鍵(RLS でポリシーなし。関数からだけ触る) |
 | `mlidar_live_lobby` | 公開中の部屋一覧(今使っている) |
@@ -421,7 +428,8 @@ export default {
 - 対戦: `mlidar_lobby_put` / `_list` / `_close`, `mlidar_match_poll` / `_cancel` / `_done`
 - フレンド: `mlidar_friend_request` / `_respond` / `_remove` / `_list` / `_ranking`
 - ゴースト・投票・イベント: `mlidar_ghost_put` / `_get`, `mlidar_poll_create` / `_vote` / `_get` / `_close`, `mlidar_event_join`
-- 譜面: `mlidar_chart_save` / `_list` / `_get` / `_delete` / `_like` / `_play` / `_ranking` / `_submit`
+- 譜面: `mlidar_chart_save` / `_list` / `_get` / `_delete` / `_like` / `_play` / `_ranking` / `_submit`。今週のおすすめ: `mlidar_chart_feature`(管理者)/ `mlidar_chart_featured`(選んでから14日・最大3つ。みんなの譜面の上とホームの CHARTS の札に出る)
+- リプレイ: `mlidar_replay_put` / `_top` / `_get`
 - 自分で選んだ音声: `mlidar_audio_get`(だれでも。曲の情報と鍵)/ `mlidar_audio_list` / `mlidar_audio_meta`(管理者)。置く・消すは Edge Function `mlidar-audio`
 - お問い合わせ・管理: `mlidar_request_send` / `_mine` / `_list` / `_set`, `mlidar_admin_overview`
 - 内部用(ブラウザから呼ばない): `mlidar_auth`, `mlidar_friend_ids`, `mlidar_state_of`, `mlidar_play_result_core`, `mlidar_missions`, `mlidar_team_fx`, `mlidar_daily`, `mlidar_today`, `mlidar_week_key`, `mlidar_season_key`, `mlidar_season_reward`, `mlidar_give_skin`, `mlidar_event_open`

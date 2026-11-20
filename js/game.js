@@ -4,6 +4,10 @@ import { NO_SCROLL } from './gimmick.js';
 import { noteColors, lineColors, hitKind, drawPart, partColor } from './skins.js';
 
 export const LANE_COLORS = ['#5ef2ff', '#ff4fd8', '#ff4fd8', '#5ef2ff'];
+// 色覚に配慮した配色: 外側は青、内側はオレンジ(赤と緑の見分けに頼らない。明るさにも差をつける)
+const CVD_COLORS = ['#3d9dff', '#ffb000', '#ffb000', '#3d9dff'];
+// ノーツの大きさ(奥行きの厚み・横の余白)
+const NOTE_SIZE = { small: [0.4, 0.09], normal: [0.55, 0.05], large: [0.8, 0.02] };
 // 初期のキー配置 [メイン, 連打用の2つ目]。2つ目は2本の指で交互に押して速い連打をするためのキー
 // 設定の「キー配置」で変えられる(keyconfig.js が setKeymap で差し替える)
 export const DEFAULT_KEYS = [['KeyD', 'KeyS'], ['KeyF', 'KeyG'], ['KeyJ', 'KeyH'], ['KeyK', 'KeyL']];
@@ -133,13 +137,19 @@ export class PointCloud {
 
 // ---------------------------------------------------------------------------
 export class Game {
-  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd, team, scroll, offset, jacket, label, rivals, captions, life, mv, opts, ghost, lyrics }) {
+  constructor(canvas, { buffer, notes, settings, bpm, title, diff, color, cloud, onEnd, team, scroll, offset, jacket, label, rivals, captions, life, mv, opts, ghost, lyrics, practice, replay }) {
     // 段位道場の体力 { start, miss, good, great, perfect }(%)
     this.lifeOpt = life || null;
     this.life = life ? life.start : 100;
     this.failed = false;
     this.captions = captions || null; // チュートリアル: [{ t, until, text, sub }]
     this.lyrics = lyrics?.length ? lyrics : null; // 歌詞: [[歌い始めの秒, 歌い終わりの秒, 行], ...]
+    // 練習モード: { from, to, rate, media?(音の高さを保って遅くする <audio>), segStart(media の0秒が曲の何秒か) }
+    this.practice = practice || null;
+    // リプレイ: [[判定の時刻, レーン, 1押す/0離す], ...] を流し直す(このときはキー入力を受け付けない)。ふつうのプレイは inputs に記録する
+    this.replay = replay?.length ? replay : null; this.replayIdx = 0;
+    this.inputs = [];
+    this.rate = practice?.media ? practice.rate : 1;
     this.rivals = rivals || null; // みんなでライブ: () => [{ name, combo, me, done }]
     this.label = label || String(diff || '').toUpperCase();
     if (jacket) { this.jacketImg = new Image(); this.jacketImg.src = jacket; }
@@ -195,6 +205,9 @@ export class Game {
     this.setGhost(ghost);
   }
 
+  // ノーツの色: 設定の「色」で「色覚に配慮」を選んだら、着せ替えより優先して見分けやすい配色にする
+  colors() { return this.settings.palette === 'cvd' ? CVD_COLORS : noteColors(); }
+
   // ゴースト(自己ベストの判定の記録)から、各時刻での自己ベストのスコアを前もって計算しておく
   // ghost は判定の記録の配列か、{ log, name }(オンラインのゴースト)
   setGhost(ghost) {
@@ -222,6 +235,7 @@ export class Game {
   // startFrom: 曲の途中から始める(譜面メーカーのテストプレイ用)。ノーツは呼び出し側で絞っておく
   // syncAt: みんなでライブ用。曲の頭(0秒)を鳴らす performance.now() の時刻。過ぎていたらその位置から途中で始める
   start(startFrom = 0, syncAt = null) {
+    if (this.practice?.media) return this.startMedia(startFrom);
     const ctx = getCtx();
     this.introAt = performance.now();
     const first = this.notes.length ? this.notes[0].t - startFrom : 2;
@@ -242,16 +256,38 @@ export class Game {
     this.anchorPerf = p;
     this.anchorSong = nowAudio(p) - this.startAt;
     this.holdSyncUntil = 0;
-    this.endAt = Math.max(this.buffer.duration, this.lastNoteT + 1.5);
+    this.endAt = this.practice ? this.practice.to + 0.6 : Math.max(this.buffer.duration, this.lastNoteT + 1.5);
     this.loop = this.loop.bind(this);
     this.raf = requestAnimationFrame(this.loop);
   }
 
-  songTime(perfNow) { return this.anchorSong + (perfNow - this.anchorPerf) / 1000; }
+  // 練習モード(遅くする): <audio> の preservesPitch で音の高さを保ったまま再生し、その再生位置に時計を合わせる
+  startMedia(startFrom) {
+    const pr = this.practice, a = pr.media;
+    this.introAt = performance.now();
+    const first = this.notes.length ? this.notes[0].t - startFrom : 2;
+    this.leadIn = Math.max(1.6, (this.T + 0.6 - first) / this.rate);
+    a.playbackRate = this.rate;
+    a.preservesPitch = true; a.mozPreservesPitch = true; a.webkitPreservesPitch = true;
+    a.currentTime = Math.max(0, startFrom - pr.segStart);
+    this.mediaFrom = startFrom;
+    const p = performance.now();
+    this.anchorPerf = p;
+    this.anchorSong = startFrom - this.leadIn * this.rate;
+    this.holdSyncUntil = p + this.leadIn * 1000 + 300;
+    this.mediaTimer = setTimeout(() => { if (!this.paused && !this.ended) a.play().catch(() => {}); }, this.leadIn * 1000);
+    this.endAt = pr.to + 0.6;
+    this.loop = this.loop.bind(this);
+    this.raf = requestAnimationFrame(this.loop);
+  }
+
+  songTime(perfNow) { return this.anchorSong + ((perfNow - this.anchorPerf) / 1000) * this.rate; }
 
   syncClock(perfNow) {
     if (perfNow < this.holdSyncUntil) return;
-    const target = nowAudio(perfNow) - this.startAt;
+    const m = this.practice?.media;
+    if (m && (m.paused || m.seeking)) return;
+    const target = m ? this.practice.segStart + m.currentTime : nowAudio(perfNow) - this.startAt;
     const err = target - this.songTime(perfNow);
     if (!Number.isFinite(err)) return;
     if (Math.abs(err) > 0.06) { this.anchorPerf = perfNow; this.anchorSong = target; }
@@ -264,6 +300,7 @@ export class Game {
     const p = performance.now();
     this.anchorSong = this.songTime(p);
     this.anchorPerf = p;
+    if (this.practice?.media) { clearTimeout(this.mediaTimer); this.practice.media.pause(); }
     getCtx().suspend();
   }
   resume() {
@@ -274,6 +311,8 @@ export class Game {
     // 再開直後はオーディオ側の時刻情報が古いことがあるので少し待ってから合わせる
     this.holdSyncUntil = p + 400;
     getCtx().resume();
+    const m = this.practice?.media;
+    if (m) { if (this.anchorSong >= this.mediaFrom) m.play().catch(() => {}); else this.mediaTimer = setTimeout(() => { if (!this.paused && !this.ended) m.play().catch(() => {}); }, (this.mediaFrom - this.anchorSong) / this.rate * 1000); }
     this.pressed = [false, false, false, false];
     // 止めている間に指を離したロングノーツは、再開した時点で離したものとして判定する
     // (押したままでも、再開後は押し直しが必要。止めている間の放しを見逃して成功扱いにしないため)
@@ -290,6 +329,7 @@ export class Game {
     this.ended = true;
     cancelAnimationFrame(this.raf);
     try { this.src.stop(); } catch { /* not started */ }
+    if (this.practice?.media) { clearTimeout(this.mediaTimer); this.practice.media.pause(); }
     this.mv?.destroy?.(); // 動画MVなら再生を止めて手放す
     getCtx().resume();
   }
@@ -297,10 +337,14 @@ export class Game {
   // --- 入力 ---------------------------------------------------------------
   // again: 同じレーンのもう1つのキーがまだ押されたまま、別のキーで押した(連打の交互押し)
   press(lane, perfTime, again = false) {
+    if (this.replay) return;
+    this.pressAt(lane, this.songTime(perfTime) - this.inOffset, again);
+  }
+  pressAt(lane, t, again = false) {
     if (this.paused || this.ended) return;
     if (this.pressed[lane] && (!again || this.byLane[lane].some((n) => n.holding))) return;
     this.pressed[lane] = true;
-    const t = this.songTime(perfTime) - this.inOffset;
+    if (!this.replay) this.inputs.push([t, lane, 1]);
     this.jt = t;
     this.pressT[lane] = t;
     playTap();
@@ -321,10 +365,14 @@ export class Game {
   }
 
   release(lane, perfTime) {
+    if (this.replay) return;
+    this.releaseAt(lane, this.songTime(perfTime) - this.inOffset);
+  }
+  releaseAt(lane, t) {
     if (!this.pressed[lane]) return;
     this.pressed[lane] = false;
     if (this.paused || this.ended) return;
-    const t = this.songTime(perfTime) - this.inOffset;
+    if (!this.replay) this.inputs.push([t, lane, 0]);
     this.jt = t;
     for (const n of this.byLane[lane]) {
       if (!n.holding) continue;
@@ -408,7 +456,8 @@ export class Game {
 
   finish() {
     this.ended = true;
-    if (this.failed) { try { this.src.stop(); } catch { /* noop */ } }
+    if (this.failed || this.practice) { try { this.src.stop(); } catch { /* noop */ } }
+    if (this.practice?.media) { clearTimeout(this.mediaTimer); this.practice.media.pause(); }
     cancelAnimationFrame(this.raf);
     const score = this.score;
     const r = {
@@ -426,7 +475,7 @@ export class Game {
       tMaxCombo: this.tMaxCombo,
       hasTeam: this.team.score > 0 || this.team.judge > 0 || this.team.guard > 0,
       failed: this.failed, life: this.life,
-      log: this.log, opts: { ...this.opts },
+      log: this.log, opts: { ...this.opts }, inputs: this.replay ? null : this.inputs,
     };
     r.rank = rankOf(score);
     this.onEnd?.(r);
@@ -473,7 +522,7 @@ export class Game {
       for (let i = 0; i < n; i++) {
         const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.6;
         const sp = 140 + Math.random() * 360;
-        this.fx.parts.push({ lane, ox: (Math.random() - 0.5) * 0.8, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, at: now, life: 380 + Math.random() * 300, c: partColor(kind, noteColors()[lane]), kind, i, rot: Math.random() * 6 });
+        this.fx.parts.push({ lane, ox: (Math.random() - 0.5) * 0.8, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, at: now, life: 380 + Math.random() * 300, c: partColor(kind, this.colors()[lane]), kind, i, rot: Math.random() * 6 });
       }
     }
   }
@@ -484,6 +533,13 @@ export class Game {
     if (this.paused) return;
     this.syncClock(perfNow);
     const t = this.songTime(perfNow);
+    if (this.replay) { // 記録した入力を、その時刻が来たら流す
+      const R = this.replay;
+      while (this.replayIdx < R.length && R[this.replayIdx][0] <= t) {
+        const [et, l, d] = R[this.replayIdx++];
+        if (d) { this.pressT[l] = et; this.pressAt(l, et); if (this.pressed[l]) this.fx.flash[l] = performance.now(); } else this.releaseAt(l, et);
+      }
+    }
     this.update(t);
     if (!this.ended) this.render(t, perfNow);
   }
@@ -513,6 +569,7 @@ export class Game {
       g.fillStyle = 'rgba(2,3,10,0.38)'; g.fillRect(0, 0, W, H);
     }
     if (!green) this.cloud.draw(g, W, H, Math.max(0, t), this.bpm, energy, this.color, F.cloud * (mvOn ? 0.3 : 1));
+    if (!green && this.settings.bgDim > 0) { g.fillStyle = `rgba(0,0,0,${Math.min(0.85, this.settings.bgDim / 100)})`; g.fillRect(0, 0, W, H); } // 設定の「背景の暗さ」
 
     // レーン床(始まりは奥へ伸びていく)
     const zNear = Z_J * 0.82;
@@ -536,7 +593,7 @@ export class Game {
         this.quad(G, u0, u1, Z_J, Z_J + 9);
         const [, y0] = this.proj(G, 0, Z_J), [, y1] = this.proj(G, 0, Z_J + 9);
         const gr = g.createLinearGradient(0, y0, 0, y1);
-        gr.addColorStop(0, hexA(noteColors()[l], 0.38)); gr.addColorStop(1, hexA(noteColors()[l], 0));
+        gr.addColorStop(0, hexA(this.colors()[l], 0.38)); gr.addColorStop(1, hexA(this.colors()[l], 0));
         g.fillStyle = gr; g.fill();
       }
     }
@@ -587,7 +644,7 @@ export class Game {
       const z = Z_J + k * (Z_FAR - Z_J);
       const u0 = s.wide ? -2 : s.lane - 2, u1 = s.wide ? 2 : s.lane - 1;
       this.quad(G, u0, u1, z, z + 0.35);
-      g.fillStyle = hexA(noteColors()[s.lane], (1 - k) * (s.wide ? 0.55 : 0.8) * F.scan);
+      g.fillStyle = hexA(this.colors()[s.lane], (1 - k) * (s.wide ? 0.55 : 0.8) * F.scan);
       g.fill();
     }
     // レーザー
@@ -596,7 +653,7 @@ export class Game {
       const k = (perfNow - s.at) / 260;
       const u = s.lane - 1.5;
       const [x0, y0] = this.proj(G, u, Z_J), [x1, y1] = this.proj(G, u, Z_FAR);
-      g.strokeStyle = hexA(noteColors()[s.lane], (1 - k) * F.laser);
+      g.strokeStyle = hexA(this.colors()[s.lane], (1 - k) * F.laser);
       g.lineWidth = (1 - k) * G.laneW * 0.5 * F.laser;
       g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
       g.strokeStyle = `rgba(255,255,255,${(1 - k) * F.laser})`;
@@ -639,7 +696,7 @@ export class Game {
     // 判定ラインの下のキー(押すと光る)
     g.save();
     for (let l = 0; l < 4; l++) {
-      const c = noteColors()[l], on = this.pressed[l];
+      const c = this.colors()[l], on = this.pressed[l];
       const flash = Math.max(0, 1 - (perfNow - this.fx.flash[l]) / 160);
       this.quad(G, l - 2 + 0.06, l - 1 - 0.06, Z_J * 0.915, Z_J * 0.985);
       const [, ky0] = this.proj(G, 0, Z_J * 0.915), [, ky1] = this.proj(G, 0, Z_J * 0.985);
@@ -702,7 +759,7 @@ export class Game {
 
   drawNote(G, n, t) {
     const g = this.g;
-    const c = noteColors()[n.lane];
+    const c = this.colors()[n.lane];
     const u0 = n.lane - 2 + 0.05, u1 = n.lane - 1 - 0.05;
     const thick = 0.55;
     const fade = (z) => Math.max(0, Math.min(1, (Z_FAR - z) / 4));
@@ -757,7 +814,8 @@ export class Game {
   drawHead(G, n, z, c, alpha) {
     if (z > Z_FAR || z < Z_J * 0.75) return;
     const g = this.g;
-    const u0 = n.lane - 2 + 0.05, u1 = n.lane - 1 - 0.05;
+    const [th, mg] = NOTE_SIZE[this.settings.noteSize] || NOTE_SIZE.normal;
+    const u0 = n.lane - 2 + mg, u1 = n.lane - 1 - mg;
     const behind = z < Z_J ? Math.max(0, (z - Z_J * 0.75) / (Z_J * 0.25)) : 1;
     let hid = this.opts.vis === 'hidden' ? Math.max(0, Math.min(1, (z - 15) / 5)) : 1; // HIDDEN: 判定ラインの手前で消える
     const hg = this.scroll.hideAt(this.lastT ?? 0); // 「消える」ギミック: 判定ラインから奥へ hg の範囲で消える(手前ほど薄く)
@@ -765,8 +823,8 @@ export class Game {
     if (hid <= 0) return;
     g.save();
     g.globalAlpha = alpha * behind * hid;
-    this.quad(G, u0, u1, z, z + 0.55);
-    const [, yb] = this.proj(G, 0, z), [, yt] = this.proj(G, 0, z + 0.55);
+    this.quad(G, u0, u1, z, z + th);
+    const [, yb] = this.proj(G, 0, z), [, yt] = this.proj(G, 0, z + th);
     const ng = g.createLinearGradient(0, yt, 0, yb);
     ng.addColorStop(0, '#ffffff'); ng.addColorStop(0.3, c); ng.addColorStop(1, hexA(c, 0.55));
     g.shadowColor = c; g.shadowBlur = this.F.glow;
@@ -775,7 +833,7 @@ export class Game {
     g.shadowBlur = 0;
     g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 1;
     g.stroke();
-    this.quad(G, u0 + 0.16, u1 - 0.16, z + 0.2, z + 0.32);
+    this.quad(G, u0 + 0.16, u1 - 0.16, z + th * 0.36, z + th * 0.58);
     g.fillStyle = 'rgba(255,255,255,0.9)';
     g.fill();
     g.restore();
@@ -1073,7 +1131,7 @@ export class Game {
   }
 }
 
-export const DIFF_COLOR = { easy: '#6dffb0', normal: '#ffd25e', hard: '#ff5a8a', custom: '#c49bff', test: '#9fe8ff' };
+export const DIFF_COLOR = { easy: '#6dffb0', normal: '#ffd25e', hard: '#ff5a8a', extra: '#c06bff', custom: '#c49bff', test: '#9fe8ff' };
 
 // extraMs: 編成の判定サポートで PERFECT/GREAT 幅を広げる量
 function judgeOf(d, extraMs = 0) {

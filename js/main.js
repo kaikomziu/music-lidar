@@ -1,7 +1,7 @@
 import { langPref, setLang } from './i18n.js'; // 多言語表示(いちばん先に読んで、画面の文字を置き換える)
 import SONGS from './songs/index.js';
 import { composeSong, candidatesFromEvents, generateChart, shapeHolds, chartStats, DIFFS, hashStr } from './composer.js';
-import { getCtx, setVolumes, playPreview, stopPreview } from './audio.js';
+import { getCtx, setVolumes, playPreview, stopPreview, bgmOutFor } from './audio.js';
 import { loadSongAudio } from './audio-cache.js';
 import { loadExternalAudio } from './external-audio.js';
 import { showLoading, hideLoading } from './loading.js';
@@ -15,13 +15,14 @@ import { load, save, getSettings, setSettings, DEFAULT_SETTINGS, clientId, getBe
 import { fetchRanking, submitScore } from './ranking.js';
 import * as acc from './account.js';
 import { initMeta, openAccount, renderHeader, gachaResultOpen, closeGacha, openScreen as openMetaScreen } from './meta.js';
-import { initMaker, openCharts, openEditor, makerKeydown } from './maker.js';
+import { initMaker, openCharts, openEditor, makerKeydown, homeFeatured } from './maker.js';
 import { fetchChartRanking, submitChartScore } from './maker-api.js';
 import { fxText } from './units.js';
 import { initLive, openLive, backToRoom, roomCode, joinFromLink } from './live.js';
 import { initPlayer, openPlayer, playerKeydown, stop as stopPlayer } from './player.js';
 import { TUTORIAL_DEF, TUT_NOTES, tutCaptions } from './tutorial.js';
 import { lyricsQuick, lyricsFor } from './lyrics.js';
+import { decodeInputs, localReplay, saveLocalReplay, uploadReplay, topReplays, getReplay } from './replay.js';
 import { initAdmin, openAdmin, stopAdmin } from './admin.js';
 import { initRequest, closeRequest } from './request.js';
 import { initMotion, replay } from './motion.js';
@@ -75,13 +76,15 @@ function touchBuffer(e) {
 }
 
 // のばす音をトリルなどに変える(composer.js の shapeHolds)。曲ファイルで holdStyle: false にすると今までのロングノーツのまま
-const holds = (notes, d, def) => (def.holdStyle === false ? notes : shapeHolds(notes, d, { bpm: def.bpm, level: def.levels?.[d], seed: hashStr(def.id) }));
+const holds = (notes, d, def) => (def.holdStyle === false ? notes : shapeHolds(notes, d === 'extra' ? 'hard' : d, { bpm: def.bpm, level: def.levels?.[d], seed: hashStr(def.id) }));
+// その曲で選べる難易度(EXTRA は譜面がある曲だけ)
+const diffsOf = (e) => (e?.levels?.extra ? [...DIFFS, 'extra'] : DIFFS);
 
 function fileSongEntry(def) {
   const charts = {}, stats = {};
   const unpack = (arr) => arr.map(([t, lane, e]) => (e ? { t: t / 1000, lane, end: e / 1000 } : { t: t / 1000, lane }));
   const scroll = buildScroll(def.gimmicks, def.bpm);
-  for (const d of DIFFS) {
+  for (const d of [...DIFFS, ...(def.fixedCharts.extra ? ['extra'] : [])]) {
     charts[d] = dropNotesInStops(holds(unpack(def.fixedCharts[d]), d, def), scroll.stops);
     stats[d] = chartStats(charts[d]);
   }
@@ -243,7 +246,7 @@ function syncUrl(e) {
     document.title = e?.urlId ? `${e.title}｜MUSIC LiDAR` : 'MUSIC LiDAR｜ブラウザで遊べる無料4キー音ゲー(リズムゲーム)';
   } catch { /* file:// など */ }
 }
-let diff = DIFFS.includes(load('diff', 'normal')) ? load('diff', 'normal') : 'normal';
+let diff = [...DIFFS, 'extra'].includes(load('diff', 'normal')) ? load('diff', 'normal') : 'normal';
 
 // 起動後に、選んでいる曲の音源だけ裏で用意しておく。
 // (全曲を合成すると初回はCPUを数分使い続け、メモリも数GBになるのでしない。ほかの曲は選んだときに用意する)
@@ -513,6 +516,7 @@ function renderFilters() {
 }
 
 function renderList() {
+  const ld = diff === 'extra' ? 'hard' : diff; // 曲一覧は EXTRA のときも HARD で絞り込み・並べ替える(EXTRA は一部の曲だけ)
   renderFilters();
   const list = $('song-list');
   list.innerHTML = '';
@@ -605,7 +609,8 @@ function renderDetail() {
   renderFav();
   $('d-meta').textContent = `${e.artist} ・ BPM ${Math.round(e.bpm)} ・ ${fmtTime(e.duration)}${e.gimmick ? ` ・ ギミック: ${e.gimmick}` : ''}`;
   $('d-credit').innerHTML = e.credit ? `${esc(e.credit)}${e.creditUrl ? ` <a href="${esc(e.creditUrl)}" target="_blank" rel="noopener">${esc(e.creditUrl.replace(/^https?:\/\//, '').replace(/\/$/, ''))}</a>` : ''}` : '';
-  $('diffs').innerHTML = DIFFS.map((d) => `
+  if (diff === 'extra' && !e.levels.extra) diff = 'hard'; // EXTRA のない曲では HARD を見せる
+  $('diffs').innerHTML = diffsOf(e).map((d) => `
     <button class="diff-btn ${d}${d === diff ? ' sel' : ''}" data-d="${d}">
       <div class="dn">${d.toUpperCase()}</div><div class="dl">${e.levels[d]}</div><div class="dc">${e.stats[d].notes} notes</div>
     </button>`).join('');
@@ -675,6 +680,81 @@ function loadRanking(force = false) {
 }
 $('btn-rank-reload').addEventListener('click', () => loadRanking(true));
 $('btn-play').addEventListener('click', () => startGame());
+
+// ---------------------------------------------------------------------------
+// 練習モード(区間をくり返す・ゆっくりにする)。記録・ランキングには残らない
+// ---------------------------------------------------------------------------
+const fmtPr = (e, t) => `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, '0')}(小節 ${Math.max(1, Math.floor((t - (e.offset || 0)) / (240 / e.bpm)) + 1)})`;
+function openPractice() {
+  const e = entries[sel];
+  if (!e) return;
+  const dur = e.buffer?.duration || e.duration || 120;
+  const saved = load('practice:' + e.id, null);
+  const notes = e.charts[diff] || [];
+  const first = notes.length ? Math.max(0, notes[0].t - 1) : 0;
+  $('pr-song').textContent = `${e.title} ・ ${diff.toUpperCase()} Lv${e.levels[diff]}`;
+  for (const id of ['pr-from', 'pr-to']) $(id).max = dur.toFixed(1);
+  $('pr-from').value = saved?.from ?? first.toFixed(1);
+  $('pr-to').value = saved?.to ?? Math.min(dur, first + 20).toFixed(1);
+  $('pr-rate').value = String(saved?.rate ?? 1);
+  $('pr-loop').checked = saved?.loop ?? true;
+  syncPractice();
+  overlay('practice', true);
+}
+function syncPractice(which) {
+  const e = entries[sel];
+  let a = +$('pr-from').value, b = +$('pr-to').value;
+  if (b - a < 2) { if (which === 'pr-to') a = Math.max(0, b - 2); else b = Math.min(+$('pr-to').max, a + 2); $('pr-from').value = a; $('pr-to').value = b; }
+  $('o-pr-from').textContent = fmtPr(e, a);
+  $('o-pr-to').textContent = fmtPr(e, b);
+}
+for (const id of ['pr-from', 'pr-to']) $(id).addEventListener('input', () => syncPractice(id));
+$('btn-practice').addEventListener('click', openPractice);
+$('pr-close').addEventListener('click', () => overlay('practice', false));
+$('pr-start').addEventListener('click', () => {
+  const e = entries[sel], d = diff;
+  const from = +$('pr-from').value, to = +$('pr-to').value, rate = +$('pr-rate').value, loop = $('pr-loop').checked;
+  save('practice:' + e.id, { from, to, rate, loop });
+  overlay('practice', false);
+  const notes = (e.charts[d] || []).filter((n) => n.t >= from - 0.001 && n.t <= to);
+  if (!notes.length) { toast('この区間にはノーツがありません'); return; }
+  const custom = {
+    kind: 'practice', label: `PRACTICE ×${rate}`, title: `${e.title}(練習)`, level: e.levels[d], notes, scroll: e.scroll, startFrom: from,
+    practice: { from, to, rate },
+    onExit: (r) => {
+      if (r) toast(`練習: PERFECT ${r.counts.PERFECT} ・ GREAT ${r.counts.GREAT} ・ GOOD ${r.counts.GOOD} ・ MISS ${r.counts.MISS}(${r.accuracy.toFixed(1)}%)`, 3000);
+      if (r && loop) { state = 'retry'; setTimeout(() => startGame(e, d, custom), 700); return; } // くり返す(やめるときは Esc →「選曲へ」)
+      show('select'); renderList(); selectSong(sel, true);
+    },
+  };
+  startGame(e, d, custom);
+});
+// 区間だけを WAV にして <audio> で鳴らす(同じ区間なら作り直さない)
+let prMedia = null;
+async function practiceMedia(e, from, to) {
+  const buf = e.buffer, sr = buf.sampleRate;
+  const segStart = Math.max(0, from - 3), segEnd = Math.min(buf.duration, to + 2);
+  const key = `${e.id}|${segStart}|${segEnd}`;
+  if (prMedia?.key === key) return { media: prMedia.media, segStart };
+  if (prMedia) { prMedia.media.pause(); URL.revokeObjectURL(prMedia.url); try { prMedia.node.disconnect(); } catch { /* noop */ } }
+  const i0 = Math.floor(segStart * sr), n = Math.max(1, Math.floor(segEnd * sr) - i0), ch = Math.min(2, buf.numberOfChannels);
+  const out = new DataView(new ArrayBuffer(44 + n * ch * 2));
+  const wr = (o, s) => { for (let i = 0; i < s.length; i++) out.setUint8(o + i, s.charCodeAt(i)); };
+  wr(0, 'RIFF'); out.setUint32(4, 36 + n * ch * 2, true); wr(8, 'WAVE'); wr(12, 'fmt '); out.setUint32(16, 16, true); out.setUint16(20, 1, true);
+  out.setUint16(22, ch, true); out.setUint32(24, sr, true); out.setUint32(28, sr * ch * 2, true); out.setUint16(32, ch * 2, true); out.setUint16(34, 16, true);
+  wr(36, 'data'); out.setUint32(40, n * ch * 2, true);
+  const data = [...Array(ch)].map((_, c) => buf.getChannelData(c));
+  let o = 44;
+  for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) { const v = Math.max(-1, Math.min(1, data[c][i0 + i])); out.setInt16(o, v < 0 ? v * 32768 : v * 32767, true); o += 2; }
+  const url = URL.createObjectURL(new Blob([out], { type: 'audio/wav' }));
+  const media = new Audio(url);
+  media.preload = 'auto';
+  const node = getCtx().createMediaElementSource(media);
+  node.connect(bgmOutFor(buf));
+  await new Promise((res, rej) => { media.oncanplaythrough = res; media.onerror = () => rej(new Error('media')); media.load(); });
+  prMedia = { key, media, url, node };
+  return { media, segStart };
+}
 // この曲のURLを共有
 $('btn-share').addEventListener('click', async () => {
   const e = entries[sel];
@@ -790,7 +870,7 @@ async function startGameInner(entry, d, custom, live, extra) {
   // 読み込み中画面(準備済みでも曲名とTipsを少し見せる)
   const isRetry = state === 'retry';
   // プレイオプション(デイリーチャレンジは決まった条件。チュートリアルはなし)
-  const opts = extra?.daily ? extra.daily.opts : custom?.kind === 'tutorial' ? {} : { lane: settings.lane, vis: settings.vis };
+  const opts = extra?.daily ? extra.daily.opts : custom?.kind === 'tutorial' ? {} : custom?.kind === 'replay' ? { lane: custom.opts?.lane || 'normal', vis: 'none' } : { lane: settings.lane, vis: settings.vis };
   const label = (custom ? (custom.label || (custom.kind === 'test' ? 'TEST PLAY' : `CUSTOM Lv${custom.level}`)) : `${extra?.daily ? 'DAILY ' : extra?.season ? 'EVENT ' : ''}${d.toUpperCase()} Lv${entry.levels[d]}`) + optTag(opts);
   showLoading({
     entry, title: custom ? custom.title : entry.title, sub: label,
@@ -807,6 +887,14 @@ async function startGameInner(entry, d, custom, live, extra) {
   // 歌詞: 譜面メーカーのテストプレイは編集中の歌詞、ほかはサーバーの歌詞(曲ファイルの lyrics があればそれ)
   const lyrics = settings.lyrics === false || custom?.kind === 'tutorial' ? null
     : custom?.lyrics || entry.lyrics || (!entry.local ? await lyricsQuick(entry.id) : null);
+  // 練習モード: 遅くするときは、区間だけを <audio> にして音の高さを保ったまま再生する
+  let practice = null;
+  if (custom?.practice) {
+    practice = { ...custom.practice };
+    if (practice.rate < 1) {
+      try { Object.assign(practice, await practiceMedia(entry, practice.from, practice.to)); } catch (err) { console.error(err); practice.rate = 1; toast('ゆっくり再生を準備できなかったので、そのままの速さで始めます'); }
+    }
+  }
   await hideLoading(isRetry ? 500 : 1400);
   playing = { entry, diff: d, custom, live, extra, label };
   document.body.classList.toggle('live', !!live || custom?.kind === 'dan');
@@ -828,6 +916,8 @@ async function startGameInner(entry, d, custom, live, extra) {
     mv: entry.local || custom?.kind === 'tutorial' ? null : createMV(entry.id, entry.bpm, entry.offset || 0, {}, entry.mvAuto?.()),
     opts,
     ghost,
+    practice,
+    replay: custom?.replay || null,
   });
   live?.attach(game);
   $('btn-p-quit').textContent = live ? 'ライブを抜ける' : '選曲へ';
@@ -883,7 +973,7 @@ function onGameEnd(r) {
   countPlay();
   game = null;
   lastResult = r;
-  if (custom?.kind === 'test' || custom?.kind === 'tutorial' || custom?.kind === 'dan') {
+  if (custom?.kind === 'test' || custom?.kind === 'tutorial' || custom?.kind === 'dan' || custom?.kind === 'practice' || custom?.kind === 'replay') {
     document.body.classList.remove('live');
     if (custom.kind === 'dan') state = 'retry'; // 段位道場は続けて次の曲を始めるので「プレイ中」を外す
     custom.onExit(r); return;
@@ -893,6 +983,11 @@ function onGameEnd(r) {
   if (playing.live) playing.live.finish(r);
   const isNew = custom ? false : recordBest(entry.id, d, r);
   if (isNew && r.log?.length) saveGhost(entry.id, d, r.log);
+  // リプレイ: いまのプレイを見返せるようにし、自己ベストなら端末に残す(レーンがランダムのプレイは同じ配置を作れないので残さない)
+  const canReplay = !custom && !playing.live && r.inputs?.length && r.opts?.lane !== 'random';
+  lastReplay = canReplay ? { entry, d, inputs: r.inputs, score: r.score, opts: r.opts } : null;
+  $('btn-rreplay').hidden = !lastReplay;
+  if (canReplay && isNew && !entry.local) saveLocalReplay(entry.id, d, r.score, r.inputs);
   show('result');
   // 縦動画を録っていたら、保存ボタンを出す
   const rv = $('r-video');
@@ -930,6 +1025,7 @@ function onGameEnd(r) {
     ? `編成スコア <b>${r.teamScore.toLocaleString()}</b> <span class="muted">(ランキング・自己ベストは編成効果なしの ${fmtScore(r.score)} で記録)</span>`
     : '';
   $('r-reward').innerHTML = '';
+  offsetHint(r);
   $('r-counts').innerHTML = Object.entries(r.counts).map(([k, v]) => `<div><small style="color:${C[k]}">${k}</small><b>${v}</b></div>`).join('') +
     `<div class="fs">FAST ${r.fast} ・ SLOW ${r.slow}</div>`;
   drawJudgeGraph(r, entry.buffer?.duration || entry.duration || 120);
@@ -969,7 +1065,7 @@ function onGameEnd(r) {
       const rows = await fetchRanking(entry.id, d, myRankId(), 10);
       if (state !== 'result' || lastResult !== r) return;
       on.innerHTML = `<p>ONLINE RANK <span class="r-myrank">#${res.online}</span></p><ol class="rank-list">${rankRows(rows)}</ol>`;
-      if (isNew) uploadGhost(entry, d, r);
+      if (isNew) { uploadGhost(entry, d, r); if (r.inputs?.length && r.opts?.lane !== 'random') uploadReplay(entry.id, d, myRankId(), acc.getState()?.name || load('name', ''), r.score, r.inputs); }
     }).catch((err) => { console.error(err); on.innerHTML = `<p class="r-msg">${esc(acc.errText(err))}(記録は端末に保存済み)</p>`; });
   } else if (entry.local) on.innerHTML = '<p class="r-msg">読み込んだ曲の記録はこの端末にだけ保存されます。</p>';
   else if (!name) on.innerHTML = '<p class="r-msg">ログインするとコインがもらえ、オンラインランキングにも参加できます(右上のアカウントから)。</p>';
@@ -981,7 +1077,7 @@ function onGameEnd(r) {
         const rows = await fetchRanking(entry.id, d, clientId(), 10);
         if (state !== 'result' || lastResult !== r) return;
         on.innerHTML = `<p>ONLINE RANK <span class="r-myrank">#${myRank}</span></p><ol class="rank-list">${rankRows(rows)}</ol>`;
-        if (isNew) uploadGhost(entry, d, r);
+        if (isNew) { uploadGhost(entry, d, r); if (r.inputs?.length && r.opts?.lane !== 'random') uploadReplay(entry.id, d, myRankId(), acc.getState()?.name || load('name', ''), r.score, r.inputs); }
       })
       .catch((err) => { console.error(err); on.innerHTML = '<p class="r-msg">ランキングに送信できませんでした(記録は端末に保存済み)</p>'; });
   }
@@ -990,6 +1086,53 @@ $('btn-retry').addEventListener('click', retry);
 // X に投稿 / 縦動画で録ってもう一度
 $('btn-rx').addEventListener('click', () => { if (!playing || !lastResult) return; const e = playing.entry; postX(resultText(e, playing.label, lastResult), e.urlId ? songUrl(e) : SITE); });
 $('btn-rrec').hidden = !recordSupported();
+// ---------------------------------------------------------------------------
+// リプレイ(キーの押し・離しの記録を流し直す。記録・ランキングには残らない)
+// ---------------------------------------------------------------------------
+let lastReplay = null;
+function playReplay(entry, d, rp, back) {
+  const custom = {
+    kind: 'replay', label: `REPLAY ・ ${rp.name}`, title: entry.title, level: entry.levels[d], notes: entry.charts[d], scroll: entry.scroll,
+    replay: rp.inputs, opts: rp.opts,
+    onExit: (r) => {
+      if (r) toast(`${rp.name} のプレイ: ${fmtScore(r.score)}(${r.rank})`, 3000);
+      if (back === 'result' && lastResult) { show('result'); return; }
+      show('select'); renderList(); selectSong(sel, true);
+    },
+  };
+  startGame(entry, d, custom);
+}
+$('btn-rreplay').addEventListener('click', () => { if (lastReplay) playReplay(lastReplay.entry, lastReplay.d, { inputs: lastReplay.inputs, name: 'いまのプレイ', opts: lastReplay.opts }, 'result'); });
+async function openReplays() {
+  const e = entries[sel];
+  if (!e || e.local) { toast('この曲のリプレイはありません'); return; }
+  const d = diff;
+  $('rp-song').textContent = `${e.title} ・ ${d.toUpperCase()}`;
+  const list = $('rp-list');
+  list.innerHTML = '<li class="empty">読み込み中…</li>';
+  overlay('replays', true);
+  const mine = localReplay(e.id, d);
+  const top = await topReplays(e.id, d);
+  const rows = [];
+  if (mine) rows.push(`<li data-local="1"><span class="r-name">自分のベスト(この端末)</span><span class="r-score">${fmtScore(mine.score)}</span><button class="mini">▶ 見る</button></li>`);
+  for (const [i, x] of (top || []).entries()) rows.push(`<li data-rid="${esc(x.id)}" data-name="${esc(x.name)}"><span class="r-rank">#${i + 1}</span><span class="r-name">${esc(x.name)}</span><span class="r-score">${fmtScore(x.score)}</span><button class="mini">▶ 見る</button></li>`);
+  list.innerHTML = rows.join('') || '<li class="empty">まだリプレイがありません。自己ベストを更新すると残ります</li>';
+}
+$('btn-replays').addEventListener('click', openReplays);
+$('rp-close').addEventListener('click', () => overlay('replays', false));
+$('rp-list').addEventListener('click', async (ev) => {
+  const li = ev.target.closest('li[data-local], li[data-rid]');
+  if (!li) return;
+  const e = entries[sel], d = diff;
+  try {
+    let rp;
+    if (li.dataset.local) { const m = localReplay(e.id, d); rp = { inputs: decodeInputs(m.inputs), name: '自分のベスト' }; }
+    else { const x = await getReplay(li.dataset.rid); if (!x) throw new Error('NOT_FOUND'); rp = { inputs: decodeInputs(x.inputs), name: x.name }; }
+    overlay('replays', false);
+    playReplay(e, d, rp);
+  } catch (err) { console.error(err); toast('リプレイを読み込めませんでした'); }
+});
+
 $('btn-rrec').addEventListener('click', () => {
   if (playing?.live || playing?.custom) { toast('この遊び方では録画できません'); return; }
   armRecord();
@@ -1053,8 +1196,8 @@ window.addEventListener('keydown', (ev) => {
     else if (ev.key === 'ArrowUp' && view.length) { ev.preventDefault(); selectSong(view[(pos - 1 + view.length) % view.length]); }
     else if (ev.key === '/' ) { ev.preventDefault(); $('song-search').focus(); }
     else if (ev.key === 'Escape') { ev.preventDefault(); goHome(true); }
-    else if (ev.key === 'ArrowRight') { ev.preventDefault(); setDiff(DIFFS[Math.min(2, DIFFS.indexOf(diff) + 1)]); }
-    else if (ev.key === 'ArrowLeft') { ev.preventDefault(); setDiff(DIFFS[Math.max(0, DIFFS.indexOf(diff) - 1)]); }
+    else if (ev.key === 'ArrowRight') { ev.preventDefault(); { const L = diffsOf(entries[sel]); setDiff(L[Math.min(L.length - 1, L.indexOf(diff) + 1)]); } }
+    else if (ev.key === 'ArrowLeft') { ev.preventDefault(); { const L = diffsOf(entries[sel]); setDiff(L[Math.max(0, L.indexOf(diff) - 1)]); } }
     else if (ev.key === 'Enter') { ev.preventDefault(); startGame(); }
     return;
   }
@@ -1201,6 +1344,7 @@ function homeLive(on) {
 }
 const homeLiveOpen = () => !$('home-live').hidden;
 function renderHome() {
+  homeFeatured().catch(() => {}); // CHARTS の札に今週のおすすめ譜面
   const s = acc.getState();
   const jk = $('h-jackets');
   if (!jk.childElementCount) {
@@ -1332,6 +1476,25 @@ const accReady = acc.init();
   // result/ はプレイ結果が残っていないので選曲画面のまま
 })();
 
+// リザルト: 叩いたタイミングのずれ(中央値)が大きければ、判定タイミングの調整をすすめる
+// ずれ d は今の判定タイミングを差し引いたあとの値なので、新しい値 = 今の値 + 中央値
+function offsetHint(r) {
+  const box = $('r-offset');
+  box.hidden = true;
+  const ds = (r.log || []).filter((x) => x[2] != null && x[1] !== 'MISS').map((x) => x[2]).sort((a, b) => a - b);
+  if (ds.length < 40) return;
+  const med = Math.round(ds[Math.floor(ds.length / 2)] * 1000);
+  if (Math.abs(med) < 12) return;
+  const next = Math.max(-150, Math.min(150, (settings.offset || 0) + med));
+  if (next === (settings.offset || 0)) return;
+  box.hidden = false;
+  box.innerHTML = `<span>⏱ このプレイでは、平均して <b>${Math.abs(med)}ms ${med > 0 ? '遅め' : '早め'}</b> に叩いていました</span><button class="btn-line small" id="btn-roff">判定タイミングを ${next > 0 ? '+' : ''}${next}ms にする</button>`;
+  $('btn-roff').addEventListener('click', () => {
+    settings.offset = next; setSettings(settings); syncSettingsUI();
+    box.innerHTML = `<span>判定タイミングを ${next > 0 ? '+' : ''}${next}ms にしました(設定でいつでも戻せます)</span>`;
+  });
+}
+
 // ---------------------------------------------------------------------------
 // 設定
 // ---------------------------------------------------------------------------
@@ -1343,6 +1506,7 @@ const SLIDERS = [
   ['s-lane', 'laneW', (v) => `${v}px`],
   ['s-judge', 'judgePos', (v) => `${Math.round(v * 100)}%`],
   ['s-offset', 'offset', (v) => `${v > 0 ? '+' : ''}${v}ms`],
+  ['s-dim', 'bgDim', (v) => `${v}%`],
 ];
 function syncSettingsUI() {
   for (const [id, key, fmt] of SLIDERS) {
@@ -1360,6 +1524,8 @@ function syncSettingsUI() {
   $('s-ghost').value = settings.ghostMode || (settings.ghost === false ? 'off' : 'self');
   $('s-mv').checked = settings.mv !== false;
   $('s-lyrics').checked = settings.lyrics !== false;
+  $('s-notesize').value = settings.noteSize || 'normal';
+  $('s-palette').value = settings.palette || 'skin';
   $('o-mv').textContent = settings.mv !== false ? 'ON' : 'OFF';
   applyKeys(); renderKeys();
 }
@@ -1384,6 +1550,8 @@ setInterval(() => {
 applyStream();
 $('s-ghost').addEventListener('change', () => { settings.ghostMode = $('s-ghost').value; settings.ghost = settings.ghostMode !== 'off'; setSettings(settings); });
 $('s-lyrics').addEventListener('change', () => { settings.lyrics = $('s-lyrics').checked; setSettings(settings); });
+$('s-notesize').addEventListener('change', () => { settings.noteSize = $('s-notesize').value; setSettings(settings); });
+$('s-palette').addEventListener('change', () => { settings.palette = $('s-palette').value; setSettings(settings); });
 $('s-mv').addEventListener('change', () => {
   settings.mv = $('s-mv').checked;
   $('o-mv').textContent = settings.mv ? 'ON' : 'OFF';

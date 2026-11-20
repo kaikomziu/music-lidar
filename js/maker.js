@@ -254,6 +254,7 @@ export function initMaker(api_) {
   $('charts-song').addEventListener('change', loadCharts);
   $('charts-sort').addEventListener('change', loadCharts);
   $('chart-list').addEventListener('click', onChartAction);
+  $('chart-featured-list').addEventListener('click', onChartAction);
 }
 const chartsQ = {};
 
@@ -1049,7 +1050,7 @@ async function loadCharts() {
   const sort = $('charts-sort').value;
   if (sort === 'mine' && !acc.isLoggedIn()) { list.innerHTML = '<li class="list-empty">自分の譜面を見るにはログインしてください</li>'; return; }
   try {
-    chartRows = await api.listCharts({ song: $('charts-song').value, sort, q: $('charts-q').value.trim() });
+    [chartRows] = await Promise.all([api.listCharts({ song: $('charts-song').value, sort, q: $('charts-q').value.trim() }), loadFeatured()]);
     renderCharts();
   } catch (e) {
     console.error(e);
@@ -1058,6 +1059,7 @@ async function loadCharts() {
 }
 
 function renderCharts() {
+  renderFeatured();
   const list = $('chart-list');
   if (!chartRows.length) {
     list.innerHTML = '<li class="list-empty">まだ譜面がありません。「＋ 譜面を作る」から最初の1つを作ってみよう</li>';
@@ -1067,11 +1069,18 @@ function renderCharts() {
   const ent = (c) => ui.entries.find((e) => e.id === c.song) || (c.song.startsWith('a:') ? { id: c.song, title: c.song_title || '?', genre: 'UPLOAD', color: '#c58bff', bpm: 120 } : null);
   const songTitle = (c) => ent(c)?.title || c.song;
   const color = (c) => ent(c)?.color || '#5ef2ff';
-  list.innerHTML = chartRows.map((c) => `<li class="chart-row" data-id="${c.id}" style="--c:${color(c)}">
+  list.innerHTML = chartRows.map((c) => chartRowHtml(c)).join('');
+}
+// 譜面の1行(みんなの譜面の一覧と、今週のおすすめの欄で使う)
+function chartRowHtml(c) {
+  const ent = (x) => ui.entries.find((e) => e.id === x.song) || (x.song.startsWith('a:') ? { id: x.song, title: x.song_title || '?', genre: 'UPLOAD', color: '#c58bff', bpm: 120 } : null);
+  const songTitle = (x) => ent(x)?.title || x.song;
+  const color = (x) => ent(x)?.color || '#5ef2ff';
+  return `<li class="chart-row" data-id="${c.id}" style="--c:${color(c)}">
     ${(() => { const e = ent(c); return e ? jacketImg(e, 96, 'cr-jacket') : ''; })()}
     <div class="cr-lv"><small>Lv</small>${c.level}</div>
     <div class="cr-main">
-      <div class="cr-title">${ui.esc(c.title)}</div>
+      <div class="cr-title">${c.featured ? '<span class="cr-feat">★ おすすめ</span>' : ''}${ui.esc(c.title)}</div>
       <div class="cr-sub">${ui.esc(songTitle(c))} ・ by ${ui.esc(c.author)} ・ ${c.note_count} ノーツ ・ ▶ ${c.plays}</div>
     </div>
     <div class="cr-actions">
@@ -1079,9 +1088,22 @@ function renderCharts() {
       <button class="cr-btn ${c.liked ? 'liked' : ''}" data-act="like" aria-label="いいね">♥ ${c.likes}</button>
       <button class="cr-btn" data-act="rank">ランキング</button>
       ${c.mine ? '<button class="cr-btn" data-act="edit">編集</button><button class="cr-btn danger" data-act="del">削除</button>' : ''}
+      ${acc.isAdmin() ? `<button class="cr-btn" data-act="feature" title="今週のおすすめ譜面にする/やめる(管理者)">${c.featured ? '★ おすすめをやめる' : '☆ おすすめにする'}</button>` : ''}
     </div>
     <ol class="rank-list cr-rank" hidden></ol>
-  </li>`).join('');
+  </li>`;
+}
+// 今週のおすすめ譜面(管理者が選んだもの。選んでから14日)
+let featuredRows = [];
+async function loadFeatured() { featuredRows = await api.featuredCharts(); renderFeatured(); return featuredRows; }
+function renderFeatured() {
+  const box = $('chart-featured');
+  box.hidden = !featuredRows.length;
+  $('chart-featured-list').innerHTML = featuredRows.map((c) => chartRowHtml({ ...c, featured: true })).join('');
+}
+export async function homeFeatured() {
+  const rows = await loadFeatured();
+  $('home-charts-sub').textContent = rows.length ? `★ 今週のおすすめ: ${rows[0].title}` : '投稿された譜面を遊ぶ';
 }
 
 async function onChartAction(ev) {
@@ -1089,7 +1111,7 @@ async function onChartAction(ev) {
   if (!b) return;
   const li = b.closest('.chart-row');
   const id = li.dataset.id;
-  const row = chartRows.find((c) => c.id === id);
+  const row = chartRows.find((c) => c.id === id) || featuredRows.find((c) => c.id === id);
   const act = b.dataset.act;
   try {
     if (act === 'play') {
@@ -1120,6 +1142,11 @@ async function onChartAction(ev) {
       const entry = await songEntry(c.song).catch(() => null);
       if (entry?.uploaded) { b.textContent = '音声を準備中…'; await ca.prepareForEditor(entry); b.textContent = '編集'; }
       if (entry) openEditor(entry, { chart: c });
+    } else if (act === 'feature') {
+      const on = !(row?.featured || featuredRows.some((c) => c.id === id));
+      await api.featureChart(id, on);
+      ui.toast(on ? '今週のおすすめ譜面にしました' : 'おすすめをやめました');
+      loadCharts();
     } else if (act === 'del') {
       if (!confirm(`「${row.title}」を削除しますか?(元に戻せません)`)) return;
       await api.deleteChart(id);

@@ -8,6 +8,7 @@ import * as api from './maker-api.js';
 import { openAccount } from './meta.js';
 import { jacketImg } from './jacket.js';
 import * as ca from './custom-audio.js';
+import { lyricsFor, saveLyrics, fillEnds } from './lyrics.js';
 
 const $ = (id) => document.getElementById(id);
 let ui = null;
@@ -145,6 +146,28 @@ export function initMaker(api_) {
   fi.type = 'file'; fi.accept = 'audio/*,.mp3,.wav,.ogg,.m4a,.flac,.aac,.opus'; fi.hidden = true; fi.id = 'ed-audio-file';
   document.body.appendChild(fi);
   fi.addEventListener('change', () => { const f = fi.files[0]; fi.value = ''; if (f) pickAudioFile(f); });
+  // 歌詞(管理者)
+  $('ed-lyr-btn').addEventListener('click', () => setLyrMode(!lyr.on));
+  acc.onChange?.(() => { if (ed.entry) loadLyr(ed.entry); }); // ログインの状態が後から決まっても、管理者なら歌詞のボタンを出す
+  $('ed-lyr-apply').addEventListener('click', applyLyrText);
+  $('ed-lyr-save').addEventListener('click', saveLyr);
+  $('ed-lyr-test').addEventListener('click', () => testPlay(true));
+  $('ed-lyr-list').addEventListener('click', (ev) => {
+    const li = ev.target.closest('li[data-i]');
+    if (!li) return;
+    const i = +li.dataset.i;
+    if (ev.target.closest('[data-go]')) { ed.cur = Math.max(0, lyr.lines[i][0] - 1); if (!ed.playing) startPlay(); return; }
+    if (ev.target.tagName === 'INPUT') return;
+    lyr.next = i; renderLyr();
+  });
+  $('ed-lyr-list').addEventListener('change', (ev) => {
+    const inp = ev.target.closest('input[data-t]');
+    if (!inp) return;
+    const i = +inp.closest('li').dataset.i, v = +inp.value;
+    if (!(v >= 0)) return;
+    const lo = (lyr.lines[i - 1]?.[0] ?? -1) + 0.05, hi = (lyr.lines[i + 1]?.[0] ?? 1e9) - 0.05; // 前後の行を追い越さない
+    lyr.lines[i][0] = Math.round(Math.max(0, lo, Math.min(hi, v)) * 100) / 100; lyrChanged();
+  });
   $('ed-audio-del').addEventListener('click', async (ev) => {
     ev.preventDefault();
     const e = ed.entry;
@@ -165,7 +188,7 @@ export function initMaker(api_) {
   $('ed-zoom').addEventListener('input', () => { ed.zoom = +$('ed-zoom').value; save('edZoom', ed.zoom); });
   $('ed-play').addEventListener('click', () => togglePlay());
   $('ed-rec').addEventListener('click', () => toggleRec());
-  $('ed-test').addEventListener('click', testPlay);
+  $('ed-test').addEventListener('click', () => testPlay());
   $('ed-undo').addEventListener('click', undo);
   $('ed-redo').addEventListener('click', redo);
   $('ed-clear').addEventListener('click', () => {
@@ -233,6 +256,75 @@ export function initMaker(api_) {
   $('chart-list').addEventListener('click', onChartAction);
 }
 const chartsQ = {};
+
+// --- 歌詞の時刻(管理者だけ)。サーバーの mlidar_lyrics に保存し、遊ぶ人みんなに出る ---
+const lyr = { on: false, song: null, lines: [], next: 0, drag: null, dirty: false };
+const lyrSong = (e) => (e && !e.local && /^[a-z0-9_-]{1,40}$/.test(e.id) ? e.id : null); // 内蔵曲と音源曲だけ
+async function loadLyr(entry) {
+  const song = lyrSong(entry);
+  $('ed-lyr-btn').hidden = !acc.isAdmin() || !song;
+  if (!song || !acc.isAdmin()) { setLyrMode(false); lyr.song = null; return; }
+  if (lyr.song === song) { renderLyr(); return; }
+  lyr.song = song; lyr.lines = []; lyr.next = 0; lyr.dirty = false;
+  const draft = load('lyrDraft:' + song, null); // 保存していない作業
+  if (draft?.length) { lyr.lines = draft; lyr.dirty = true; }
+  else { const r = await lyricsFor(song); if (lyr.song === song) lyr.lines = (r || []).map((x) => x.slice()); }
+  $('ed-lyr-text').value = lyr.lines.map((x) => x[2]).join('\n');
+  renderLyr();
+}
+function setLyrMode(on) {
+  lyr.on = !!on && !!lyr.song;
+  $('ed-lyr').hidden = !lyr.on;
+  $('ed-lyr-btn').classList.toggle('on', lyr.on);
+  if (lyr.on) renderLyr();
+}
+function lyrChanged() {
+  lyr.lines.sort((a, b) => a[0] - b[0]);
+  lyr.dirty = true;
+  save('lyrDraft:' + lyr.song, lyr.lines);
+  renderLyr();
+}
+function renderLyr() {
+  if (!lyr.on) return;
+  $('ed-lyr-status').textContent = `${lyr.lines.length}行・次に Enter で入れる行: ${lyr.next < lyr.lines.length ? lyr.next + 1 : '(最後まで入れました)'}${lyr.dirty ? ' ・ 保存していない変更があります' : ''}`;
+  $('ed-lyr-list').innerHTML = lyr.lines.map(([a, , s], i) => `<li data-i="${i}" class="${i === lyr.next ? 'next' : ''}"><input type="number" data-t step="0.01" min="0" value="${a.toFixed(2)}"><span>${ui.esc(s)}</span><button class="chip" data-go title="この行の1秒前から再生">▶</button></li>`).join('');
+  $('ed-lyr-list').querySelector('li.next')?.scrollIntoView({ block: 'nearest' });
+}
+// 文字を反映: 同じ順番の行は時刻をそのまま使い、増えた行は前の行の3秒後に置く
+function applyLyrText() {
+  const texts = $('ed-lyr-text').value.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+  const old = lyr.lines;
+  lyr.lines = texts.map((s, i) => [old[i]?.[0] ?? (i ? 0 : 0), 0, s]);
+  for (let i = 0; i < lyr.lines.length; i++) if (!old[i]) lyr.lines[i][0] = Math.round(((lyr.lines[i - 1]?.[0] ?? Math.max(0, ed.cur - 3)) + 3) * 100) / 100;
+  lyr.next = Math.min(lyr.next, lyr.lines.length);
+  lyrChanged();
+  ui.toast(`${lyr.lines.length}行にしました`);
+}
+// Enter: 今の位置を次の行の歌い始めにする
+function stampLyr() {
+  if (!lyr.lines.length) { ui.toast('先に歌詞を貼って「文字を反映」を押してください'); return; }
+  if (lyr.next >= lyr.lines.length) { ui.toast('最後の行まで入れました。直したい行をクリックすると、そこから入れ直せます'); return; }
+  const t = ed.playing ? playTime() : ed.cur;
+  const i = lyr.next;
+  lyr.lines[i][0] = Math.round(Math.max(0, t, (lyr.lines[i - 1]?.[0] ?? -1) + 0.05) * 100) / 100; // 前の行より前にはしない
+  // 後ろの行が前に来てしまったら、少しずつ後ろへ押し出す
+  for (let k = i + 1; k < lyr.lines.length && lyr.lines[k][0] <= lyr.lines[k - 1][0]; k++) lyr.lines[k][0] = Math.round((lyr.lines[k - 1][0] + 0.5) * 100) / 100;
+  lyr.next = i + 1;
+  lyrChanged();
+}
+async function saveLyr() {
+  if (!acc.isAdmin()) { ui.toast('歌詞を保存できるのは管理者だけです'); return; }
+  const lines = fillEnds(lyr.lines);
+  $('ed-lyr-save').disabled = true;
+  try {
+    await saveLyrics(lyr.song, lines);
+    lyr.lines = lines.map((x) => x.slice()); lyr.dirty = false;
+    save('lyrDraft:' + lyr.song, null);
+    renderLyr();
+    ui.toast(lines.length ? `歌詞を保存しました(${lines.length}行)。遊ぶ人みんなに出ます` : '歌詞を消しました');
+  } catch (e) { console.error(e); ui.toast(e.message === 'NOT_ADMIN' ? '歌詞を保存できるのは管理者だけです' : '保存できませんでした'); }
+  finally { $('ed-lyr-save').disabled = false; }
+}
 
 // --- 自分で選んだ音声(管理者) ---
 let myAudio = null; // 置いた音声の一覧(管理者のときだけ読む)
@@ -329,6 +421,7 @@ export async function openEditor(entry, opts = {}) {
   $('ed-songname-wrap').hidden = !isAudio;
   $('ed-songname').value = isAudio ? entry.title : '';
   $('ed-audio-del').hidden = !entry.uploaded;
+  loadLyr(entry);
   $('ed-title').value = ed.title;
   $('ed-level').value = ed.level;
   $('ed-bpm-wrap').hidden = !entry.local;
@@ -508,7 +601,7 @@ function fixAll() {
 // ---------------------------------------------------------------------------
 function engineGimmicks() { return ed.gimmicks.map((g) => ({ t: g.t, type: g.type, dur: g.dur || 0, to: g.to ?? 0 })); }
 
-function testPlay() {
+function testPlay(withLyrics = lyr.on) {
   if (!ed.notes.length) { ui.toast('ノーツを置いてからテストできます'); return; }
   stopPlay();
   saveDraft();
@@ -518,6 +611,7 @@ function testPlay() {
   const back = ed.cur;
   ui.play(ed.entry, {
     kind: 'test', notes, scroll: buildScroll(engineGimmicks(), ed.bpm), title: ed.title || 'テストプレイ', level: ed.level, startFrom: from,
+    lyrics: withLyrics && lyr.lines.length ? fillEnds(lyr.lines) : null,
     onExit: (r) => {
       // 下書きと元に戻す履歴はそのままエディタへ戻る
       ui.show('editor');
@@ -656,6 +750,22 @@ export function draw() {
     g.font = '700 11px "Noto Sans JP", sans-serif';
     g.fillText(gimmickText(gm), L.gx + 4, y - 4);
   });
+  // 歌詞の行の歌い始め(右の列に黄色い線)
+  if (lyr.on) {
+    g.textAlign = 'left';
+    g.font = '700 11px "Noto Sans JP", sans-serif';
+    lyr.lines.forEach(([a, , s], i) => {
+      const y = yOf(L, a);
+      if (y < -20 || y > L.H + 20) return;
+      const col = i === lyr.next ? '#ffffff' : '#ffd25e';
+      g.strokeStyle = col; g.lineWidth = i === lyr.drag?.i ? 3 : 2;
+      g.beginPath(); g.moveTo(L.x0, y); g.lineTo(L.gx + L.gW, y); g.stroke();
+      g.fillStyle = col;
+      g.save(); g.beginPath(); g.rect(L.gx, y - 16, L.gW, 16); g.clip();
+      g.fillText(`${i + 1} ${s}`, L.gx + 3, y - 4);
+      g.restore();
+    });
+  }
   // ノーツ
   // 選択範囲
   const sel = ed.selDrag?.rect || ed.sel;
@@ -705,8 +815,8 @@ export function draw() {
   g.textAlign = 'center';
   g.font = '700 12px "Orbitron", sans-serif';
   ['D', 'F', 'J', 'K'].forEach((k, l) => { g.fillStyle = 'rgba(200,215,255,0.5)'; g.fillText(k, L.x0 + l * L.laneW + L.laneW / 2, L.H - 8); });
-  g.fillStyle = 'rgba(196,155,255,0.6)';
-  g.fillText('ギミック', L.gx + L.gW / 2, L.H - 8);
+  g.fillStyle = lyr.on ? 'rgba(255,210,94,0.8)' : 'rgba(196,155,255,0.6)';
+  g.fillText(lyr.on ? '歌詞' : 'ギミック', L.gx + L.gW / 2, L.H - 8);
 }
 const fmtMs = (s) => `${Math.floor(s / 60)}:${(s % 60).toFixed(2).padStart(5, '0')}`;
 
@@ -748,6 +858,11 @@ function onDown(ev) {
     ed.selDrag = { x, y, lane, t, id: ev.pointerId, rect: { t0: t, t1: t, l0: lane, l1: lane } };
     return;
   }
+  if (lyr.on && x >= L.gx - 4) {
+    const i = lyr.lines.findIndex(([a]) => Math.abs(yOf(L, a) - y) < 10);
+    if (i >= 0) { if (ed.playing) stopPlay(); lyr.drag = { i, id: ev.pointerId }; lyr.next = i; renderLyr(); }
+    return;
+  }
   if (x >= L.gx - 4 || ed.tool === 'gimmick') {
     const t = tOf(L, y);
     const idx = ed.gimmicks.findIndex((gm) => Math.abs(yOf(L, gm.t) - y) < 10);
@@ -770,6 +885,12 @@ function onMove(ev) {
   const r = ev.currentTarget.getBoundingClientRect();
   const y = ev.clientY - r.top;
   if (ed.scrub) { ed.cur = clampT(ed.scrub.cur + (y - ed.scrub.y) / ed.zoom); return; }
+  if (lyr.drag && ev.pointerId === lyr.drag.id) {
+    // 前後の行を追い越さない範囲で動かす
+    const i = lyr.drag.i, lo = (lyr.lines[i - 1]?.[0] ?? -1) + 0.05, hi = (lyr.lines[i + 1]?.[0] ?? duration() + 1) - 0.05;
+    lyr.lines[i][0] = Math.round(Math.max(0, lo, Math.min(hi, tOf(L, y))) * 100) / 100;
+    return;
+  }
   const sd = ed.selDrag;
   if (sd && ev.pointerId === sd.id) {
     const lane = laneAt(L, ev.clientX - r.left), t = snapT(tOf(L, y));
@@ -783,6 +904,7 @@ function onMove(ev) {
 }
 function onUp(ev) {
   if (ed.scrub) { ed.scrub = null; return; }
+  if (lyr.drag && ev.pointerId === lyr.drag.id) { lyr.drag = null; lyrChanged(); return; }
   const sd = ed.selDrag;
   if (sd && ev.pointerId === sd.id) {
     ed.selDrag = null;
@@ -891,6 +1013,7 @@ export function makerKeydown(ev) {
     return;
   }
   const k = ev.key;
+  if (lyr.on && k === 'Enter') { ev.preventDefault(); stampLyr(); return; }
   if (k === ' ') { ev.preventDefault(); togglePlay(); }
   else if (k === 'r' || k === 'R') toggleRec();
   else if (k === 't' || k === 'T') testPlay();

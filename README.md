@@ -46,6 +46,7 @@ python -m http.server 8765
 - 外部音源は `audio/*.bin` に難読化して保存し、曲定義の `audioKey` で再生時に復元する。これは平文MP3への直接リンクを避けるための措置で、鍵は公開JavaScriptから取得できるため、暗号学的なダウンロード防止ではない。過去のコミットにあった平文の音源(`audio/inmu-king.mp3`・`audio/shining-star.mp3`・`video/inmu-king.mp4`)は、2026-11-18 に git filter-repo で履歴から取り除いた。**平文の音源は絶対にコミットしない**(並べ替えた `.bin` だけを置く)。
 - 「GHOST」「GHOST (2020 Halloween+++++++++ VIP)」 音楽: かめりあ(Camellia)。作者さんから許可をもらって使用(2026-11-20)。音源は `tools/encrypt_audio.mjs` で AES-GCM 暗号化した `audio/camellia-ghost.bin`・`audio/camellia-ghost-vip.bin` を置き、ゲーム内で復号して再生する(鍵は曲ファイルの `audioKey`)。「きくだけ」モードには入れない
 - 「Crying Red」 音楽: 御箸ねくらぁ。([YouTube](https://youtu.be/PWKgh4ZqHTg))。ゲームで使ってよい BGM。音源は `tools/encrypt_audio.mjs` で AES-GCM 暗号化した `audio/crying-red.bin` を置き、ゲーム内で復号して再生する。「きくだけ」モードには入れない
+- 「暮らし泳ぐ」 音楽: [ナツメダ ユキ](https://piapro.jp/YukiNatsumeda)(歌: 音街ウナ)。音源は AES-GCM 暗号化した `audio/kurashi-oyogu.bin`。歌詞はサーバー(`mlidar_lyrics`)に置き、管理者が譜面メーカーで時刻を合わせる。「きくだけ」モードには入れない
 - 「Hydrangea」「蒼」 音楽: 全て蝶々の所為です。([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja))。CC BY は技術的な制限をかけてはいけないので、並べ替えずに `audio/hydrangea.mp3`・`audio/ao.mp3` のまま置く
 - そのほかの内蔵曲はブラウザ内でその場で合成しているオリジナル曲です。
 

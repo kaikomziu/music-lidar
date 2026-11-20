@@ -21,6 +21,7 @@ import { fxText } from './units.js';
 import { initLive, openLive, backToRoom, roomCode, joinFromLink } from './live.js';
 import { initPlayer, openPlayer, playerKeydown, stop as stopPlayer } from './player.js';
 import { TUTORIAL_DEF, TUT_NOTES, tutCaptions } from './tutorial.js';
+import { lyricsQuick, lyricsFor } from './lyrics.js';
 import { initAdmin, openAdmin, stopAdmin } from './admin.js';
 import { initRequest, closeRequest } from './request.js';
 import { initMotion, replay } from './motion.js';
@@ -548,6 +549,7 @@ function renderList() {
 }
 
 function selectSong(i, force = false) {
+  if (entries[i] && !entries[i].local) lyricsFor(entries[i].id); // 歌詞のある曲は先に読んでおく(ない曲は問い合わせない)
   if (i === sel && !force) return;
   sel = i;
   save('sel', entries[i].local ? 0 : i);
@@ -802,6 +804,9 @@ async function startGameInner(entry, d, custom, live, extra) {
   await mvReady;
   // ゴースト(自己ベスト・ライバル・1位)。ライブ・譜面メーカーなどでは使わない
   const ghost = !custom && !live ? await ghostFor(entry, d, loadGhost(entry.id, d)) : null;
+  // 歌詞: 譜面メーカーのテストプレイは編集中の歌詞、ほかはサーバーの歌詞(曲ファイルの lyrics があればそれ)
+  const lyrics = settings.lyrics === false || custom?.kind === 'tutorial' ? null
+    : custom?.lyrics || entry.lyrics || (!entry.local ? await lyricsQuick(entry.id) : null);
   await hideLoading(isRetry ? 500 : 1400);
   playing = { entry, diff: d, custom, live, extra, label };
   document.body.classList.toggle('live', !!live || custom?.kind === 'dan');
@@ -817,7 +822,7 @@ async function startGameInner(entry, d, custom, live, extra) {
     jacket: jacketURL(entry, 128),
     label,
     captions: custom?.captions || extra?.captions || null,
-    lyrics: settings.lyrics !== false && custom?.kind !== 'tutorial' && entry.lyrics ? entry.lyrics.map((x) => x.slice()) : null,
+    lyrics: lyrics ? lyrics.map((x) => x.slice()) : null,
     life: custom?.life || null,
     rivals: live ? () => live.rivals() : null,
     mv: entry.local || custom?.kind === 'tutorial' ? null : createMV(entry.id, entry.bpm, entry.offset || 0, {}, entry.mvAuto?.()),

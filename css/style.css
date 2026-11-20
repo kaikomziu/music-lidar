@@ -1701,4 +1701,16 @@ body.playing .season-fx { display: none; }
 .poll-mini div::before { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--w, 0%); background: rgba(94, 242, 255, 0.25); transition: width 0.5s; }
 .poll-mini span, .poll-mini em { position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: normal; }
 .poll-mini em { font-family: var(--font-d); font-weight: 700; }
-.btn-quick[hidden], .r-video[hidden], .r-next[hidden], .poll-mini[hidden], .tb[hidden], .chip[hidden] { display: none; }
+.btn-quick[hidden], .r-video[hidden], .r-next[hidden], .poll-mini[hidden], .tb[hidden], .chip[hidden], .ed-lyr[hidden] { display: none; }
+/* 譜面メーカー: 歌詞の時刻(管理者) */
+.tb.on { border-color: #ffd25e; color: #ffd25e; }
+.ed-lyr { border: 1px solid rgba(255,210,94,0.5); border-radius: 10px; padding: 10px; margin: 8px 0; background: rgba(30,24,6,0.35); }
+.ed-lyr h3 { margin: 0 0 4px; font-size: 14px; color: #ffd25e; }
+.ed-lyr textarea { width: 100%; box-sizing: border-box; font-size: 13px; background: rgba(4,8,22,0.8); color: inherit; border: 1px solid var(--panel-line); border-radius: 6px; padding: 6px; }
+.ed-lyr-btns { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.ed-lyr-list { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow: auto; font-size: 12px; }
+.ed-lyr-list li { display: flex; align-items: center; gap: 6px; padding: 3px 4px; border-radius: 6px; cursor: pointer; }
+.ed-lyr-list li.next { background: rgba(255,210,94,0.18); outline: 1px solid rgba(255,210,94,0.6); }
+.ed-lyr-list li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ed-lyr-list input { width: 72px; font-size: 12px; background: rgba(4,8,22,0.8); color: inherit; border: 1px solid var(--panel-line); border-radius: 4px; padding: 2px 4px; }
+.ed-lyr-list .chip { padding: 2px 8px; }

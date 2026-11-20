@@ -1,4 +1,5 @@
 // 季節イベント(1.62.0〜): 春(3/20〜4/15)・夏(7/20〜8/31)・ハロウィン(10/15〜10/31)・クリスマス(12/1〜1/31)
+// 1.72.0〜: バレンタイン(2/1〜2/14。限定曲 Sweet Ribbon・ペアライブ)・七夕(7/1〜7/7。願いごとの短冊・EXTRA のスコアアタック)
 //  - 期間中はホームにお知らせと「イベント曲」のスコアアタック。曲はイベントIDから乱数で1曲(HARD)。ランキングは mlidar_scores の song = 'ev-<イベントID>'
 //  - 1回挑戦すると限定の着せ替えと、プロフィールの限定バッジ(サーバー mlidar_event_join。meta.events にイベントIDが残る)
 //  - 春・夏・ハロウィンは画面に季節の粒(花びら・花火・こうもり)。クリスマスの見た目は event.js
@@ -16,6 +17,9 @@ export const SEASONS = {
   summer: { name: '夏の花火イベント', en: 'Summer Fireworks Event', period: '7/20〜8/31', icon: '🎆', color: '#ffb347', skin: '判定ライン「花火」', from: [7, 20], to: [8, 31] },
   halloween: { name: 'ハロウィンイベント', en: 'Halloween Event', period: '10/15〜10/31', icon: '🎃', color: '#ff8a2a', skin: 'ノーツ「パンプキン」', from: [10, 15], to: [10, 31] },
   xmas: { name: 'クリスマスイベント', en: 'Christmas Event', period: '12/1〜1/31', icon: '🎄', color: '#ff5a6e', skin: '判定ライン「ホーリーナイト」', from: [12, 1], to: [1, 31] },
+  // song / diff: イベント曲を決めておく(ないときはイベントIDから乱数で1曲・HARD)
+  valentine: { name: 'バレンタインイベント', en: "Valentine's Event", period: '2/1〜2/14', icon: '💝', color: '#ff7eb6', skin: 'ノーツ「チョコ」', from: [2, 1], to: [2, 14], song: 'sweet-ribbon', diff: 'hard' },
+  tanabata: { name: '七夕イベント', en: 'Tanabata Event', period: '7/1〜7/7', icon: '🎋', color: '#9a8cff', skin: '判定ライン「天の川」', from: [7, 1], to: [7, 7], song: 'space-waltz', diff: 'extra' },
 };
 let ui = null; // { entries, esc, toast, jacketURL, play(entry, d, custom, live, extra), rankId(), playerName(), rankRows(rows) }
 
@@ -35,6 +39,7 @@ export function currentSeason(ms = Date.now()) {
 
 // イベント曲(イベントIDから決める。みんな同じ)
 export function seasonSong(ev) {
+  if (ev.song) { const e = ui.entries.find((x) => x.id === ev.song); if (e && e.levels?.[ev.diff || 'hard']) return e; }
   const pool = ui.entries.filter((e) => !e.local && e.urlId && (e.levels?.hard || 0) >= 5).sort((a, b) => (a.id < b.id ? -1 : 1));
   const r = mulberry32(hashStr('season-' + ev.id));
   return pool[Math.floor(r() * pool.length)];
@@ -46,6 +51,7 @@ export function initSeason(api) {
   if (!ev) return;
   document.body.classList.add('season-' + ev.kind);
   if (ev.kind !== 'xmas') startParticles(ev.kind);
+  if (ev.kind === 'tanabata') import('./tanabata.js').then((m) => m.initWishes(ui)).catch((e) => console.warn(e));
   renderSeasonBanner(ev);
 }
 
@@ -54,12 +60,14 @@ function renderSeasonBanner(ev) {
   const e = seasonSong(ev);
   if (!main || !e || $('season-banner')) return;
   const ja = LANG === 'ja';
+  const dd = (ev.song === e.id && ev.diff) || 'hard', DL = dd.toUpperCase();
+  const extra = ev.kind === 'valentine' ? (ja ? '。「みんなでライブ」を2人で遊ぶと、2人のスコアの合計(ペアスコア)が出ます' : '. Play Multi Live with 2 players to see your pair score') : '';
   main.insertAdjacentHTML('beforebegin', `<div class="season-banner" id="season-banner" style="--sc:${ev.color}">
     <div class="sb-text"><small>EVENT ・ ${ev.period}</small><b>${ev.icon} ${ja ? ev.name + '開催中!' : ev.en}</b>
-    <span>${ja ? `イベント曲「${ui.esc(e.title)}」HARD のスコアアタック。1回挑戦すると限定の${ev.skin}と限定バッジ` : `Score attack on “${ui.esc(e.title)}” (HARD). Play once to get a limited skin and badge`}</span>
+    <span>${ja ? `イベント曲「${ui.esc(e.title)}」${DL} のスコアアタック。1回挑戦すると限定の${ev.skin}と限定バッジ` : `Score attack on “${ui.esc(e.title)}” (${DL}). Play once to get a limited skin and badge`}${extra}</span>
     <span class="sb-top" id="sb-top"></span></div>
     <button class="btn-glow" id="btn-season">挑戦する</button></div>`);
-  $('btn-season').addEventListener('click', () => ui.play(e, 'hard', null, null, { season: ev }));
+  $('btn-season').addEventListener('click', () => ui.play(e, dd, null, null, { season: ev }));
   fetchRanking('ev-' + ev.id, 'hard', ui.rankId(), 3).then((rows) => {
     const el = $('sb-top');
     if (el) el.textContent = rows.length ? 'トップ: ' + rows.filter((x) => x.rank <= 3).map((x) => `${x.rank}. ${x.name} ${x.score.toLocaleString()}`).join(' / ') : 'まだ誰も挑戦していません';
@@ -97,14 +105,14 @@ function startParticles(kind) {
   document.body.appendChild(cv);
   const g = cv.getContext('2d');
   const ps = [];
-  let W = 0, H = 0, last = performance.now(), boomT = 0;
+  let W = 0, H = 0, last = performance.now(), boomT = 0, shoot = null;
   const resize = () => {
     const dpr = Math.min(2, devicePixelRatio || 1);
     W = innerWidth; H = innerHeight;
     cv.width = W * dpr; cv.height = H * dpr;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (kind !== 'summer') {
-      const n = Math.round(Math.min(kind === 'halloween' ? 14 : 50, (W * H) / (kind === 'halloween' ? 90000 : 26000)));
+      const n = Math.round(Math.min(kind === 'halloween' ? 14 : kind === 'valentine' ? 26 : 50, (W * H) / (kind === 'halloween' ? 90000 : kind === 'valentine' ? 45000 : 26000)));
       while (ps.length < n) ps.push(fresh(true));
       ps.length = n;
     }
@@ -141,12 +149,38 @@ function startParticles(kind) {
       g.globalAlpha = 1;
       return;
     }
+    if (kind === 'tanabata') {
+      // 七夕: その場でまたたく星と、ときどき流れ星
+      boomT -= dt;
+      if (boomT <= 0) { boomT = 2.5 + Math.random() * 3; shoot = { x: W * (0.3 + Math.random() * 0.7), y: H * Math.random() * 0.3, t: 0 }; }
+      for (const p of ps) {
+        p.w += dt * (1 + p.s);
+        g.globalAlpha = (0.25 + 0.75 * (Math.sin(p.w * 2) * 0.5 + 0.5)) * p.a;
+        g.fillStyle = p.s > 1.2 ? '#fff6c8' : '#cfd8ff';
+        const r = 1 + p.s;
+        g.beginPath(); g.moveTo(p.x, p.y - r * 2); g.lineTo(p.x + r * 0.5, p.y); g.lineTo(p.x, p.y + r * 2); g.lineTo(p.x - r * 0.5, p.y); g.closePath(); g.fill();
+        g.beginPath(); g.moveTo(p.x - r * 2, p.y); g.lineTo(p.x, p.y + r * 0.5); g.lineTo(p.x + r * 2, p.y); g.lineTo(p.x, p.y - r * 0.5); g.closePath(); g.fill();
+      }
+      if (shoot) {
+        shoot.t += dt;
+        const k = shoot.t / 0.9, x = shoot.x - k * 260, y = shoot.y + k * 140;
+        if (k >= 1) shoot = null;
+        else { const gr = g.createLinearGradient(x, y, x + 90, y - 48); gr.addColorStop(0, 'rgba(255,255,255,0.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.globalAlpha = 1 - k; g.strokeStyle = gr; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 90, y - 48); g.stroke(); }
+      }
+      g.globalAlpha = 1;
+      return;
+    }
     for (const p of ps) {
       p.w += dt * 1.3; p.rot += dt * (kind === 'halloween' ? 0 : 1.5);
       if (kind === 'halloween') { p.x += p.v * dt * 1.6; p.y += Math.sin(p.w * 2) * 14 * dt; if (p.x > W + 30) Object.assign(p, fresh(true), { x: -30 }); }
       else { p.y += p.v * dt; p.x += Math.sin(p.w) * 18 * dt; if (p.y > H + 20) Object.assign(p, fresh(false)); }
       g.save(); g.translate(p.x, p.y); g.globalAlpha = p.a;
       if (kind === 'spring') { g.rotate(p.rot); g.fillStyle = '#ffc2df'; g.beginPath(); g.ellipse(0, 0, 6 * p.s, 3.2 * p.s, 0, 0, 6.28); g.fill(); }
+      else if (kind === 'valentine') { // ハート
+        g.rotate(Math.sin(p.w) * 0.4); const z = 5 * p.s;
+        g.fillStyle = p.s > 1.1 ? '#ff7eb6' : '#ffc2df';
+        g.beginPath(); g.moveTo(0, z * 0.9); g.bezierCurveTo(-z * 1.6, -z * 0.2, -z * 0.8, -z * 1.4, 0, -z * 0.5); g.bezierCurveTo(z * 0.8, -z * 1.4, z * 1.6, -z * 0.2, 0, z * 0.9); g.fill();
+      }
       else { // こうもり
         const f = Math.sin(p.w * 8) * 0.5 + 0.5, s = 9 * p.s;
         g.fillStyle = 'rgba(20,10,30,0.85)'; g.strokeStyle = 'rgba(255,138,42,0.5)'; g.lineWidth = 1;

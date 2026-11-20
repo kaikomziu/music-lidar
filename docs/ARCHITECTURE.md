@@ -111,6 +111,8 @@
 | `extras.js` | デイリーチャレンジ・コースモード・判定グラフ・共有画像・判定タイミングの自動調整・ゲームパッド |
 | `maker.js` / `maker-api.js` | 譜面メーカーと「みんなの譜面」 |
 | `replay.js` | リプレイ(入力の記録の符号化・端末とサーバーへの保存・読み込み) |
+| `specials.js` | お正月おみくじ・周年記念ウィーク(ホームのお知らせ) |
+| `tanabata.js` | 七夕の願いごとの短冊 |
 | `lyrics.js` | 歌詞の読み込み・保存(サーバーの `mlidar_lyrics`)と歌い終わりの自動決め |
 | `custom-audio.js` | 譜面メーカーで管理者が自分で選んだ音声(暗号化・アップロード・復号、曲のエントリー) |
 | `player.js` | きくだけモード(音楽プレーヤー) |
@@ -158,6 +160,17 @@ export default {
   - ほかの作者さんの曲を足したら、`credit`(と `creditUrl`)、**`credits.html`(クレジットページ)の表**、`streaming.html` の表、README のクレジットにも足す(タイトル画面と `guide.html` のフッターにはクレジットを書かず、クレジットページへのリンクだけ)
 - 曲を足す手順: ファイルを作る → `js/songs/index.js` に import を1行 → `tools/og.html?ids=曲ID` で共有画像 `og.jpg` を作る → `python tools/release.py`(曲ページとサイトマップができる)→ `python tools/export.py` で `D:\MUSIC_LiDAR_export` に mp3 / mp4 を書き出す
 - 週替わりスコアアタックとデイリーは、曲一覧から乱数で選ぶ。**曲を足すと、選ばれる曲が変わることがある**
+
+### 記念日・季節のイベント(1.72.0 で追加したもの)
+| イベント | 期間(日本時間) | 中身 | 場所 |
+|---|---|---|---|
+| お正月おみくじ | 1/1〜1/7 | 1日1回。大吉 500 コイン + 判定ライン「初日の出」(`line_newyear`)/ 中吉 300 / 小吉 200 / 吉 100 / 末吉 50。ゲストは端末だけで引ける(報酬なし)。𝕏 でシェア | `specials.js`、サーバー `mlidar_omikuji`(`meta.omikuji` に日付と結果) |
+| バレンタイン | 2/1〜2/14 | 季節イベント(`season.js` の `SEASONS.valentine`)。限定曲「Sweet Ribbon」(`sweet-ribbon.js`、`event: 'valentine'`)の HARD でスコアアタック、参加でノーツ「チョコ」(`note_choco`)。みんなでライブを2人で遊ぶと、結果にペアスコア(2人の合計)と相性(スコアの差から)を出す(`live.js`。対戦は除く)。ハートが降る | `season.js` / `live.js` |
+| 七夕 | 7/1〜7/7 | 季節イベント(`SEASONS.tanabata`)。Space Waltz の EXTRA でスコアアタック、参加で判定ライン「天の川」(`line_tanabata`)。星がまたたき流れ星。お知らせの下にみんなの短冊が流れ、ログインした人は1年に1つ願いごとを書ける(40文字。書き直すと確認待ち)。**管理者ページで「出す」にした短冊だけ流れる** | `tanabata.js`、サーバー `mlidar_wishes` / `mlidar_wish_post` / `_list` / `_mine` / `_admin` / `_set` |
+| 周年記念ウィーク | 10/17〜10/23(公開日 2026-10-17) | プレイのコイン2倍(`mlidar_play_result_core` が `mlidar_event_open('anniv…')` を見る)。記念プレゼント(年に1回): ノーツ「アニバーサリー」(`note_anniv`)+ ガチャ1回(`mlidar_anniv_gift` が100コイン足して `mlidar_gacha` を1回引く。結果は `meta.js` の `showGiftGacha`) | `specials.js` |
+- 期間の判定はサーバーの `mlidar_event_open`(`newyear` / `valentine` / `tanabata` / `anniv` + 年)と、ブラウザの `event.js`(`WINDOWS`)・`season.js`(`SEASONS`)が同じ。期間外の確認は `?event=newyear` / `valentine` / `tanabata` / `anniv`(戻すときは `?event=off`。サーバーの報酬は本当の期間だけ)
+- 季節イベントの `song` / `diff` でイベント曲と難易度を決められる(ないときは今までどおり乱数で HARD)。ランキングは今までどおり `ev-<イベントID>` の `hard` に入る
+- バッジ「四季めぐり」は春・夏・ハロウィン・クリスマスの4つだけを数える
 
 ### エイプリルフール
 - 日本時間の4月1日だけ、名前を「Booing LiDAR」(ブーイング ライダー)にする。`index.html` の起動画面のすぐ後のインラインのスクリプトで、起動画面のロゴ(MUSIC → BOOING)・タイトルのロゴ・左上の表示・タブの題名(`<title>` を MutationObserver で見張って置き換え)を入れ替え、ロゴの下に「ブーイング ライダー ・ 4月1日だけ」と出す。`window.APRIL_FOOL` が true になる
@@ -414,6 +427,7 @@ export default {
 | `mlidar_skins` | 着せ替えの一覧(値段・入手方法) |
 | `mlidar_charts` / `mlidar_chart_scores` / `mlidar_chart_likes` | みんなの譜面(`song` は曲の id か `a:<音声id>`) |
 | `mlidar_replays` | リプレイ(1人1譜面1つ。キーの押し・離しの記録) |
+| `mlidar_wishes` | 七夕の願いごと(1人1年1つ。管理者が出す/出さないを決める) |
 | `mlidar_lyrics` | 曲の歌詞と時刻(RLS でポリシーなし。関数からだけ触る) |
 | `mlidar_audio` | 管理者が置いた音声の情報と復号の鍵(RLS でポリシーなし。関数からだけ触る) |
 | `mlidar_live_lobby` | 公開中の部屋一覧(今使っている) |

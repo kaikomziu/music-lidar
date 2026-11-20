@@ -57,7 +57,7 @@ export function ctx(src, entries) {
     songs: pool.filter((e) => songs.has(e.id)).length, songTotal: pool.length,
     invited: (m.invited_by || src.invited) ? 1 : 0,
     events: (m.events || []).length,
-    eventKinds: new Set((m.events || []).map((x) => String(x).replace(/[0-9]+$/, ''))).size,
+    eventKinds: new Set((m.events || []).map((x) => String(x).replace(/[0-9]+$/, '')).filter((k) => ['spring', 'summer', 'halloween', 'xmas'].includes(k))).size, // 四季めぐりは4つの季節だけ数える
     streak: m.streak?.best || 0, wins: m.match?.win || 0, invites: Number(m.invites || 0),
     units: typeof src.units === 'number' ? src.units : Object.keys(src.units || {}).length,
     skins: typeof src.skins === 'number' ? src.skins : (m.skins || []).length,

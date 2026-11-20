@@ -32,6 +32,7 @@ export function initAdmin(api) {
   $('adm-body').addEventListener('click', (ev) => {
     const th = ev.target.closest('[data-sort]'); if (th) { sortKey = th.dataset.sort; render(); }
     const sv = ev.target.closest('[data-rq-save]'); if (sv) saveRequest(sv.closest('[data-rq]'));
+    const wb = ev.target.closest('[data-wish]'); if (wb) setWish(wb);
   });
 }
 
@@ -48,6 +49,7 @@ async function refresh() {
   try {
     data = await rpc('mlidar_admin_overview', { p_token: load('token', null) });
     requests = await rpc('mlidar_request_list', { p_token: load('token', null) }).catch(() => requests);
+    wishes = await rpc('mlidar_wish_admin', { p_token: load('token', null) }).catch(() => wishes);
     // 返信を書いている途中なら描き直さない(入力が消えるので)
     if (!document.activeElement?.closest?.('.adm-rq')) render();
   } catch (e) {
@@ -116,6 +118,12 @@ function render() {
           <td class="n">${a.plays}</td><td class="n">${a.gacha}</td><td class="n">${a.units}</td><td class="n">${a.coins.toLocaleString()}</td><td>${['', '初段', '二段', '三段', '四段', '五段', '六段', '七段', '八段', '九段', '十段', '皆伝'][a.dan || 0] || '-'}</td></tr>`;
       }).join('')}</tbody></table></div>
 
+    ${wishes.length ? `<h3 class="adm-h">七夕の願いごと(確認待ち ${wishes.filter((w) => w.status === 'pending').length}件)</h3>
+    <p class="muted small">「出す」にした短冊だけが、七夕イベントの間ホームに流れます。</p>
+    <div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>名前</th><th>願いごと</th><th>年</th><th>状態</th><th></th></tr></thead>
+      <tbody>${wishes.map((w) => `<tr><td>${esc(w.name)}</td><td>${esc(w.text)}</td><td>${w.year}</td><td>${{ pending: '確認待ち', ok: '出している', ng: '出さない' }[w.status]}</td>
+        <td><button class="btn-line small" data-wish="ok" data-acc="${esc(w.id)}" data-year="${w.year}">出す</button> <button class="btn-line small" data-wish="ng" data-acc="${esc(w.id)}" data-year="${w.year}">出さない</button></td></tr>`).join('')}</tbody></table></div>` : ''}
+
     <h3 class="adm-h">最近のランキング記録</h3>
     <div class="adm-table-wrap"><table class="adm-table">
       <thead><tr><th>いつ</th><th>名前</th><th>曲</th><th>難易度</th><th>スコア</th></tr></thead>
@@ -125,6 +133,17 @@ function render() {
 }
 
 export const stopAdmin = stop;
+
+// 七夕の願いごとを出す/出さない
+let wishes = [];
+async function setWish(b) {
+  try {
+    await rpc('mlidar_wish_set', { p_token: load('token', null), p_account: b.dataset.acc, p_year: +b.dataset.year, p_status: b.dataset.wish });
+    const w = wishes.find((x) => x.id === b.dataset.acc && x.year === +b.dataset.year); if (w) w.status = b.dataset.wish;
+    ui.toast(b.dataset.wish === 'ok' ? '短冊を出すようにしました' : '短冊を出さないようにしました');
+    render();
+  } catch (e) { ui.toast('保存できませんでした: ' + e.message); }
+}
 
 async function saveRequest(li) {
   if (!li) return;

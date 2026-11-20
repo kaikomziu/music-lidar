@@ -313,7 +313,7 @@ function renderPass() {
     const list = skinList || [];
     body.innerHTML = KIND_ORDER.map((k) => `<section class="sk-group"><h3>${KIND[k]}</h3><ul class="sk-list">${[{ id: 'default', name: 'いつもの', price: 0, source: 'base' }, ...list.filter((x) => x.kind === k)].map((x) => {
       const has = x.id === 'default' || owned.has(x.id), on = eq[k] === x.id;
-      const how = has ? '' : x.source === 'shop' ? `<button class="btn-line small" data-buy="${x.id}">◎${x.price.toLocaleString()} で買う</button>` : `<span class="muted small">${x.source === 'season' ? 'シーズンパスの報酬' : x.source === 'event' ? '季節イベントに参加するともらえる' : x.id === 'line_invite' ? '友だちを3人招待するともらえる' : x.id === 'note_crown' ? '友だちを10人招待するともらえる' : '友だち招待でもらえる'}</span>`;
+      const how = has ? '' : x.source === 'shop' ? `<button class="btn-line small" data-buy="${x.id}">◎${x.price.toLocaleString()} で買う</button>` : `<span class="muted small">${x.source === 'season' ? 'シーズンパスの報酬' : x.source === 'event' ? ({ note_choco: 'バレンタインイベントに参加するともらえる', line_tanabata: '七夕イベントに参加するともらえる', line_newyear: 'お正月のおみくじで大吉を引くともらえる', note_anniv: '周年記念ウィークの記念プレゼント' }[x.id] || '季節イベントに参加するともらえる') : x.id === 'line_invite' ? '友だちを3人招待するともらえる' : x.id === 'note_crown' ? '友だちを10人招待するともらえる' : '友だち招待でもらえる'}</span>`;
       return `<li class="${on ? 'on' : ''}${has ? '' : ' lock'}"><canvas width="120" height="48" data-sample="${x.id}" data-kind="${k}"></canvas><b>${ui.esc(x.name)}</b>
         ${has ? (on ? '<span class="sk-on">装備中</span>' : `<button class="btn-line small" data-equip="${x.id}" data-kind="${k}">装備する</button>`) : how}
         ${k === 'tap' ? `<button class="link-btn small" data-hear="${x.id}">試聴</button>` : ''}</li>`;

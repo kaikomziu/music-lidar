@@ -8,6 +8,7 @@
 import { jacketImg } from './jacket.js';
 import { mvTag } from './mv.js';
 import { load } from './storage.js';
+import { eventActive } from './event.js';
 import * as acc from './account.js';
 
 const $ = (id) => document.getElementById(id);
@@ -799,7 +800,15 @@ function renderResult() {
   }
   const head = room.match && !waiting && list.length === 2 ? (myRank === 1 ? '🏆 対戦に勝ちました!' : '対戦に負けました…もう一戦!') : waiting ? `みんなの結果を待っています…(残り ${waiting}人)` :
     list.length < 2 ? 'ソロライブ' : myRank === 1 ? '🏆 あなたが1位!' : `あなたは ${myRank}位`;
-  box.innerHTML = `<div class="lv-head"><b>LIVE RESULT</b><span>${head}</span></div>
+  // バレンタインの期間に2人で遊んだら、2人の合計(ペアスコア)と相性を出す(対戦は除く)
+  let pair = '';
+  if (eventActive('valentine') && !room.match && list.length === 2 && !waiting) {
+    const sum = list.reduce((t, m) => t + (m.score ?? 0), 0);
+    const gap = Math.abs((list[0].score ?? 0) - (list[1].score ?? 0));
+    const love = Math.max(1, Math.min(100, Math.round(100 - gap / 6000 + (sum > 1800000 ? 5 : 0))));
+    pair = `<div class="lv-pair">💝 ペアスコア <b>${sum.toLocaleString()}</b> ・ 2人の相性 <b>${love}%</b></div>`;
+  }
+  box.innerHTML = `<div class="lv-head"><b>LIVE RESULT</b><span>${head}</span></div>${pair}
     <p class="muted small">編成の効果込みのスコアで競います</p><ol class="rank-list lv-list">${rows}</ol>`;
 }
 

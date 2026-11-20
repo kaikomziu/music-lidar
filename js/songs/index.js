@@ -142,6 +142,7 @@ import lightspeedFlash from './lightspeed-flash.js';
 // 期間限定(クリスマス: 12/1〜1/31)
 import jingleCircuit from './jingle-circuit.js';
 import snowlightCarol from './snowlight-carol.js';
+import sweetRibbon from './sweet-ribbon.js';
 
 export default [
   // やさしい曲
@@ -156,7 +157,7 @@ export default [
   kawaiiBubble, lidarRush, shiningStar, inmuKing, mizuNoTsuioku, hydrangea, ao, summerTriangle, camelliaGhost, camelliaGhostVip, cryingRed, kurashiOyogu, wubFracture, offbeatSkater, nightDrift, psyForest, neonSamurai, braveHorizon, shamisenStorm, crystalFortress, hyperSakura, jungleLights,
   phonkGarage, overdriveRiot, hardReflector, darkShinobi, bluegrassRush, crimsonRumba,
   // 期間限定(クリスマス)
-  jingleCircuit, snowlightCarol,
+  jingleCircuit, snowlightCarol, sweetRibbon,
   // 鬼畜・ギミック
   sugarRush, hyperpopGlitch, chipDungeon, circuitBreaker, mirageShift, freezeFrame, fractalStorm, kickMachinegun, velocityZero,
   terminalVelocity, metalcoreFury, timeTwister, clockworkChaos, hyperScanBreaker, gabberStorm, finalProtocol, abyssGate, bulletHell404,

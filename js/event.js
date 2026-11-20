@@ -12,9 +12,13 @@ export const PREVIEW = preview;
 
 // 日本時間の月(1〜12)
 const jstMonth = (ms = Date.now()) => new Date(ms + 9 * 3600e3).getUTCMonth() + 1;
+// 期間限定曲の期間(日本時間の [月, 日] から [月, 日] まで)。季節イベント(season.js)と同じ
+const WINDOWS = { valentine: [[2, 1], [2, 14]], tanabata: [[7, 1], [7, 7]], newyear: [[1, 1], [1, 7]], anniv: [[10, 17], [10, 23]] };
 export function eventActive(id, ms = Date.now()) {
   if (PREVIEW === id) return true;
   if (id === 'xmas') { const m = jstMonth(ms); return m === 12 || m === 1; }
+  const w = WINDOWS[id];
+  if (w) { const d = new Date(ms + 9 * 3600e3), md = (d.getUTCMonth() + 1) * 100 + d.getUTCDate(); return md >= w[0][0] * 100 + w[0][1] && md <= w[1][0] * 100 + w[1][1]; }
   return false;
 }
 export const xmasActive = () => eventActive('xmas');

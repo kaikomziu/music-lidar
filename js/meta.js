@@ -415,6 +415,8 @@ function closeGachaResult() {
   gachaTrigger = null;
   if (trigger?.isConnected && !trigger.disabled) trigger.focus({ preventScroll: true });
 }
+// 周年記念のプレゼントなど、ほかの所で引いたガチャの結果を同じ画面で見せる
+export const showGiftGacha = (results) => showGachaResult(results);
 export function gachaResultOpen() { return $('gacha-result').classList.contains('on'); }
 export function closeGacha() { closeGachaResult(); }
 

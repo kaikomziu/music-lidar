@@ -16,6 +16,8 @@ export const LOOK = {
   note_crown: ['#ffd76a', '#b77dff', '#b77dff', '#ffd76a'],
   note_sakura: ['#ffc2df', '#fff0f6', '#fff0f6', '#ffc2df'],
   note_pumpkin: ['#ff8a2a', '#9b5cff', '#9b5cff', '#ff8a2a'],
+  note_choco: ['#c8865a', '#ff8fbf', '#ff8fbf', '#c8865a'], // バレンタイン
+  note_anniv: ['#ffd76a', '#5ef2ff', '#ff4fd8', '#ffd76a'], // 周年記念
   // 判定ライン [芯の色, 光の色]
   line_default: ['rgba(220,255,255,0.95)', '#7ff9ff'],
   line_pink: ['rgba(255,220,245,0.95)', '#ff6fe0'],
@@ -26,6 +28,8 @@ export const LOOK = {
   line_invite: ['rgba(255,240,250,0.95)', '#ff9ad5'],
   line_summer: ['rgba(255,245,225,0.95)', '#ff9f43'],
   line_xmas: ['rgba(235,255,240,0.95)', '#2fdc6a'],
+  line_tanabata: ['rgba(238,236,255,0.95)', '#9a8cff'], // 七夕(天の川)
+  line_newyear: ['rgba(255,240,222,0.95)', '#ff7a3d'], // お正月(初日の出)
 };
 
 // いまの着せ替え(ゲーム・プレビューが読む)

@@ -15,7 +15,7 @@ import { Game, PointCloud, laneOf, DIFF_COLOR, visibleTime, IS_TOUCH, FX_LEVELS 
 import { load, save, getSettings, setSettings, DEFAULT_SETTINGS, clientId, getBest, recordBest } from './storage.js';
 import { fetchRanking, submitScore } from './ranking.js';
 import * as acc from './account.js';
-import { initMeta, openAccount, renderHeader, gachaResultOpen, closeGacha, openScreen as openMetaScreen } from './meta.js';
+import { initMeta, openAccount, renderHeader, gachaResultOpen, closeGacha, openScreen as openMetaScreen, showGiftGacha } from './meta.js';
 import { initMaker, openCharts, openEditor, makerKeydown, homeFeatured } from './maker.js';
 import { fetchChartRanking, submitChartScore } from './maker-api.js';
 import { fxText } from './units.js';
@@ -36,6 +36,7 @@ import { initKeyConfig, render as renderKeys, apply as applyKeys } from './keyco
 import { initDan, openDan, bestDan, danName } from './dan.js';
 import { initEvent, eventActive } from './event.js';
 import { initSeason, seasonResult } from './season.js';
+import { initSpecials } from './specials.js';
 import { initPoll, syncPollButton } from './poll.js';
 import { initExtras, renderDaily, dailyResult, drawJudgeGraph, setShareResult, courseFromUrl, playDaily } from './extras.js';
 import { initSocial, renderNext, postX, resultText, ghostFor, uploadGhost, SITE } from './social.js';
@@ -1386,6 +1387,7 @@ initSeason({
   play: (entry, d, custom, live, extra) => startGame(entry, d, custom, live, extra),
   rankId: () => myRankId(), playerName: () => acc.getState()?.name || load('name', ''),
 });
+initSpecials({ esc, toast, openAccount, showGiftGacha }); // お正月おみくじ・周年記念ウィーク
 initMeta({ show: (n) => { stopPreview(); show(n); }, toast, back: () => goHome(), current: () => state });
 initMaker({
   entries, show: (n) => { stopPreview(); show(n); }, toast, back: () => goHome(), current: () => state, overlay,

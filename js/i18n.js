@@ -107,6 +107,7 @@ const EN = {
   'ホーム': 'Home', 'リザルト': 'Result', 'ブラウザで遊べる無料4キー音ゲー(リズムゲーム)': 'Free 4-key browser rhythm game', '承認': 'Accept', '断る': 'Decline', '申請する': 'Send request', 'プレイヤーの名前': 'Player name',
   'ログインして受け取る': 'Log in to claim', '受け取った!': 'Got it!', 'このページのリンクをコピー': 'Copy link to this page', 'リンクをコピー': 'Copy link',
   // 1.62.0
+  'クレジット': 'Credits',
   '▶ いますぐ1曲遊ぶ': '▶ Play a song now', '説明なしで、やさしい曲から': 'Jump straight into an easy song', '楽曲募集': 'Call for music',
   '𝕏 に投稿': 'Post on 𝕏', '結果を X(旧 Twitter)に投稿': 'Post your result on X (Twitter)', '🎬 縦動画で録る': '🎬 Record vertical video',
   'もう一度遊んで、ショート動画向けの縦型動画を録画': 'Play again and record a vertical video for Shorts', '動画を保存・共有': 'Save / share video', '次はこれがおすすめ': 'Recommended next',

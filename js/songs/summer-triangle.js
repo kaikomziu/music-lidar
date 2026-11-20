@@ -18,7 +18,7 @@ export default {
   audio: 'audio/summer-triangle.bin',
   audioKey: 'S7CP9fF9wowsoGJywol1Mr1E',
   fixedCharts: data.charts,
-  levels: { easy: 4, normal: 8, hard: 11 },
+  levels: { easy: 4, normal: 8, hard: 11, extra: 12 }, // EXTRA: layered.py で裏の音も拾った最高難度
   previewAt: 40, // 秒
   credit: '音楽:しゃろう「SUMMER TRIANGLE」(OpenTracks)',
   creditUrl: 'https://opentracks.com/',

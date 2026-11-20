@@ -11,6 +11,9 @@ const SITE = 'https://music-lidar.com/';
 const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 
 const songs = (await import(pathToFileURL(path.join(root, 'js/songs/index.js')).href)).default;
+// 内蔵曲の EXTRA のレベル(曲ファイルではなく表にある)も levels に入れておく
+const EXTRA_LEVELS = (await import(pathToFileURL(path.join(root, 'js/songs/extra-levels.js')).href)).default;
+for (const s of songs) if (EXTRA_LEVELS[s.id] && !s.levels.extra) s.levels = { ...s.levels, extra: EXTRA_LEVELS[s.id] };
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // --- 曲数と収録曲一覧を最新にする(検索エンジンが曲ページを見つけられるように) ---

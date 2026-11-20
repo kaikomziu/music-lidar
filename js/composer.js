@@ -182,6 +182,16 @@ const PARAM = {
   hard: { minGap: 0.105, minScore: 0.9, maxNps: 7.5, chordMax: 3, chordP: 0.36, lnMin: 0.3, sameGap: 0.105, lnExclusive: false },
 };
 
+// EXTRA(4つ目の難易度): HARD の値(曲ごとの調整込み)から、細かく・多く・同時押しを多めにした値を作る。
+// 曲ファイルの chart.extra があれば、さらにそれで上書きする
+export function extraParam(hardOverride = null, extraOverride = null) {
+  const h = { ...PARAM.hard, ...(hardOverride || {}) };
+  return {
+    ...h, minGap: Math.max(0.07, h.minGap * 0.72), maxNps: h.maxNps * 1.45, minScore: h.minScore * 0.45,
+    chordP: Math.min(0.6, h.chordP + 0.16), chordMax: 3, sameGap: Math.max(0.09, h.sameGap * 0.85), ...(extraOverride || {}),
+  };
+}
+
 // key で小さい順に並べる(key は1要素1回だけ計算。同じ値ならもとの順)
 function byKey(arr, key) {
   return arr.map((v, i) => ({ v, i, k: key(v) })).sort((a, b) => a.k - b.k || a.i - b.i).map((o) => o.v);
@@ -195,7 +205,8 @@ function lowerBound(arr, x) {
 
 // override: 曲ごとの調整 (例: { minGap: 0.07, maxNps: 12 })。曲ファイルの chart: { hard: {...} } から渡される
 export function generateChart(cands, diff, duration, seed = 1, override = null) {
-  const P = { ...PARAM[diff], ...(override || {}) };
+  const P = { ...(PARAM[diff] || PARAM.hard), ...(override || {}) };
+  const top = diff === 'hard' || diff === 'extra';
   const rng = mulberry32((seed ^ hashStr(diff)) >>> 0);
 
   // 1) 重要度順に拾い、最小間隔と密度上限を守る
@@ -224,7 +235,7 @@ export function generateChart(cands, diff, duration, seed = 1, override = null) 
 
     let n = 1;
     if (k.has('crash')) n = diff === 'easy' ? 2 : Math.min(P.chordMax, 2 + (rng() < 0.5 ? 1 : 0));
-    else if (diff !== 'easy' && k.size >= 2 && c.onBeat && rng() < P.chordP) n = diff === 'hard' && rng() < 0.2 ? 3 : 2;
+    else if (diff !== 'easy' && k.size >= 2 && c.onBeat && rng() < P.chordP) n = top && rng() < 0.2 ? 3 : 2;
     else if (diff === 'easy' && k.has('kick') && k.has('melodic') && c.onBeat && rng() < 0.08) n = 2;
     n = Math.min(n, P.chordMax);
 

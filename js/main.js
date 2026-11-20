@@ -1,6 +1,7 @@
 import { langPref, setLang } from './i18n.js'; // 多言語表示(いちばん先に読んで、画面の文字を置き換える)
 import SONGS from './songs/index.js';
-import { composeSong, candidatesFromEvents, generateChart, shapeHolds, chartStats, DIFFS, hashStr } from './composer.js';
+import { composeSong, candidatesFromEvents, generateChart, shapeHolds, chartStats, DIFFS, hashStr, extraParam } from './composer.js';
+import EXTRA_LEVELS from './songs/extra-levels.js'; // 内蔵曲の EXTRA のレベル(tools/extra-levels.mjs で作る)
 import { getCtx, setVolumes, playPreview, stopPreview, bgmOutFor } from './audio.js';
 import { loadSongAudio } from './audio-cache.js';
 import { loadExternalAudio } from './external-audio.js';
@@ -135,12 +136,17 @@ function builtinEntry(def) {
       charts[d] = dropNotesInStops(holds(generateChart(cands, d, duration, hashStr(def.id), def.chart?.[d]), d, def), scroll.stops);
       stats[d] = chartStats(charts[d]);
     }
+    if (levels.extra) { // EXTRA: HARD の値から細かく・多くした譜面
+      charts.extra = dropNotesInStops(holds(generateChart(cands, 'extra', duration, hashStr(def.id), extraParam(def.chart?.hard, def.chart?.extra)), 'extra', def), scroll.stops);
+      stats.extra = chartStats(charts.extra);
+    }
     return (built = { events, duration, onsets, charts, stats });
   };
   const scroll = buildScroll(def.gimmicks, def.bpm);
+  const levels = EXTRA_LEVELS[def.id] ? { ...def.levels, extra: EXTRA_LEVELS[def.id] } : def.levels;
   return {
     id: def.id, urlId: def.urlId, title: def.title, artist: def.artist, genre: def.genre, bpm: def.bpm, color: def.color,
-    event: def.event || null, levels: def.levels, local: false, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [],
+    event: def.event || null, levels, local: false, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [],
     get charts() { return build().charts; },
     get stats() { return build().stats; },
     get duration() { return build().duration; },

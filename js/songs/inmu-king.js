@@ -18,7 +18,7 @@ export default {
   audio: 'audio/inmu-king.bin',
   audioKey: 'xbrgE5EWB89kvsep46gSDTYcp5sAw3wz',
   fixedCharts: data.charts,
-  levels: { easy: 2, normal: 6, hard: 9 },
+  levels: { easy: 2, normal: 6, hard: 9, extra: 11 }, // EXTRA: layered.py で裏の音も拾った最高難度
   previewAt: 70, // 秒
   credit: '音楽:YAJU-MC(やじゅまん)「INMU KING」 ニコニ・コモンズ nc499430',
   creditUrl: 'https://commons.nicovideo.jp/works/nc499430',

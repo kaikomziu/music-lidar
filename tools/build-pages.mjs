@@ -52,7 +52,7 @@ function setMeta(html, attr, key, value) {
 const ogOf = (u) => ['og.png', 'og.jpg'].find((f) => fs.existsSync(path.join(root, 'music', u, f))) || '';
 
 const seen = new Set();
-const urls = [SITE, SITE + 'guide.html', SITE + 'streaming.html', SITE + 'submit-music.html', SITE + 'credits.html'];
+const urls = [SITE, SITE + 'guide.html', SITE + 'streaming.html', SITE + 'submit-music.html', SITE + 'credits.html', SITE + 'music-guidelines.html'];
 for (const s of songs) {
   if (!s.urlId || !/^[a-z0-9]{6,16}$/.test(s.urlId)) throw new Error('urlId がない/不正: ' + s.id);
   if (seen.has(s.urlId)) throw new Error('urlId が重複: ' + s.urlId);

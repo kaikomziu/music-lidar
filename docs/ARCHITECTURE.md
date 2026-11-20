@@ -162,6 +162,11 @@ export default {
 - 曲を足す手順: ファイルを作る → `js/songs/index.js` に import を1行 → `tools/og.html?ids=曲ID` で共有画像 `og.jpg` を作る → `python tools/release.py`(曲ページとサイトマップができる)→ `python tools/export.py` で `D:\MUSIC_LiDAR_export` に mp3 / mp4 を書き出す
 - 週替わりスコアアタックとデイリーは、曲一覧から乱数で選ぶ。**曲を足すと、選ばれる曲が変わることがある**
 
+### 受信メール(管理者ページ)
+- karubiwakame@gmail.com に届いたメールを、管理者ページの「受信メール」に出す。Gmail のアカウントに入れた Google Apps Script(`tools/gmail-to-mlidar.gs`)が5分ごとに受信トレイの直近2日のメールを `mlidar_mail_put` に送る(合言葉は Vault の `mlidar_mail_secret`。同じメールは `gmail_id` で1回だけ入る)
+- **合言葉入りの Apps Script はリポジトリの外**(`C:\Users\4yoma\Desktop\Claude\music-lidar-private\gmail-to-mlidar.gs`)。リポジトリの `tools/gmail-to-mlidar.gs` は合言葉なしのひな形。合言葉を変えたら Vault の値と Apps Script の両方を直す
+- 管理者は `mlidar_mail_list`(復号して新しい順に100通)・`mlidar_mail_read`(既読/未読)。返信はメールソフトで(mailto のリンク)
+
 ### 記念日・季節のイベント(1.72.0 で追加したもの)
 | イベント | 期間(日本時間) | 中身 | 場所 |
 |---|---|---|---|
@@ -428,6 +433,7 @@ export default {
 | `mlidar_skins` | 着せ替えの一覧(値段・入手方法) |
 | `mlidar_charts` / `mlidar_chart_scores` / `mlidar_chart_likes` | みんなの譜面(`song` は曲の id か `a:<音声id>`) |
 | `mlidar_replays` | リプレイ(1人1譜面1つ。キーの押し・離しの記録) |
+| `mlidar_mails` | 受信メール(karubiwakame@gmail.com)。差出人・件名・本文は暗号化(鍵は Vault の `mlidar_request_key`)。500通を超えたら古いものから消す |
 | `mlidar_wishes` | 七夕の願いごと(1人1年1つ。管理者が出す/出さないを決める) |
 | `mlidar_lyrics` | 曲の歌詞と時刻(RLS でポリシーなし。関数からだけ触る) |
 | `mlidar_audio` | 管理者が置いた音声の情報と復号の鍵(RLS でポリシーなし。関数からだけ触る) |

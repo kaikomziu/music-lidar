@@ -485,16 +485,18 @@ function renderFav() {
   $('d-fav').textContent = on ? '★ お気に入り' : '☆ お気に入りにする';
 }
 
+// 曲一覧で使う難易度: EXTRA を選んでいるとき、EXTRA のない曲は HARD で見る
+const dOf = (e) => (diff === 'extra' && !e.levels.extra ? 'hard' : diff);
 function visibleSongs() {
   const q = songView.q.trim().toLowerCase();
   let idx = entries.map((e, i) => i).filter((i) => {
     const e = entries[i];
     if (q && !`${e.title} ${e.genre} ${e.artist} ${Math.round(e.bpm)}`.toLowerCase().includes(q)) return false;
-    const lv = e.levels[diff];
+    const lv = e.levels[dOf(e)];
     if (songView.lv === '1-4' && lv > 4) return false;
     if (songView.lv === '5-9' && (lv < 5 || lv > 9)) return false;
     if (songView.lv === '10-' && lv < 10) return false;
-    const b = bestOf(e.id, diff);
+    const b = bestOf(e.id, dOf(e));
     if (songView.status === 'new' && b) return false;
     if (songView.status === 'nofc' && b?.fc) return false;
     if (songView.status === 'fc' && !b?.fc) return false;
@@ -503,13 +505,13 @@ function visibleSongs() {
     return true;
   });
   const by = {
-    level: (a, b) => entries[a].levels[diff] - entries[b].levels[diff],
-    'level-desc': (a, b) => entries[b].levels[diff] - entries[a].levels[diff],
+    level: (a, b) => entries[a].levels[dOf(entries[a])] - entries[b].levels[dOf(entries[b])],
+    'level-desc': (a, b) => entries[b].levels[dOf(entries[b])] - entries[a].levels[dOf(entries[a])],
     bpm: (a, b) => entries[a].bpm - entries[b].bpm,
     'bpm-desc': (a, b) => entries[b].bpm - entries[a].bpm,
     name: (a, b) => entries[a].title.localeCompare(entries[b].title, 'ja'),
-    score: (a, b) => (bestOf(entries[b].id, diff)?.score ?? -1) - (bestOf(entries[a].id, diff)?.score ?? -1),
-    'score-asc': (a, b) => (bestOf(entries[a].id, diff)?.score ?? -1) - (bestOf(entries[b].id, diff)?.score ?? -1),
+    score: (a, b) => (bestOf(entries[b].id, dOf(entries[b]))?.score ?? -1) - (bestOf(entries[a].id, dOf(entries[a]))?.score ?? -1),
+    'score-asc': (a, b) => (bestOf(entries[a].id, dOf(entries[a]))?.score ?? -1) - (bestOf(entries[b].id, dOf(entries[b]))?.score ?? -1),
   }[songView.sort];
   if (by) idx = idx.sort((a, b) => by(a, b) || a - b);
   return idx;
@@ -518,11 +520,10 @@ function visibleSongs() {
 function renderFilters() {
   const chip = (group, [v, label]) => `<button class="f-chip ${songView[group] === v ? 'sel' : ''}" data-g="${group}" data-v="${v}">${label}</button>`;
   $('song-filters').innerHTML =
-    `<span class="f-label">${diff.toUpperCase()}</span>${LV_FILTERS.map((f) => chip('lv', f)).join('')}<span class="f-sep"></span>${STATUS_FILTERS.filter(([v]) => v !== 'local' || entries.some((e) => e.local)).map((f) => chip('status', f)).join('')}`;
+    `<span class="f-label"${diff === 'extra' ? ' title="EXTRA のない曲は HARD のレベルで絞り込み・並べ替えます"' : ''}>${diff.toUpperCase()}</span>${LV_FILTERS.map((f) => chip('lv', f)).join('')}<span class="f-sep"></span>${STATUS_FILTERS.filter(([v]) => v !== 'local' || entries.some((e) => e.local)).map((f) => chip('status', f)).join('')}`;
 }
 
 function renderList() {
-  const ld = diff === 'extra' ? 'hard' : diff; // 曲一覧は EXTRA のときも HARD で絞り込み・並べ替える(EXTRA は一部の曲だけ)
   renderFilters();
   const list = $('song-list');
   list.innerHTML = '';
@@ -541,7 +542,7 @@ function renderList() {
     if (k < 16) { b.classList.add('anim'); b.style.setProperty('--k', k); } // 流れ込むのは画面に見える最初の16枚だけ(全部動かすと重い)
     b.dataset.i = i;
     b.style.setProperty('--c', e.color);
-    const lv = DIFFS.map((d) => {
+    const lv = diffsOf(e).map((d) => { // EXTRA のある曲は4つ目に紫で出す
       const best = bestOf(e.id, d);
       const mark = best?.ap ? 'AP' : best?.fc ? 'FC' : '';
       return `<span class="lv ${d}">${e.levels[d]}${mark ? `<span class="mark">${mark}</span>` : ''}</span>`;

@@ -2,6 +2,10 @@
 // 大きな機能追加 = 2つ目の数字を上げる / 不具合修正や小さな改善 = 3つ目の数字を上げる
 export const CHANGELOG = [
   {
+    version: '1.71.1', date: '2026-11-21',
+    notes: ['曲一覧のカードに EXTRA のレベル(紫)も出すように。EXTRA を選んでいるとき、EXTRA のない曲は HARD のレベルで絞り込み・並べ替えます'],
+  },
+  {
     version: '1.71.0', date: '2026-11-21',
     notes: [
       'EXTRA 難易度を53曲に追加: 内蔵曲47曲と、INMU KING(Lv11)・シャイニングスター(Lv10)・SUMMER TRIANGLE(Lv12)・水の追憶(Lv11)・Hydrangea(Lv11)・蒼(Lv11)',

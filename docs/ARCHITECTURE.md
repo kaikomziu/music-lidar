@@ -344,7 +344,7 @@ export default {
 - ボットのトークンは Vault の `mlidar_discord_bot_token`(`mlidar_discord_config` で Edge Function だけが読む)。ボットは Claude Code の Discord プラグインと同じアプリなので、**スラッシュコマンド(HTTP の interactions endpoint)は使わない**(設定するとプラグインのボタンが動かなくなる)。メッセージを読むのに Message Content Intent を使っている
 - ブラウザはコードを出したあと15秒ごとに `acc.refresh()` して、`meta.discord` が入ったら表示を変える
 - **記録のお知らせ(1.79.0〜)**: `mlidar_scores` のトリガー `mlidar_scores_feed` が、Discord 認証した人の「ほかの人もいる譜面でランキング1位になった」「その譜面で初めて ALL PERFECT」「HARD・EXTRA で初めてフルコンボ」を `mlidar_discord_feed` に入れる(同じ人・譜面・種類は1時間に1回まで。30日で消す)
-- 同じ Edge Function が1分ごとに、それを公式Discordの「記録」チャンネルに埋め込みで投稿する。チャンネルは `mlidar_discord_state` の `feed_channel`。なければ名前に「記録」か record が入ったテキストチャンネルを探して覚える(**まだなければ投稿せずに待つ**)。曲名・色・曲ページはサイトの `data/cards.json`(`i` = 曲の id)から引く。メンションの通知はしない
+- 同じ Edge Function が1分ごとに、それを公式Discordの「🏆｜スコア報告」チャンネルに埋め込みで投稿する。チャンネルは `mlidar_discord_state` の `feed_channel`。なければ名前に「スコア報告」、それもなければ「記録」か record が入ったテキストチャンネルを探して覚える(**まだなければ投稿せずに待つ**)。曲名・色・曲ページはサイトの `data/cards.json`(`i` = 曲の id)から引く。メンションの通知はしない
 
 ### 招待
 - 段階報酬: 1人目で着せ替え「フレンド」、3人で判定ライン「アンバサダー」(`line_invite`)、10人でノーツ「クラウン」(`note_crown`)。プロフィールに進み具合と「𝕏 で誘う」

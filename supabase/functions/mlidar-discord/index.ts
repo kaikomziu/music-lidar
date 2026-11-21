@@ -4,7 +4,7 @@
 // - 返事をして、貼られたメッセージは消す。ボットの返事は10分たったら消す(ピン留めは残す)
 // - ボットのトークンは Vault の mlidar_discord_bot_token(mlidar_discord_config で受け取る)
 // - 記録のお知らせ: mlidar_discord_feed(認証した人のランキング1位・初 ALL PERFECT・HARD/EXTRA の初フルコンボ)を「記録」チャンネルに投稿する
-//   チャンネルは mlidar_discord_state の feed_channel。なければ名前に「記録」か record が入ったテキストチャンネルを探して覚える(まだなければ待つ)
+//   チャンネルは mlidar_discord_state の feed_channel。なければ「🏆｜スコア報告」(名前に「スコア報告」)、なければ「記録」か record が入ったテキストチャンネルを探して覚える(まだなければ待つ)
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const GUILD = '1573657919239622786';
@@ -89,8 +89,9 @@ Deno.serve(async (req) => {
     if (!ch) {
       const rc = await dc('GET', `/guilds/${GUILD}/channels`);
       const chans = rc?.ok ? await rc.json() : [];
-      const hit = (Array.isArray(chans) ? chans : []).find((c: { type: number; name: string }) => c.type === 0 && /記録|record/i.test(c.name));
-      if (!hit) return 0; // 「記録」チャンネルができたら送る
+      const text = (Array.isArray(chans) ? chans : []).filter((c: { type: number; name: string }) => c.type === 0);
+      const hit = text.find((c: { name: string }) => /スコア報告/.test(c.name)) || text.find((c: { name: string }) => /記録|record/i.test(c.name));
+      if (!hit) return 0; // 送り先のチャンネルができたら送る
       ch = hit.id as string;
       await db.from('mlidar_discord_state').upsert({ k: 'feed_channel', v: ch });
     }

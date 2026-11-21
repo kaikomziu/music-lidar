@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<title>MUSIC LiDAR 紹介動画(横)</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; padding: 24px; background: #070a1c; color: #dfe6ff; font: 14px/1.6 system-ui, "Noto Sans JP", sans-serif; }
+  #bar { height: 10px; background: #1a2040; border-radius: 5px; overflow: hidden; margin: 12px 0; }
+  #bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #5ef2ff, #ff6b9e); }
+  #pv { width: 480px; height: 270px; border: 1px solid #334; background: #000; }
+  #log { white-space: pre-wrap; font: 12px/1.5 ui-monospace, Consolas, monospace; color: #9aa6d8; }
+</style>
+</head>
+<body>
+<h1>MUSIC LiDAR 紹介動画(横 1920×1080)の書き出し</h1>
+<div id="status">準備中…</div>
+<div id="bar"><i></i></div>
+<canvas id="pv" width="480" height="270"></canvas>
+<div id="log"></div>
+<script type="module">
+// tools/promo.py --page trailer.html から開くページ。2分半ほどの横の紹介動画(YouTube 向け)を1本作る。
+// 場面(SCENES)ごとに曲を変え、プレイ画面は譜面から時刻ごとに描く(自動プレイ。promo.html と同じ描き方)。リアルタイムではないので、タブが裏でも止まらない。
+// 使う曲はオリジナル曲だけ(ほかの作者さんの曲は宣伝に使う許可がないため)。
+// 効果音は promo.py が手元のフォルダから /sfx/ で配る(OtoLogic = CC BY 4.0・クレジット必須 / 効果音ラボ = 再配布禁止なのでリポジトリには入れない)。
+//   動画の説明文に「効果音:OtoLogic(CC BY 4.0)、効果音ラボ」と書く
+import { composeSong, candidatesFromEvents, generateChart, shapeHolds, hashStr, extraParam } from '../js/composer.js';
+import { renderEvents, loudnessGain } from '../js/audio.js';
+import { createMV, analyzeSections, prepareMV } from '../js/mv.js';
+import { buildScroll, dropNotesInStops } from '../js/gimmick.js';
+import { jacketURL } from '../js/jacket.js';
+import SONGS from '../js/songs/index.js';
+import EXTRA_LEVELS from '../js/songs/extra-levels.js';
+
+const $ = (id) => document.getElementById(id);
+const W = 1920, H = 1080, FPS = 30, WORKERS = 4, BATCH = 12;
+const CYAN = '#5ef2ff', PINK = '#ff4fd8';
+const LC = [CYAN, PINK, PINK, CYAN];
+const DC = { easy: '#6dffb0', normal: '#ffd25e', hard: '#ff5a8a', extra: '#c06bff' };
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const easeOut = (k) => 1 - Math.pow(1 - k, 3);
+const qs = (o) => Object.entries(o).map(([k, x]) => k + '=' + encodeURIComponent(x)).join('&');
+function log(msg) { $('log').textContent += msg + '\n'; fetch('/x/log', { method: 'POST', body: msg }).catch(() => {}); }
+async function post(path, body = '') {
+  for (let k = 0; ; k++) {
+    try { const j = await (await fetch(path, { method: 'POST', body })).json(); if (!j.ok) throw new Error(j.err || 'NG'); return j; }
+    catch (e) { if (k >= 4) throw e; await new Promise((r) => setTimeout(r, 800)); }
+  }
+}
+const SONG_COUNT = Math.floor(SONGS.length / 10) * 10; // 「140曲以上」
+// 効果音: 場面の切り替わり = シュッ、文字やカードの切り替わり = ピッ、ロゴ・見せ場 = ドン
+const SFX = { whoosh: '効果音ラボ/パンチの素振り1.mp3', blip: 'OtoLogic/Roulette-Digital10-4(Single).mp3', impact: 'OtoLogic/Explosion01-1(Short).mp3', impact2: 'OtoLogic/Explosion02-2(Short).mp3' };
+async function loadSfx(sr) {
+  const out = {};
+  for (const [k, file] of Object.entries(SFX)) {
+    try {
+      const ab = await (await fetch('/sfx/' + file)).arrayBuffer();
+      const b = await new OfflineAudioContext(2, 1, sr).decodeAudioData(ab);
+      out[k] = [b.getChannelData(0), b.numberOfChannels > 1 ? b.getChannelData(1) : b.getChannelData(0)];
+    } catch (e) { log('効果音を読めませんでした: ' + file); }
+  }
+  return out;
+}
+// いつ・どの効果音を・どのくらいの大きさで鳴らすか
+function sfxEvents(segs) {
+  const ev = [];
+  for (const [k, sg] of segs.entries()) {
+    const S = sg.scene;
+    if (k > 0) ev.push(S.kind === 'level' && S.i > 0 ? ['blip', sg.v0, 0.5] : ['whoosh', Math.max(0, sg.v0 - 0.12), 0.55]);
+    if (S.kind === 'open') ev.push(['impact', 0.2, 0.55]);
+    if (S.kind === 'end') ev.push(['impact', sg.v0 + 0.2, 0.55]);
+    if (S.kind === 'wall') ev.push(['impact2', sg.v0 + 0.2, 0.5]);
+    if (S.kind === 'show') ev.push(['impact', sg.v0 + 0.05, 0.5]);
+    if (S.kind === 'how') for (let i = 1; i < HOW.length; i++) ev.push(['blip', sg.v0 + i * (S.t / HOW.length), 0.4]);
+    if (S.kind === 'features') for (let i = 1; i < FEATURES.length; i++) ev.push(['blip', sg.v0 + i * (S.t / FEATURES.length), 0.4]);
+  }
+  return ev;
+}
+
+// ---------- 場面(秒・種類・曲・難易度) ----------
+const SCENES = [
+  { t: 8, kind: 'open', song: 'lidar-rush', diff: 'hard' },
+  { t: 22, kind: 'how', song: 'paper-planes', diff: 'normal' },
+  { t: 12, kind: 'wall', song: 'midnight-avenue', diff: 'normal' },
+  { t: 14 / 3, kind: 'clip', song: 'neon-highway', diff: 'normal', label: 'SYNTHWAVE' },
+  { t: 14 / 3, kind: 'clip', song: 'koi-pond', diff: 'normal', label: '和風ポップ' },
+  { t: 14 / 3, kind: 'clip', song: 'jazz-cafe', diff: 'normal', label: 'JAZZ' },
+  { t: 4.8, kind: 'level', song: 'first-light', diff: 'easy', label: 'かんたん', i: 0 },
+  { t: 4.8, kind: 'level', song: 'tropical-mango', diff: 'normal', label: 'ふつう', i: 1 },
+  { t: 4.8, kind: 'level', song: 'paper-planes', diff: 'hard', label: 'むずかしい', i: 2 },
+  { t: 4.8, kind: 'level', song: 'lidar-rush', diff: 'hard', label: '激ムズ', i: 3 },
+  { t: 4.8, kind: 'level', song: 'sakura-blizzard', diff: 'hard', label: '鬼', i: 4 },
+  { t: 42, kind: 'features', song: 'kawaii-bubble', diff: 'hard' },
+  { t: 20, kind: 'show', song: 'neutron-overdrive', diff: 'hard' },
+  { t: 10, kind: 'end', song: 'brave-horizon', diff: 'hard' },
+];
+const HOW = [
+  ['奥から流れてくるノーツを', '光る線に重なったら叩く'],
+  ['キーボードは D・F・J・K', 'スマホは画面をタップ'],
+  ['長いノーツは押しっぱなし', 'ぴったりなら PERFECT!'],
+];
+const FEATURES = [
+  ['🏆', 'オンラインランキング', '全国のプレイヤーとスコアで勝負'],
+  ['🎤', 'みんなでライブ', '最大8人で同じ曲を同時にプレイ'],
+  ['🥋', '段位道場', '初段から皆伝まで、4曲連続の腕試し'],
+  ['✏️', '譜面メーカー', '自分で譜面を作って、みんなに公開'],
+  ['🎰', 'ガチャ・編成・着せ替え', 'キャラを集めてスキルを組み合わせ'],
+  ['🎯', 'レベル診断', '1分でちょうどいいレベルがわかる'],
+  ['🎬', 'リプレイ・動画で保存', 'いまのプレイを mp4 で残せる'],
+];
+
+// ---------- 曲と譜面(main.js の builtinEntry と同じ作り方) ----------
+function chartsOf(def, events, duration) {
+  const cands = candidatesFromEvents(events);
+  const scroll = buildScroll(def.gimmicks, def.bpm);
+  const seed = hashStr(def.id);
+  const holds = (n, d) => (def.holdStyle === false ? n : shapeHolds(n, d === 'extra' ? 'hard' : d, { bpm: def.bpm, level: def.levels?.[d], seed }));
+  const levels = EXTRA_LEVELS[def.id] ? { ...def.levels, extra: EXTRA_LEVELS[def.id] } : { ...def.levels };
+  const charts = {};
+  for (const d of ['easy', 'normal', 'hard']) charts[d] = dropNotesInStops(holds(generateChart(cands, d, duration, seed, def.chart?.[d]), d), scroll.stops);
+  if (levels.extra) charts.extra = dropNotesInStops(holds(generateChart(cands, 'extra', duration, seed, extraParam(def.chart?.hard, def.chart?.extra)), 'extra'), scroll.stops);
+  return { charts, levels };
+}
+function densest(notes, len, duration, bar) {
+  let best = -1, bt = 0;
+  for (let s = Math.max(bar * 2, duration * 0.05); s + len < duration * 0.97; s += bar) {
+    let c = 0; for (const n of notes) if (n.t >= s && n.t < s + len) c++;
+    if (c > best) { best = c; bt = s; }
+  }
+  return bt;
+}
+const cache = new Map();
+async function loadSong(id) {
+  if (cache.has(id)) return cache.get(id);
+  const def = SONGS.find((x) => x.id === id);
+  if (!def || def.audio || def.gimmicks?.length) throw new Error('使えない曲: ' + id);
+  const { events, duration } = composeSong(def);
+  const { charts, levels } = chartsOf(def, events, duration);
+  const buf = await renderEvents(events, duration, { sidechain: !!def.sidechain });
+  await prepareMV(def.id);
+  const mv = createMV(def.id, def.bpm, 0, { scale: 0.5, maxW: 800 }, { title: def.title, genre: def.genre, color: def.color, sections: analyzeSections(events, def.bpm, duration) });
+  const so = { def, duration, charts, levels, buf, mv };
+  cache.set(id, so);
+  return so;
+}
+
+// ---------- 文字・ロゴ ----------
+function text(g, s, x, y, o = {}) {
+  const { size = 64, weight = 900, font = '"Noto Sans JP"', color = '#fff', glow = CYAN, blur = 26, align = 'center', maxW = 1700, alpha = 1, scale = 1 } = o;
+  if (alpha <= 0) return;
+  g.save(); g.globalAlpha = alpha;
+  let sz = size;
+  const f = () => `${weight} ${sz}px ${font}, "Noto Sans JP", sans-serif`;
+  g.font = f();
+  while (g.measureText(s).width > maxW && sz > 18) { sz -= 2; g.font = f(); }
+  g.translate(x, y); g.scale(scale, scale);
+  g.textAlign = align; g.textBaseline = 'alphabetic'; g.lineJoin = 'round';
+  g.lineWidth = Math.max(5, sz * 0.14); g.strokeStyle = 'rgba(0,0,0,0.75)'; g.strokeText(s, 0, 0);
+  g.shadowColor = glow; g.shadowBlur = blur; g.fillStyle = color; g.fillText(s, 0, 0);
+  g.restore();
+}
+const pop = (v, start, len = 0.3) => { const k = clamp((v - start) / len); return { alpha: k, scale: 1.15 - 0.15 * easeOut(k) }; };
+function spaced(g, s, cx, y, sp) {
+  const w = [...s].reduce((a, c) => a + g.measureText(c).width, 0) + sp * (s.length - 1);
+  let x = cx - w / 2; g.textAlign = 'left';
+  for (const c of s) { g.fillText(c, x, y); x += g.measureText(c).width + sp; }
+  g.textAlign = 'center';
+}
+function wordmark(g, cx, cy, big, alpha = 1) {
+  g.save(); g.globalAlpha = alpha; g.textAlign = 'center';
+  g.font = `700 ${big * 0.3}px Orbitron`; g.fillStyle = '#8a97c0'; spaced(g, 'MUSIC', cx, cy - big * 0.98, big * 0.15);
+  g.font = `900 ${big}px Orbitron`;
+  g.globalAlpha = alpha * 0.65; g.fillStyle = PINK; g.fillText('LiDAR', cx + big * 0.035, cy);
+  for (const [b, a] of [[big * 0.5, 0.7], [big * 0.2, 0.9], [big * 0.07, 1]]) { g.save(); g.shadowColor = CYAN; g.shadowBlur = b; g.globalAlpha = alpha * a; g.fillStyle = '#fff'; g.fillText('LiDAR', cx, cy); g.restore(); }
+  g.globalAlpha = alpha; g.fillStyle = '#fff'; g.fillText('LiDAR', cx, cy);
+  g.restore();
+}
+
+// ---------- プレイ画面(promo.html と同じ。ノーツの速さはレベルで決める) ----------
+const speedOf = (lv) => clamp(0.92 - ((lv || 1) - 1) * 0.026, 0.55, 0.92);
+function drawPlay(g, P, notes, s, hs, opt = {}) {
+  const { cx, yTop, yJ, wTop, wBot } = P;
+  const K = 2.3, sc = wBot / 920;
+  const yAt = (z) => yJ - (yJ - yTop) * (z * (1 + K)) / (1 + K * z);
+  const wAt = (y) => wTop + (wBot - wTop) * (y - yTop) / (yJ - yTop);
+  const xAt = (lane, y) => { const w = wAt(y); return cx - w / 2 + (w * lane) / 4; };
+  const yB = yJ + 120 * sc;
+  g.save();
+  g.beginPath(); g.moveTo(xAt(0, yTop), yTop); g.lineTo(xAt(4, yTop), yTop); g.lineTo(xAt(4, yB), yB); g.lineTo(xAt(0, yB), yB); g.closePath();
+  const fl = g.createLinearGradient(0, yTop, 0, yB);
+  fl.addColorStop(0, 'rgba(3,5,18,0.25)'); fl.addColorStop(0.5, 'rgba(3,5,18,0.7)'); fl.addColorStop(1, 'rgba(3,5,18,0.88)');
+  g.fillStyle = fl; g.fill();
+  const vis = notes.filter((n) => (n.end ?? n.t) >= s - 0.35 && n.t <= s + hs);
+  for (const n of vis) {
+    const age = s - n.t;
+    if (age < 0 || age > 0.3) continue;
+    const a = 1 - age / 0.3, top = yJ - (yJ - yTop) * 0.55;
+    const gr = g.createLinearGradient(0, yJ, 0, top);
+    gr.addColorStop(0, LC[n.lane] + 'cc'); gr.addColorStop(1, LC[n.lane] + '00');
+    g.globalAlpha = a; g.fillStyle = gr;
+    g.beginPath(); g.moveTo(xAt(n.lane, yJ), yJ); g.lineTo(xAt(n.lane + 1, yJ), yJ); g.lineTo(xAt(n.lane + 1, top), top); g.lineTo(xAt(n.lane, top), top); g.closePath(); g.fill();
+  }
+  g.globalAlpha = 1;
+  for (let i = 0; i <= 4; i++) {
+    const outer = i === 0 || i === 4;
+    g.strokeStyle = outer ? 'rgba(94,242,255,0.95)' : 'rgba(150,180,255,0.28)';
+    g.lineWidth = (outer ? 5 : 2) * sc; g.shadowColor = CYAN; g.shadowBlur = outer ? 18 : 0;
+    g.beginPath(); g.moveTo(xAt(i, yTop), yTop); g.lineTo(xAt(i, yB), yB); g.stroke();
+  }
+  g.shadowBlur = 0;
+  for (const n of vis) {
+    if (!n.end || n.end < s) continue;
+    const z0 = clamp((n.t - s) / hs), z1 = clamp((n.end - s) / hs);
+    if (z1 <= z0) continue;
+    const y0 = yAt(z0), y1 = yAt(z1), ins = (y) => (wAt(y) / 4) * 0.2;
+    g.beginPath();
+    g.moveTo(xAt(n.lane, y0) + ins(y0), y0); g.lineTo(xAt(n.lane + 1, y0) - ins(y0), y0);
+    g.lineTo(xAt(n.lane + 1, y1) - ins(y1), y1); g.lineTo(xAt(n.lane, y1) + ins(y1), y1); g.closePath();
+    g.fillStyle = LC[n.lane] + (n.t <= s ? '99' : '55'); g.fill();
+  }
+  for (let i = vis.length - 1; i >= 0; i--) {
+    const n = vis[i], z = (n.t - s) / hs;
+    if (z < 0 || z > 1) continue;
+    const y = yAt(z), f = (y - yTop) / (yJ - yTop);
+    const h = (10 + 34 * f) * sc, inset = (wAt(y) / 4) * 0.06;
+    const x0 = xAt(n.lane, y) + inset, x1 = xAt(n.lane + 1, y) - inset;
+    g.globalAlpha = 0.35 + 0.65 * clamp(f * 3);
+    g.shadowColor = LC[n.lane]; g.shadowBlur = 22 * sc;
+    g.fillStyle = LC[n.lane]; g.fillRect(x0, y - h / 2, x1 - x0, h);
+    g.shadowBlur = 0; g.fillStyle = 'rgba(255,255,255,0.85)'; g.fillRect(x0 + (x1 - x0) * 0.1, y - h * 0.12, (x1 - x0) * 0.8, Math.max(2, h * 0.24));
+  }
+  g.globalAlpha = 1;
+  g.strokeStyle = '#fff'; g.lineWidth = 7 * sc; g.shadowColor = CYAN; g.shadowBlur = 24;
+  g.beginPath(); g.moveTo(xAt(0, yJ) - 10, yJ); g.lineTo(xAt(4, yJ) + 10, yJ); g.stroke();
+  g.shadowBlur = 0;
+  const keyTop = yJ + 14 * sc, keyBot = yJ + 104 * sc;
+  for (let l = 0; l < 4; l++) {
+    const on = vis.some((n) => n.lane === l && ((s - n.t >= 0 && s - n.t < 0.12) || (n.end && n.t <= s && s < n.end)));
+    const ins = 10 * sc;
+    g.beginPath();
+    g.moveTo(xAt(l, keyTop) + ins, keyTop); g.lineTo(xAt(l + 1, keyTop) - ins, keyTop); g.lineTo(xAt(l + 1, keyBot) - ins, keyBot); g.lineTo(xAt(l, keyBot) + ins, keyBot); g.closePath();
+    g.fillStyle = on ? LC[l] + '88' : 'rgba(10,14,34,0.75)'; g.fill();
+    g.lineWidth = 3 * sc; g.strokeStyle = LC[l] + (on ? 'ff' : '88'); g.stroke();
+    g.font = `900 ${40 * sc}px Orbitron, sans-serif`; g.textAlign = 'center'; g.fillStyle = on ? '#fff' : 'rgba(220,230,255,0.8)';
+    g.fillText('DFJK'[l], (xAt(l, keyBot) + xAt(l + 1, keyBot)) / 2, keyBot - 26 * sc);
+  }
+  let combo = 0, last = -1;
+  for (const n of notes) { if (n.t <= s) { combo++; last = n.t; } else break; }
+  if (opt.combo !== false && combo > 0) {
+    const y = yJ - (yJ - yTop) * 0.6;
+    text(g, 'COMBO', cx, y - 120 * sc, { size: 30 * sc, font: 'Orbitron', weight: 700, color: 'rgba(220,230,255,0.85)', blur: 8 });
+    text(g, String(combo), cx, y, { size: 120 * sc, font: 'Orbitron', alpha: 0.92, blur: 30 });
+  }
+  if (last >= 0 && s - last < 0.45) {
+    const age = s - last, k = age < 0.1 ? 1.25 - 0.25 * (age / 0.1) : 1;
+    text(g, 'PERFECT', cx, yJ - (yJ - yTop) * 0.3, { size: 76 * sc, font: 'Orbitron', glow: PINK, blur: 30, scale: k, alpha: 0.85 * (1 - clamp((age - 0.3) / 0.15)) });
+  }
+  g.restore();
+}
+
+// ---------- 1フレーム ----------
+const PLAY_R = { cx: 1320, yTop: 110, yJ: 880, wTop: 170, wBot: 860 };   // 右にプレイ画面、左に文字
+const PLAY_C = { cx: 960, yTop: 110, yJ: 820, wTop: 180, wBot: 940 };    // 真ん中に大きく(下に文字を置くので少し上に)
+let jackets = [], genres = [];
+function drawFrame(g, v, X) {
+  const sc = X.at(v), S = sc.scene, so = sc.so, lv = so.levels[S.diff];
+  const s = sc.from + (v - sc.v0), u = v - sc.v0; // 曲の時刻 / 場面の中の時刻
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  so.mv?.draw(g, W, H, s);
+  g.fillStyle = S.kind === 'open' || S.kind === 'end' ? 'rgba(2,3,10,0.6)' : 'rgba(2,3,10,0.45)'; g.fillRect(0, 0, W, H);
+  const notes = so.charts[S.diff], hs = speedOf(lv);
+  const songLine = (y) => text(g, `♪ ${so.def.title}  ・  ${S.diff.toUpperCase()} Lv${lv}`, 140, y, { size: 30, font: 'Orbitron', weight: 700, align: 'left', color: 'rgba(225,235,255,0.9)', blur: 6, maxW: 760 });
+  if (S.kind === 'open') {
+    const p = pop(u, 0.2, 0.6);
+    g.save(); g.translate(960, 560); g.scale(p.scale, p.scale); g.translate(-960, -560); wordmark(g, 960, 560, 300, p.alpha); g.restore();
+    text(g, '4KEY RHYTHM SCANNER', 960, 660, { size: 38, font: 'Orbitron', weight: 700, color: CYAN, blur: 12, alpha: clamp((u - 1) / 0.5) });
+    text(g, 'ブラウザで遊べる、無料の4キー音ゲー', 960, 800, { size: 64, alpha: clamp((u - 2.2) / 0.5) });
+  } else if (S.kind === 'how') {
+    drawPlay(g, PLAY_R, notes, s, hs);
+    const i = Math.min(HOW.length - 1, Math.floor(u / (S.t / HOW.length))), t0 = i * (S.t / HOW.length);
+    text(g, 'HOW TO PLAY', 140, 300, { size: 36, font: 'Orbitron', weight: 700, align: 'left', color: CYAN, blur: 10 });
+    const p = pop(u, t0, 0.3);
+    text(g, HOW[i][0], 140, 420, { size: 64, align: 'left', alpha: p.alpha, maxW: 880 });
+    text(g, HOW[i][1], 140, 520, { size: 64, align: 'left', alpha: clamp((u - t0 - 0.4) / 0.3), glow: PINK, maxW: 880 });
+    songLine(980);
+  } else if (S.kind === 'wall') {
+    // 曲のジャケットが流れる壁 + 「140曲以上 ぜんぶ無料」
+    const size = 170, gap = 18, step = size + gap;
+    for (let row = 0; row < 7; row++) {
+      const dir = row % 2 ? 1 : -1, off = ((u * 60 * dir) % step + step) % step;
+      for (let col = -1; col < 12; col++) {
+        const j = jackets[(row * 13 + col + 13 * 7) % jackets.length];
+        if (j) { g.globalAlpha = 0.85; g.drawImage(j, col * step + off - step / 2, row * step - 60, size, size); }
+      }
+    }
+    g.globalAlpha = 1;
+    const rg = g.createRadialGradient(960, 520, 100, 960, 520, 900);
+    rg.addColorStop(0, 'rgba(2,3,10,0.85)'); rg.addColorStop(1, 'rgba(2,3,10,0.35)');
+    g.fillStyle = rg; g.fillRect(0, 0, W, H);
+    const p = pop(u, 0.2, 0.4);
+    text(g, `${SONG_COUNT}曲以上`, 960, 480, { size: 170, font: 'Orbitron', alpha: p.alpha, scale: p.scale });
+    text(g, 'ぜんぶ無料で遊べる', 960, 600, { size: 72, glow: PINK, alpha: clamp((u - 0.8) / 0.4) });
+    // ジャンルの帯
+    g.save(); g.globalAlpha = clamp((u - 1.2) / 0.4);
+    g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(0, 760, W, 90);
+    const line = genres.join('   ・   ');
+    g.font = '800 40px Orbitron, "Noto Sans JP", sans-serif'; g.fillStyle = '#fff'; g.textAlign = 'left';
+    const lw = g.measureText(line + '   ・   ').width, x0 = -((u * 220) % lw);
+    for (let x = x0; x < W; x += lw) g.fillText(line + '   ・   ', x, 820);
+    g.restore();
+  } else if (S.kind === 'clip') {
+    drawPlay(g, PLAY_R, notes, s, hs);
+    const p = pop(u, 0, 0.25);
+    text(g, 'いろんなジャンル', 140, 330, { size: 40, align: 'left', color: CYAN, blur: 10 });
+    text(g, S.label, 140, 470, { size: 120, font: 'Orbitron', align: 'left', alpha: p.alpha, glow: so.def.color || CYAN, maxW: 900 });
+    songLine(980);
+  } else if (S.kind === 'level') {
+    drawPlay(g, PLAY_R, notes, s, hs);
+    text(g, 'かんたんから鬼まで', 140, 300, { size: 44, align: 'left', color: CYAN, blur: 10 });
+    const p = pop(u, 0, 0.2);
+    text(g, S.label, 140, 450, { size: 130, align: 'left', alpha: p.alpha, scale: 1, glow: DC[S.diff] });
+    const x0 = 160, x1 = 820, y = 560, pos = x0 + (x1 - x0) * (clamp(lv, 1, 15) - 1) / 14;
+    g.save();
+    const lg = g.createLinearGradient(x0, 0, x1, 0);
+    lg.addColorStop(0, DC.easy); lg.addColorStop(0.35, DC.normal); lg.addColorStop(0.7, DC.hard); lg.addColorStop(1, DC.extra);
+    g.lineCap = 'round'; g.lineWidth = 14; g.strokeStyle = 'rgba(0,0,0,0.6)'; g.beginPath(); g.moveTo(x0, y); g.lineTo(x1, y); g.stroke();
+    g.lineWidth = 8; g.strokeStyle = lg; g.beginPath(); g.moveTo(x0, y); g.lineTo(x1, y); g.stroke();
+    g.shadowColor = DC[S.diff]; g.shadowBlur = 24; g.fillStyle = '#fff'; g.beginPath(); g.arc(pos, y, 20, 0, Math.PI * 2); g.fill();
+    g.lineWidth = 7; g.strokeStyle = DC[S.diff]; g.stroke();
+    g.restore();
+    text(g, 'Lv1', x0, y + 60, { size: 30, font: 'Orbitron', weight: 700, blur: 6 });
+    text(g, 'Lv15', x1, y + 60, { size: 30, font: 'Orbitron', weight: 700, blur: 6 });
+    text(g, `Lv${lv}`, pos, y - 40, { size: 40, font: 'Orbitron', glow: DC[S.diff] });
+    songLine(980);
+    if (S.i > 0) { const f = 1 - clamp(u / 0.18); if (f > 0) { g.fillStyle = `rgba(255,255,255,${f * 0.35})`; g.fillRect(0, 0, W, H); } }
+  } else if (S.kind === 'features') {
+    drawPlay(g, PLAY_R, notes, s, hs);
+    const per = S.t / FEATURES.length, i = Math.min(FEATURES.length - 1, Math.floor(u / per)), t0 = i * per;
+    const [ico, title, sub] = FEATURES[i];
+    text(g, 'FEATURES', 140, 280, { size: 36, font: 'Orbitron', weight: 700, align: 'left', color: CYAN, blur: 10 });
+    text(g, `${i + 1} / ${FEATURES.length}`, 820, 280, { size: 30, font: 'Orbitron', weight: 700, align: 'right', color: 'rgba(225,235,255,0.7)', blur: 4 });
+    const p = pop(u, t0, 0.3);
+    text(g, ico, 140, 450, { size: 110, align: 'left', alpha: p.alpha, blur: 0 });
+    text(g, title, 140, 590, { size: 76, align: 'left', alpha: p.alpha, scale: 1, maxW: 860 });
+    text(g, sub, 140, 680, { size: 42, align: 'left', alpha: clamp((u - t0 - 0.35) / 0.3), color: '#e6f0ff', glow: PINK, maxW: 860 });
+    songLine(980);
+  } else if (S.kind === 'show') {
+    drawPlay(g, PLAY_C, notes, s, hs);
+    const p = pop(u, 0, 0.4);
+    text(g, 'この譜面、叩ける？', 960, 1020, { size: 72, alpha: p.alpha, scale: p.scale });
+    text(g, `最高難度 Lv${lv}  ・  ${so.def.title}  ・  BPM ${Math.round(so.def.bpm)}`, 960, 78, { size: 38, font: 'Orbitron', weight: 700, glow: DC.hard, blur: 14 });
+  } else if (S.kind === 'end') {
+    const p = pop(u, 0.2, 0.5);
+    g.save(); g.translate(960, 470); g.scale(p.scale, p.scale); g.translate(-960, -470); wordmark(g, 960, 470, 260, p.alpha); g.restore();
+    text(g, 'ブラウザで無料・インストール不要', 960, 640, { size: 64, alpha: clamp((u - 0.8) / 0.4) });
+    text(g, 'music-lidar.com', 960, 770, { size: 96, font: 'Orbitron', color: CYAN, alpha: clamp((u - 1.3) / 0.4) });
+    text(g, 'スマホでも PC でも、今すぐ遊べます', 960, 860, { size: 44, color: '#e6f0ff', glow: PINK, alpha: clamp((u - 1.8) / 0.4) });
+  }
+  if (S.kind !== 'open' && S.kind !== 'end') text(g, 'music-lidar.com', W - 40, H - 36, { size: 28, font: 'Orbitron', weight: 700, align: 'right', color: 'rgba(230,240,255,0.85)', blur: 6 });
+  // 場面の切り替わりを少し暗くして、つなぎ目をなめらかに
+  const edge = Math.min(u, sc.scene.t - u);
+  if (edge < 0.12 && S.kind !== 'level') { g.fillStyle = `rgba(0,0,0,${(1 - edge / 0.12) * 0.5})`; g.fillRect(0, 0, W, H); }
+}
+
+// ---------- 音: 場面ごとの曲の区間をつなぐ(つなぎ目は短くフェード)。プレイ画面の場面はタップ音も ----------
+function clickBuf(sr) {
+  const n = Math.round(sr * 0.05), out = new Float32Array(n);
+  let r = 12345;
+  for (let i = 0; i < n; i++) { const t = i / sr; r = (r * 1103515245 + 12345) >>> 0; out[i] = Math.sin(2 * Math.PI * 2100 * t) * Math.exp(-t / 0.01) * 0.5 + ((r / 4294967296) * 2 - 1) * Math.exp(-t / 0.003) * 0.35; }
+  return out;
+}
+function buildAudio(segs, total, sfx = {}) {
+  const sr = segs[0].so.buf.sampleRate, n = Math.ceil(total * sr);
+  const L = new Float32Array(n), R = new Float32Array(n), click = clickBuf(sr);
+  for (const [k, t, vol] of sfxEvents(segs)) {
+    const x = sfx[k];
+    if (!x) continue;
+    const p = Math.round(t * sr);
+    for (let i = 0; i < x[0].length && p + i < n; i++) { L[p + i] += x[0][i] * vol; R[p + i] += x[1][i] * vol; }
+  }
+  for (const sg of segs) {
+    const buf = sg.so.buf, g = loudnessGain(buf);
+    const sL = buf.getChannelData(0), sR = buf.numberOfChannels > 1 ? buf.getChannelData(1) : sL;
+    const a = Math.round(sg.v0 * sr), b = Math.min(n, Math.round((sg.v0 + sg.scene.t) * sr)), j0 = Math.round(sg.from * sr);
+    const fin = Math.round(sr * 0.06), fout = Math.round(sr * 0.25);
+    for (let i = a; i < b; i++) {
+      const j = j0 + (i - a);
+      if (j < 0 || j >= sL.length) continue;
+      const k = Math.min(1, (i - a) / fin, (b - i) / fout);
+      L[i] += sL[j] * g * k; R[i] += sR[j] * g * k;
+    }
+    if (['how', 'clip', 'level', 'features', 'show'].includes(sg.scene.kind)) {
+      for (const nt of sg.so.charts[sg.scene.diff]) {
+        if (nt.t < sg.from || nt.t >= sg.from + sg.scene.t) continue;
+        const p = Math.round((sg.v0 + nt.t - sg.from) * sr);
+        for (let i = 0; i < click.length && p + i < n; i++) { L[p + i] += click[i] * 0.2; R[p + i] += click[i] * 0.2; }
+      }
+    }
+  }
+  const fo = Math.round(sr * 2.5);
+  let pk = 0;
+  for (let i = 0; i < n; i++) { const k = Math.min(1, (n - i) / fo); L[i] *= k; R[i] *= k; pk = Math.max(pk, Math.abs(L[i]), Math.abs(R[i])); }
+  const lim = pk > 0.98 ? 0.98 / pk : 1;
+  const out = new Uint8Array(44 + n * 4), dv = new DataView(out.buffer);
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, 'RIFF'); dv.setUint32(4, 36 + n * 4, true); str(8, 'WAVE'); str(12, 'fmt ');
+  dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 2, true);
+  dv.setUint32(24, sr, true); dv.setUint32(28, sr * 4, true); dv.setUint16(32, 4, true); dv.setUint16(34, 16, true);
+  str(36, 'data'); dv.setUint32(40, n * 4, true);
+  for (let i = 0, o = 44; i < n; i++, o += 4) { dv.setInt16(o, clamp(L[i] * lim, -1, 1) * 32767, true); dv.setInt16(o + 2, clamp(R[i] * lim, -1, 1) * 32767, true); }
+  return out;
+}
+
+// ---------- JPEG 変換(Worker) ----------
+const WSRC = `const oc = new OffscreenCanvas(${W}, ${H}), cx = oc.getContext('2d');
+onmessage = async (e) => {
+  cx.putImageData(new ImageData(new Uint8ClampedArray(e.data.buf), ${W}, ${H}), 0, 0);
+  const ab = await (await oc.convertToBlob({ type: 'image/jpeg', quality: 0.9 })).arrayBuffer();
+  postMessage({ id: e.data.id, ab }, [ab]);
+};`;
+const wurl = URL.createObjectURL(new Blob([WSRC], { type: 'text/javascript' }));
+const pool = Array.from({ length: WORKERS }, () => { const w = new Worker(wurl), pend = new Map(); w.onmessage = (e) => { pend.get(e.data.id)(new Uint8Array(e.data.ab)); pend.delete(e.data.id); }; return { w, pend }; });
+let jid = 0;
+function encode(buf) { const p = pool[jid % WORKERS], id = ++jid; return new Promise((r) => { p.pend.set(id, r); p.w.postMessage({ id, buf }, [buf]); }); }
+
+async function main() {
+  await Promise.all(['900 100px Orbitron', '700 100px Orbitron', '900 100px "Noto Sans JP"', '700 100px "Noto Sans JP"'].map((f) => document.fonts.load(f, 'MUSIC LiDAR 叩ける無料音ゲー鬼')));
+  const name = 'trailer-music-lidar';
+  // 曲を用意して、場面ごとの区間を決める
+  const segs = [];
+  let v0 = 0;
+  for (const [k, scene] of SCENES.entries()) {
+    $('status').textContent = `曲を用意しています… ${k + 1}/${SCENES.length}(${scene.song})`;
+    const so = await loadSong(scene.song);
+    const bar = 240 / so.def.bpm;
+    const auto = ['level', 'show'].includes(scene.kind) ? densest(so.charts[scene.diff], scene.t, so.duration, bar) : (so.def.preview ?? 32) * 60 / so.def.bpm;
+    const from = Math.max(0, Math.min(Math.round(auto / bar) * bar, so.duration - scene.t - 0.5));
+    segs.push({ scene, so, v0, from });
+    v0 += scene.t;
+  }
+  const total = v0;
+  // ジャケットの壁用(オリジナル曲だけ)とジャンルの一覧
+  const originals = SONGS.filter((d) => !d.audio && !d.event);
+  jackets = await Promise.all(originals.slice(0, 91).map((d) => new Promise((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = jacketURL({ ...d, levels: d.levels }, 192); })));
+  jackets = jackets.filter(Boolean);
+  genres = [...new Set(originals.map((d) => d.genre))].slice(0, 40);
+  log(`場面 ${segs.length} ・ ${total.toFixed(1)} 秒`);
+  const sfx = await loadSfx(segs[0].so.buf.sampleRate);
+  log(`効果音 ${Object.keys(sfx).length}/${Object.keys(SFX).length}`);
+  await post('/x/wav?' + qs({ name }), buildAudio(segs, total, sfx));
+  const X = { at: (v) => { let s = segs[0]; for (const x of segs) if (v >= x.v0) s = x; return s; } };
+  await post('/x/vstart?' + qs({ name, fps: FPS, title: 'MUSIC LiDAR 紹介動画' }));
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d', { willReadFrequently: true });
+  const pv = $('pv').getContext('2d');
+  const N = Math.ceil(total * FPS);
+  const inflight = []; let parts = [], size = 0;
+  const flush = async () => { const body = new Uint8Array(size); let o = 0; for (const p of parts) { body.set(p, o); o += p.length; } parts = []; size = 0; await post('/x/vframe?' + qs({ name }), body); };
+  const t0 = performance.now();
+  for (let f = 0; f < N; f++) {
+    drawFrame(g, f / FPS, X);
+    inflight.push(encode(g.getImageData(0, 0, W, H).data.buffer));
+    if (inflight.length >= WORKERS * 2) { const j = await inflight.shift(); parts.push(j); size += j.length; }
+    if (parts.length >= BATCH) await flush();
+    if (f % 30 === 0) {
+      pv.drawImage(cv, 0, 0, 480, 270);
+      $('status').textContent = `${f}/${N} フレーム(${Math.round(f / ((performance.now() - t0) / 1000 + 1e-3))} fps)`;
+      $('bar').firstElementChild.style.width = (f / N) * 100 + '%';
+    }
+  }
+  while (inflight.length) { const j = await inflight.shift(); parts.push(j); size += j.length; }
+  if (parts.length) await flush();
+  await post('/x/vend?' + qs({ name }));
+  log(`作成 ${name}(${total.toFixed(1)}秒)`);
+  $('status').textContent = '完了。このタブは閉じて大丈夫です';
+  await fetch('/x/done', { method: 'POST', body: 'ページ側の処理が完了' });
+}
+main().catch((e) => { log('エラー: ' + e); console.error(e); fetch('/x/done', { method: 'POST', body: 'エラー: ' + e }); });
+</script>
+</body>
+</html>

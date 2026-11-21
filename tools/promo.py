@@ -1,6 +1,7 @@
 # TikTok などの宣伝動画(縦 1080×1920・15〜20秒の mp4)を作る。
 #   python tools/promo.py            … tools/promo-plan.json の全部を作る
 #   python tools/promo.py 1 4 9      … plan の 1・4・9 番目だけ作る(1 から数える)
+#   python tools/promo.py --page trailer.html … 横 1920×1080・2分半の紹介動画(tools/trailer.html)を1本作る
 # 出力先は D:\MUSIC_LiDAR_export\promo(--out で変えられる)。ファイル名は promo-01-auto-<曲id>.mp4 など。
 # 仕組み: tools/export.py と同じ。このスクリプトがローカルサーバーを立ててブラウザで tools/promo.html を開き、
 #   ページが曲を合成・プレイ画面とMVを描いて WAV と JPEG フレームを送り、ここで ffmpeg が mp4 にする。
@@ -15,6 +16,8 @@ ap.add_argument('only', nargs='*', type=int, help='作る番号(promo-plan.json 
 ap.add_argument('--out', default=r'D:\MUSIC_LiDAR_export\promo')
 ap.add_argument('--port', type=int, default=8796)
 ap.add_argument('--no-open', action='store_true', help='ブラウザを自動で開かない(URLだけ表示)')
+ap.add_argument('--sfx', default=r'C:\Users\4yoma\Desktop\04_音楽・動画\動画編集\効果音', help='効果音のフォルダ(/sfx/ で配る。素材は再配布禁止のものがあるのでリポジトリにはコピーしない)')
+ap.add_argument('--page', default='promo.html', help='開くページ(promo.html = 縦の宣伝動画 / trailer.html = 横の紹介動画)')
 args = ap.parse_args()
 
 FF = shutil.which('ffmpeg')
@@ -62,6 +65,15 @@ class H(SimpleHTTPRequestHandler):
         u = urlparse(self.path)
         if u.path == '/x/config':
             return self.reply({'only': args.only, 'out': OUT})
+        if u.path.startswith('/sfx/'):  # 手元の効果音(紹介動画用)。フォルダの外は読ませない
+            from urllib.parse import unquote
+            base = os.path.realpath(args.sfx)
+            f = os.path.realpath(os.path.join(base, unquote(u.path[5:])))
+            if not f.startswith(base + os.sep) or not os.path.isfile(f):
+                self.send_response(404); self.end_headers(); return
+            data = open(f, 'rb').read()
+            self.send_response(200); self.send_header('Content-Type', 'audio/mpeg'); self.send_header('Content-Length', str(len(data))); self.end_headers()
+            self.wfile.write(data); return
         return super().do_GET()
 
     def do_POST(self):
@@ -101,7 +113,7 @@ class H(SimpleHTTPRequestHandler):
 
 srv = ThreadingHTTPServer(('127.0.0.1', args.port), H)
 threading.Thread(target=srv.serve_forever, daemon=True).start()
-url = f'http://127.0.0.1:{args.port}/tools/promo.html'
+url = f'http://127.0.0.1:{args.port}/tools/{args.page}'
 print(f'書き出し先: {OUT}')
 print(f'書き出しページ: {url}  (このタブは閉じずに、終わるまでそのままにしてください)', flush=True)
 if not args.no_open: webbrowser.open(url)

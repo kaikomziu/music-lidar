@@ -18,7 +18,7 @@ const q = new URLSearchParams(location.search);
 const ids = q.get('ids')?.split(',');
 const dry = q.has('dry');
 const W = 1200, H = 630;
-const C = { easy: '#7dffb0', normal: '#ffd25e', hard: '#ff5a8e' };
+const C = { easy: '#7dffb0', normal: '#ffd25e', hard: '#ff5a8e', extra: '#c28bff' };
 
 async function render(s) {
   const cv = document.createElement('canvas');
@@ -54,12 +54,14 @@ async function render(s) {
   g.fillText(t, x, 290);
   if (s.artist && s.artist !== 'MUSIC LiDAR') { g.fillStyle = 'rgba(220,230,255,0.8)'; g.font = '500 26px "Noto Sans JP", sans-serif'; g.fillText(s.artist, x, 335); }
   // レベル
+  const diffs = ['easy', 'normal', 'hard', ...(s.levels.extra ? ['extra'] : [])];
+  const cardW = diffs.length > 3 ? 145 : 175;
   let lx = x;
-  for (const d of ['easy', 'normal', 'hard']) {
-    g.strokeStyle = C[d]; g.lineWidth = 3; g.strokeRect(lx, 375, 175, 70);
+  for (const d of diffs) {
+    g.strokeStyle = C[d]; g.lineWidth = 3; g.strokeRect(lx, 375, cardW, 70);
     g.fillStyle = C[d]; g.font = '700 20px Orbitron, sans-serif'; g.fillText(d.toUpperCase(), lx + 14, 403);
     g.font = '800 30px Orbitron, sans-serif'; g.fillText('Lv' + s.levels[d], lx + 14, 436);
-    lx += 190;
+    lx += cardW + 15;
   }
   g.fillStyle = '#fff'; g.font = '800 30px "Noto Sans JP", sans-serif';
   g.fillText('▶ ブラウザで今すぐ無料プレイ', x, 520);

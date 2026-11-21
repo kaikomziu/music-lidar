@@ -95,8 +95,10 @@ function fileSongEntry(def) {
     id: def.id, urlId: def.urlId, title: def.title, artist: def.artist, genre: def.genre, bpm: def.bpm, offset: def.offset || 0, color: def.color,
     event: def.event || null, levels: def.levels, charts, stats, local: false, duration: def.duration, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [],
     previewAt: def.previewAt ?? def.duration * 0.3, credit: def.credit, creditUrl: def.creditUrl, onsets, lyrics: def.lyrics || null,
+    jacket: def.jacket || null, // ジャケット画像(なければ自動で描く)
     // MV用の情報(区間は譜面の密度から)
-    mvAuto() { return (this._mv ||= { title: def.title, artist: def.artist, genre: def.genre, color: def.color, sections: chartSections(charts.normal, def.bpm, def.offset || 0, def.duration) }); },
+    // mv: false の曲は MV を出さない(背景は点群だけ)
+    mvAuto: def.mv === false ? null : function () { return (this._mv ||= { title: def.title, artist: def.artist, genre: def.genre, color: def.color, sections: chartSections(charts.normal, def.bpm, def.offset || 0, def.duration) }); },
     buffer: null, rendering: null,
     load() {
       if (this.buffer) { touchBuffer(this); return Promise.resolve(this.buffer); }

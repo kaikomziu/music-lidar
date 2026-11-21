@@ -8,9 +8,12 @@ export const clearJackets = () => cache.clear();
 const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 const lazyEntries = new Map();
 let io = null;
+// 曲ファイルに jacket(画像のパス。リポジトリ直下から)があれば、絵を作らずにその画像を使う
+const imageOf = (entry) => (entry.jacket ? new URL('../' + entry.jacket, import.meta.url).href : null);
 export function jacketImg(entry, size, cls = '') {
   const key = entry.id + '@' + size;
   const c = cls ? ` class="${cls}"` : '';
+  if (imageOf(entry)) return `<img${c} src="${imageOf(entry)}" alt="">`;
   if (cache.has(key)) return `<img${c} src="${cache.get(key)}" alt="">`;
   lazyEntries.set(entry.id, entry);
   watchLazy();
@@ -44,6 +47,7 @@ function fillLazy(img) {
 }
 
 export function jacketURL(entry, size = 256) {
+  if (imageOf(entry)) return imageOf(entry);
   const key = entry.id + '@' + size;
   if (cache.has(key)) return cache.get(key);
   const c = document.createElement('canvas');

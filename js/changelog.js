@@ -2,6 +2,10 @@
 // 大きな機能追加 = 2つ目の数字を上げる / 不具合修正や小さな改善 = 3つ目の数字を上げる
 export const CHANGELOG = [
   {
+    version: '1.79.0', date: '2026-11-21',
+    notes: ['Patençial公式の「A new world with form」(BGM / BPM 96 / 約2分30秒)を追加。レベルは EASY 2 / NORMAL 3 / HARD 5 / EXTRA 9。作者さんの許可を得て収録し、専用ジャケットを表示します'],
+  },
+  {
     version: '1.78.0', date: '2026-11-21',
     notes: ['ああああ さんの「僕たちの旅とエピローグ。」(Long ver.・約6分半・BPM 91)を追加。レベルは 1 / 3 / 5 / EXTRA 9 です'],
   },

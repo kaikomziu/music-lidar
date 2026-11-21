@@ -1747,3 +1747,99 @@ body.playing .season-fx { display: none; }
 .adm-mail details { margin: 4px 0; }
 .adm-mail li.read { opacity: 0.7; }
 .adm-mail .mail-body { white-space: pre-wrap; word-break: break-word; font: 13px/1.6 system-ui, sans-serif; background: rgba(4,8,22,0.6); padding: 8px 10px; border-radius: 6px; max-height: 360px; overflow: auto; }
+
+/* ===== スマホの画面(1.73.0) =====
+   選曲: 曲は縦のリストにして画面いっぱいに並べ、下に「選んだ曲・難易度・PLAY」だけを固定で出す。
+   記録・ランキング・練習などは「記録・ランキング」ボタンで下から引き出す(.detail.open。main.js の setDetailOpen) */
+.d-more { display: none; }
+#btn-replays { width: auto; padding: 0 8px; margin-right: 6px; white-space: nowrap; font-size: 11px; } /* 文字入りのボタンは幅を文字に合わせる(26px 固定だと縦に折れる) */
+.rank-head { gap: 0; flex-wrap: nowrap; }
+.rank-head h3 { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.12em; }
+.title-links a { white-space: nowrap; }
+body.touch .r-buttons small { display: none; } /* スマホではキーの案内(R・ENTER)を出さない */
+@media (max-width: 760px) {
+  /* 見出し: 1行にまとめる(設定はアイコンだけ) */
+  #select .topbar { flex-wrap: nowrap; padding: 8px 10px; gap: 8px; }
+  #select .topbar .nav { width: auto; flex: none; }
+  #select .topbar .meta-title { flex: 1; min-width: 0; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #select .topbar > .spacer { display: none; }
+  #select .nav [data-settings] { font-size: 0; gap: 0; padding: 7px 10px; }
+  #select .nav [data-settings] .ico { font-size: 15px; }
+  #select .topbar .chip { min-height: 36px; }
+
+  #select .select-body { display: flex; flex-direction: column; overflow: hidden; padding: 0 10px; gap: 8px; }
+  #select .song-col { flex: 1; min-height: 0; }
+  #select .list-tools select { max-width: 40%; }
+
+  /* 曲のリスト: 縦に並べて、リストの中だけスクロールする */
+  #select .song-list { flex: 1; min-height: 0; flex-direction: column; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scroll-snap-type: none; padding: 2px 2px 10px; gap: 6px; }
+  #select .song-card { min-width: 0; max-width: none; flex: none; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; padding: 7px 10px 7px 7px; }
+  #select .song-card.sel { transform: none; }
+  #select .sc-jacket { width: 46px; height: 46px; }
+  #select .song-card .sc-title { font-size: 14.5px; }
+  #select .song-card .sc-sub { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #select .song-card .sc-lv { grid-column: auto; grid-row: auto; margin-top: 0; gap: 4px; }
+  #select .song-card .lv { width: 23px; height: 23px; font-size: 10.5px; border-radius: 4px; }
+  #select .song-card .lv .mark { top: -6px; right: -5px; font-size: 7px; padding: 0 2px; }
+  #select .song-card.upload { grid-template-columns: 1fr; padding: 10px 12px; }
+
+  /* 下の詳細: 曲名・難易度・PLAY だけ */
+  #select .detail { flex: none; position: relative; overflow: visible; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); margin: 0 -10px; border-radius: 14px 14px 0 0; border-bottom: 0;
+    background: rgba(6, 9, 26, 0.94); box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.55); }
+  #select .detail > .panel-label, #select .detail > .best, #select .detail > .d-stats, #select .detail > .share-btn,
+  #select .detail > .team-fx-mini, #select .detail > .ranking, #select .d-credit, #select .d-fav { display: none; }
+  #select .d-head { align-items: center; gap: 10px; padding-right: 118px; }
+  #select .d-jacket { width: 52px; height: 52px; }
+  #select .d-genre { font-size: 9.5px; letter-spacing: 0.2em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #select .d-title { font-size: 17px; margin: 2px 0 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #select .d-meta { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #select .diffs { margin: 8px 0; gap: 6px; }
+  #select .diff-btn { padding: 5px 2px; min-height: 0; display: flex; align-items: baseline; justify-content: center; gap: 6px; flex-wrap: wrap; }
+  #select .diff-btn .dn { font-size: 9.5px; letter-spacing: 0.08em; }
+  #select .diff-btn .dl { font-size: 18px; line-height: 1.2; }
+  #select .diff-btn .dc { flex-basis: 100%; font-size: 9px; line-height: 1.2; }
+  #select .btn-play { margin: 0; padding: 12px; font-size: 19px; }
+  #select .btn-play small { font-size: 9px; letter-spacing: 0.1em; }
+
+  .d-more { display: flex; align-items: center; gap: 6px; position: absolute; top: 12px; right: 12px; z-index: 1; padding: 7px 10px; min-height: 36px; border-radius: 999px;
+    border: 1px solid var(--panel-line); background: rgba(0, 0, 0, 0.4); color: var(--text); font: 600 11.5px var(--font-b); white-space: nowrap; }
+  .d-more i { font-style: normal; font-size: 9px; color: var(--accent); transition: transform 0.25s var(--ease-out); }
+
+  /* 引き出したとき: 下からのシートにして全部見せる */
+  #select .detail.open { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; margin: 0; max-height: 86vh; max-height: 86dvh; overflow-y: auto; overscroll-behavior: contain;
+    padding-top: 22px; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.6), 0 -10px 30px rgba(0, 0, 0, 0.55); animation: sheetUp 0.32s var(--ease-out); }
+  #select .detail.open::before { content: ''; position: absolute; top: 8px; left: 50%; width: 40px; height: 4px; margin-left: -20px; border-radius: 2px; background: rgba(160, 180, 255, 0.35); }
+  #select .detail.open .d-more { top: 20px; }
+  #select .detail.open .d-more i { transform: rotate(180deg); }
+  #select .detail.open > .best { display: grid; margin-top: 4px; }
+  #select .detail.open > .best.none { display: flex; }
+  #select .detail.open > .d-stats { display: flex; }
+  #select .detail.open > .team-fx-mini, #select .detail.open > .share-btn { display: block; }
+  #select .detail.open > .share-btn { margin: 0 0 8px; }
+  #select .detail.open > .ranking { display: flex; }
+  #select .detail.open .d-credit { display: block; }
+  #select .detail.open .d-fav { display: inline-flex; }
+  #select .detail.open .btn-play { margin: 10px 0; }
+  #select .detail.open .d-title { white-space: normal; }
+
+  /* ホームなどの見出し: ボタンは1行にして横にすべらせる */
+  .screen.meta .topbar .nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .screen.meta .topbar .nav::-webkit-scrollbar { display: none; }
+  .screen.meta .topbar .nav > * { flex: none; white-space: nowrap; }
+
+  /* シーズンパス・みんなの譜面などの見出し: 1行目に「戻る・題名・コイン/ボタン」、タブや検索は2行目 */
+  #pass .topbar, #charts .topbar, #player .topbar { flex-wrap: wrap; row-gap: 8px; }
+  #pass .topbar > .spacer, #charts .topbar > .spacer { display: block; flex: 1; }
+  #pass .pass-tabs { order: 10; width: 100%; }
+  #charts #charts-new { padding: 8px 12px; font-size: 13px; }
+
+  /* リザルトのボタン: 共有などは小さく2列、RETRY と「選曲へ」は下に大きく */
+  .r-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .r-buttons button { min-height: 44px; padding: 8px 6px; font-size: 12.5px; white-space: nowrap; }
+  .r-buttons button[hidden] { display: none; }
+  #btn-retry, #btn-back { min-height: 52px; font-size: 15px; }
+  #btn-back { order: 10; }
+  #btn-retry { order: 9; }
+}
+@keyframes sheetUp { from { transform: translateY(40%); opacity: 0.4; } }
+@media (prefers-reduced-motion: reduce) { #select .detail.open { animation: none; } }

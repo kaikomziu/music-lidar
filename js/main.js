@@ -332,6 +332,7 @@ function show(name) {
   state = name;
   if (changed) pingSoon();
   for (const s of document.querySelectorAll('.screen')) s.classList.toggle('active', s.id === name);
+  if (name !== 'select') { $('detail').classList.remove('open'); $('d-more').setAttribute('aria-expanded', 'false'); } // 引き出した詳細は画面を出たら閉じる
   document.body.classList.toggle('playing', name === 'game');
   if (name !== 'game') setScreenUrl(name);
 }
@@ -637,7 +638,7 @@ function renderDetail() {
   }
   const ready = !!e.buffer;
   $('btn-play').classList.toggle('wait', !ready);
-  $('play-sub').textContent = ready ? 'ENTER' : e.loadFailed ? '読み込み失敗・押して再試行' : '音源を準備中…(初回のみ)';
+  $('play-sub').textContent = ready ? (document.body.classList.contains('touch') ? '' : 'ENTER') : e.loadFailed ? '読み込み失敗・押して再試行' : '音源を準備中…(初回のみ)';
   loadRanking();
   renderSongStats(e, diff);
 }
@@ -687,6 +688,19 @@ function loadRanking(force = false) {
   }, 200);
 }
 $('btn-rank-reload').addEventListener('click', () => loadRanking(true));
+
+// スマホの選曲画面: 下の詳細は「曲名・難易度・PLAY」だけ出し、記録・ランキング・練習などはボタンで下から引き出す(CSS の .detail.open)
+function setDetailOpen(open) {
+  $('detail').classList.toggle('open', open);
+  $('d-more').setAttribute('aria-expanded', String(open));
+  if (open) $('detail').scrollTop = 0;
+}
+$('d-more').addEventListener('click', (ev) => { ev.stopPropagation(); setDetailOpen(!$('detail').classList.contains('open')); });
+document.addEventListener('click', (ev) => { // 引き出した詳細の外を押したら閉じる
+  if (!$('detail').classList.contains('open') || ev.target.closest('#detail, .overlay')) return;
+  ev.preventDefault(); ev.stopPropagation(); // 閉じるだけにして、下の曲などは押さない
+  setDetailOpen(false);
+}, true);
 $('btn-play').addEventListener('click', () => startGame());
 
 // ---------------------------------------------------------------------------

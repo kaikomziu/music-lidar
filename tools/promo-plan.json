@@ -1,0 +1,12 @@
+[
+  { "type": "auto", "id": "sakura-blizzard", "diff": "hard", "hook": "この譜面、叩ける？", "sub": "最高難度 Lv15" },
+  { "type": "auto", "id": "neutron-overdrive", "diff": "hard", "hook": "指が追いつかない…", "sub": "BPM 240 ・ Lv15" },
+  { "type": "auto", "id": "lidar-rush", "diff": "extra", "hook": "4キーでこの密度", "sub": "タイトル曲の EXTRA" },
+  { "type": "song", "id": "paper-planes", "diff": "normal", "hook": "全部オリジナル曲の無料音ゲー" },
+  { "type": "song", "id": "midnight-avenue", "diff": "normal", "hook": "夜にききたくなる音ゲーの曲" },
+  { "type": "song", "id": "neon-highway", "diff": "normal", "hook": "80年代みたいな曲で遊べる" },
+  { "type": "intro", "id": "brave-horizon", "diff": "hard", "captions": [["ブラウザで遊べる音ゲー", "アプリのインストールなし"], ["ぜんぶ無料", "130曲以上が遊び放題"], ["スマホでもPCでも", "タップでもキーボードでも"], ["ランキングで勝負", "全国のプレイヤーと"], ["譜面も作れる", "自分の譜面を投稿しよう"]] },
+  { "type": "intro", "id": "kawaii-bubble", "diff": "hard", "captions": [["インストール不要", "URLを開くだけ"], ["無料の4キー音ゲー", "D・F・J・K で叩くだけ"], ["かんたんから鬼まで", "Lv1〜Lv15"], ["スマホでも遊べる", "画面をタップ"], ["MUSIC LiDAR", "ブラウザで今すぐ"]] },
+  { "type": "diff", "id": "hyperpop-glitch", "diffs": ["easy", "hard", "extra"], "hook": "EASY と EXTRA、ちがいすぎ" },
+  { "type": "diff", "id": "chip-dungeon", "diffs": ["easy", "hard", "extra"], "hook": "難易度を上げるとこうなる" }
+]

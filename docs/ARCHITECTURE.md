@@ -58,7 +58,7 @@
 | `sitemap.xml` | 自動生成 |
 | `supabase/functions/mlidar-daily/` | Edge Function(Daily.co の SFU 部屋を発行。今は使っていない) |
 | `supabase/functions/mlidar-audio/` | Edge Function(譜面メーカーで管理者が選んだ音声の置き場所を発行・確認・削除。下の「自分で選んだ音声」) |
-| `tools/` | `release.py`(公開前に必ず実行)、`build-pages.mjs`、`collections.mjs`、`export.py` / `export.html`(mp3・mp4 書き出し)、`scramble_audio.py`、`og.html`(曲ごとの共有画像。受け取って保存するローカルサーバー `og_save_server.py` と一緒に使う。手順はファイルの先頭)、`make_zh_hant.py`(繁体字の辞書を簡体字から作る) |
+| `tools/` | `release.py`(公開前に必ず実行)、`build-pages.mjs`、`collections.mjs`、`export.py` / `export.html`(mp3・mp4 書き出し)、`scramble_audio.py`、`promo.py` / `promo.html` / `promo-plan.json`(TikTok などの宣伝動画。下の「宣伝動画」)、`og.html`(曲ごとの共有画像。受け取って保存するローカルサーバー `og_save_server.py` と一緒に使う。手順はファイルの先頭)、`make_zh_hant.py`(繁体字の辞書を簡体字から作る) |
 | `AI_GUIDE.md` | ほかの仕組みが自動で作るメモ。**コミットしない** |
 
 ---
@@ -379,6 +379,13 @@ export default {
 ### X に投稿・デイリーのシェア
 - リザルトの「𝕏 に投稿」は `twitter.com/intent/tweet` を開くだけ(曲ページのURLとハッシュタグ #MUSICLiDAR)
 - デイリーのリザルトには、曲を10区間に分けた精度の絵文字(🟪 全部PERFECT / 🟦 90% / 🟩 75% / 🟨 50% / 🟥)と連続日数のシェア文。リンク `?daily=1` を開くと、その日のデイリーがすぐ始まる
+
+### 宣伝動画(`tools/promo.py`)
+- `python tools/promo.py`(番号を付けるとその番号だけ)で、`tools/promo-plan.json` の動画を `D:\MUSIC_LiDAR_export\promo` に縦 1080×1920・30fps の mp4 で作る。しくみは `export.py` と同じ(ローカルサーバー + ページで描画 + ffmpeg)。リアルタイムではないので、タブが裏でも止まらない
+- 種類(`type`): `auto`(いちばん密な15.5秒を自動プレイ。`hook`・`sub` の文字)、`song`(上に MV を大きく、下に小さいプレイ画面。曲名・ジャンル・BPM)、`intro`(`captions` の文字を順に切り替え)、`diff`(同じ約5秒・小節単位を `diffs` の3つの難易度でくり返す)。最後に2.5秒のエンド画面(ロゴ・music-lidar.com)
+- プレイ画面は game.js ではなく、譜面(`builtinEntry` と同じ作り方)から時刻ごとに描く簡易版(全部 PERFECT)。`song` 以外はタップ音を足す
+- **オリジナル曲だけ**(音源ファイルの曲は宣伝に使う許可がないので弾く)。ギミック(停止・変速)のある曲は見た目がずれるので使わない
+- 大事な文字は TikTok の画面の部品に隠れないよう x 60〜920・y 180〜1480 に置く
 
 ### プレイ動画(`recorder.js`)
 - **動画で保存(1.75.0〜)**: リザルトの「🎞 動画で保存」→ 縦(1080×1920)か横(1920×1080)を選ぶ → いまのプレイのリプレイ(`lastReplay`)を `playReplay(..., { record: 'v'|'h' })` で流しながら録る(曲の長さぶんかかる)。終わると `onExit` が `stopRecording()` して、リザルトの `#r-video` に保存ボタンを出す(`showVideo`)。Esc → 選曲へで中止すると捨てる。録っている間は `body.rec` で「● REC」(`#rec-badge`。DOM なので動画には映らない)。動画にはふつうのプレイと同じラベル(`EASY Lv1` など)を出す

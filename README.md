@@ -48,6 +48,7 @@ python -m http.server 8765
 - 「Crying Red」 音楽: 御箸ねくらぁ。([YouTube](https://youtu.be/PWKgh4ZqHTg))。ゲームで使ってよい BGM。音源は `tools/encrypt_audio.mjs` で AES-GCM 暗号化した `audio/crying-red.bin` を置き、ゲーム内で復号して再生する。「きくだけ」モードには入れない
 - 「暮らし泳ぐ」 音楽: [ナツメダ ユキ](https://piapro.jp/YukiNatsumeda)(歌: 音街ウナ)。音源は AES-GCM 暗号化した `audio/kurashi-oyogu.bin`。歌詞はサーバー(`mlidar_lyrics`)に置き、管理者が譜面メーカーで時刻を合わせる。「きくだけ」モードには入れない
 - 「飛行白書」 音楽: [ナツメダ ユキ](https://piapro.jp/YukiNatsumeda)(歌: 音街ウナ)。音源は AES-GCM 暗号化した `audio/hikou-hakusho.bin`。歌詞はまだなし。「きくだけ」モードには入れない
+- 「僕たちの旅とエピローグ。」 音楽: ああああ(Long ver.。アルバム「セーブデータとほうき星」)。作者さんのガイドライン(ゲームでの非商用利用は許諾なしで可)。音源は MP3 192kbps を AES-GCM 暗号化した `audio/bokutachi-epilogue.bin`。収益化のときは作者さんへ連絡が必要。「きくだけ」モードには入れない
 - 「Hydrangea」「蒼」 音楽: 全て蝶々の所為です。([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja))。CC BY は技術的な制限をかけてはいけないので、並べ替えずに `audio/hydrangea.mp3`・`audio/ao.mp3` のまま置く
 - そのほかの内蔵曲はブラウザ内でその場で合成しているオリジナル曲です。
 

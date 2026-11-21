@@ -359,6 +359,117 @@ const DAN = ['', '初段', '二段', '三段', '四段', '五段', '六段', '�
 // サイトのトップ(曲ページ・画面ページでも <base> でトップを指している)
 const shareUrl = (q) => `${new URL('.', document.baseURI).href}?${q}`;
 
+// ---------------------------------------------------------------------------
+// プロフィールカード(1200×630 の画像。X・Discord で共有したり保存したりできる)
+// ---------------------------------------------------------------------------
+let shownProfile = null; // 開いているプレイヤーページの { p, list, fav, rate }
+async function buildProfileCard({ p, list, fav, rate }) {
+  const W = 1200, H = 630, cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const g = cv.getContext('2d');
+  await document.fonts.ready;
+  const t = titleOf(rate), st = p.stats || {};
+  // 背景: 暗い紺 + 称号の色の光 + 点群
+  const bg = g.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, '#05071a'); bg.addColorStop(1, '#0b1236');
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  const glow = g.createRadialGradient(220, 230, 0, 220, 230, 520);
+  glow.addColorStop(0, t.color + '55'); glow.addColorStop(1, t.color + '00');
+  g.fillStyle = glow; g.fillRect(0, 0, W, H);
+  let seed = 7;
+  for (let i = 0; i < 500; i++) {
+    seed = (seed * 1664525 + 1013904223) >>> 0; const x = (seed / 4294967296) * W;
+    seed = (seed * 1664525 + 1013904223) >>> 0; const z = seed / 4294967296;
+    g.globalAlpha = 0.12 + z * 0.4; g.fillStyle = z > 0.9 ? '#ff4fd8' : '#5ef2ff';
+    g.fillRect(x, 380 + z * z * 250, 1 + z * 2.5, 1 + z * 2.5);
+  }
+  g.globalAlpha = 1;
+  g.strokeStyle = t.color; g.lineWidth = 4; g.strokeRect(14, 14, W - 28, H - 28);
+  // 右上: ロゴ
+  g.textBaseline = 'alphabetic'; g.textAlign = 'right';
+  g.fillStyle = 'rgba(200,215,255,0.75)'; g.font = '700 22px "Orbitron", sans-serif';
+  g.fillText('MUSIC LiDAR ・ PLAYER CARD', W - 50, 64);
+  g.textAlign = 'left';
+  // 左: アイコン(名前の頭文字)・名前・称号・段位
+  g.save(); g.shadowColor = t.color; g.shadowBlur = 40;
+  g.beginPath(); g.arc(150, 165, 80, 0, Math.PI * 2); g.fillStyle = '#0a0f2c'; g.fill();
+  g.lineWidth = 6; g.strokeStyle = t.color; g.stroke(); g.restore();
+  g.textAlign = 'center'; g.fillStyle = '#fff'; g.font = '900 84px "Noto Sans JP", sans-serif';
+  g.fillText(p.name.slice(0, 1), 150, 195);
+  g.textAlign = 'left';
+  let nameSize = 64;
+  g.font = `900 ${nameSize}px "Noto Sans JP", sans-serif`;
+  while (g.measureText(p.name).width > 560 && nameSize > 30) { nameSize -= 4; g.font = `900 ${nameSize}px "Noto Sans JP", sans-serif`; }
+  g.fillStyle = '#fff'; g.fillText(p.name, 260, 150);
+  g.font = '800 34px "Noto Sans JP", sans-serif'; g.fillStyle = t.color;
+  g.fillText(t.name, 262, 205);
+  const tw = g.measureText(t.name).width;
+  g.font = '800 34px "Orbitron", sans-serif'; g.fillStyle = '#fff';
+  g.fillText(rate.toFixed(2), 280 + tw, 205);
+  if (st.dan) { g.font = '800 26px "Noto Sans JP", sans-serif'; g.fillStyle = '#ffd25e'; g.fillText('段位 ' + (DAN[st.dan] || ''), 262, 248); }
+  // 成績(4つ)
+  const stats = [['プレイ', (st.plays || 0).toLocaleString()], ['フルコンボ', String(st.fc || 0)], ['ALL PERFECT', String(st.ap || 0)], ['最大コンボ', String(st.max_combo || 0)]];
+  stats.forEach(([k, v], i) => {
+    const x = 60 + i * 190, y = 300;
+    g.fillStyle = 'rgba(255,255,255,0.06)'; g.fillRect(x, y, 175, 92);
+    g.fillStyle = 'rgba(200,215,255,0.75)'; g.font = '700 18px "Noto Sans JP", sans-serif'; g.fillText(k, x + 14, y + 30);
+    g.fillStyle = '#fff'; g.font = '800 36px "Orbitron", sans-serif'; g.fillText(v, x + 14, y + 76);
+  });
+  // 得意ジャンル
+  if (fav.length) {
+    g.fillStyle = 'rgba(200,215,255,0.75)'; g.font = '700 20px "Noto Sans JP", sans-serif'; g.fillText('得意ジャンル', 60, 440);
+    let x = 60;
+    g.font = '800 20px "Orbitron", "Noto Sans JP", sans-serif';
+    for (const name of fav) {
+      const w = g.measureText(name).width + 28;
+      g.strokeStyle = t.color; g.lineWidth = 2; g.beginPath(); g.roundRect(x, 456, w, 38, 19); g.stroke();
+      g.fillStyle = '#fff'; g.fillText(name, x + 14, 482); x += w + 12;
+    }
+  }
+  // 右: ベスト3曲
+  g.fillStyle = 'rgba(200,215,255,0.75)'; g.font = '700 20px "Noto Sans JP", sans-serif'; g.fillText('ベスト', 830, 125);
+  const best = list.slice(0, 3);
+  const imgs = await Promise.all(best.map((x) => new Promise((res) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = ui.jacketURL(x.e, 128); })));
+  best.forEach((x, i) => {
+    const y = 145 + i * 112;
+    if (imgs[i]) g.drawImage(imgs[i], 830, y, 92, 92);
+    g.strokeStyle = x.e.color || '#5ef2ff'; g.lineWidth = 2; g.strokeRect(830, y, 92, 92);
+    let ts = 24; g.font = `800 ${ts}px "Noto Sans JP", sans-serif`;
+    while (g.measureText(x.e.title).width > 220 && ts > 16) { ts -= 2; g.font = `800 ${ts}px "Noto Sans JP", sans-serif`; }
+    let title = x.e.title; // それでも長い曲名は「…」で切る
+    while (g.measureText(title).width > 220 && title.length > 2) title = title.slice(0, -2) + '…';
+    g.fillStyle = '#fff'; g.fillText(title, 936, y + 30);
+    g.font = '800 18px "Orbitron", sans-serif'; g.fillStyle = ui.diffColor[x.d] || '#5ef2ff';
+    g.fillText(`${x.d.toUpperCase()} ${x.e.levels[x.d]}${x.ap ? '  AP' : x.fc ? '  FC' : ''}`, 936, y + 58);
+    g.fillStyle = 'rgba(230,240,255,0.9)'; g.font = '700 22px "Orbitron", sans-serif'; g.fillText(x.score.toLocaleString(), 936, y + 86);
+  });
+  if (!best.length) { g.fillStyle = 'rgba(200,215,255,0.6)'; g.font = '700 22px "Noto Sans JP", sans-serif'; g.fillText('まだ記録がありません', 830, 175); }
+  // 下: サイト
+  g.textAlign = 'right'; g.fillStyle = 'rgba(230,240,255,0.85)'; g.font = '700 24px "Orbitron", sans-serif';
+  g.fillText('music-lidar.com', W - 50, H - 44);
+  g.textAlign = 'left';
+  return new Promise((res) => cv.toBlob(res, 'image/png'));
+}
+async function shareProfileCard(btn) {
+  if (!shownProfile) return;
+  btn.disabled = true;
+  try {
+    const blob = await buildProfileCard(shownProfile);
+    const file = new File([blob], `music-lidar-card-${shownProfile.p.name}.png`, { type: 'image/png' });
+    const t = titleOf(shownProfile.rate);
+    const text = `MUSIC LiDAR のプレイヤーカード: ${shownProfile.p.name}(${t.name} ${shownProfile.rate.toFixed(2)}) #MUSICLiDAR`;
+    if (navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], text: text + ' https://music-lidar.com/' }).catch(() => {});
+    } else {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = file.name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      ui.toast('プレイヤーカードの画像を保存しました');
+    }
+  } catch (e) { console.error(e); ui.toast('画像を作れませんでした'); } finally { btn.disabled = false; }
+}
+
 export async function openProfile(name) {
   if (!name) return;
   const box = $('pf-box');
@@ -385,6 +496,7 @@ export async function openProfile(name) {
   const st = p.stats || {}, mt = p.match || {};
   const rate = Number(p.rate || 0);
   const t = titleOf(rate);
+  shownProfile = { p, list, fav, rate };
   box.innerHTML = `<div class="panel-label"><span>PLAYER PROFILE</span><span>${p.since?.replace(/-/g, '.')} から</span></div>
     <div class="pf-head"><div class="pf-ava" style="--tc:${t.color}">${ui.esc(p.name.slice(0, 1))}</div><div><h2>${ui.esc(p.name)}</h2>${titleTag(rate)}
       ${st.dan ? `<span class="hp-dan">${DAN[st.dan] || ''}</span>` : ''}${t.next ? `<small class="muted">次の称号「${t.next.name}」まで ${(t.next.at - rate).toFixed(2)}</small>` : ''}</div></div>
@@ -400,7 +512,7 @@ export async function openProfile(name) {
     ${badgesHtml(p, ui.entries, ui.esc, mine)}
     ${mine ? inviteHtml() : ''}
     ${mine ? discordHtml() : ''}
-    <div class="modal-actions">${!mine && acc.getToken() ? `<button class="btn-line" data-friend="${ui.esc(p.name)}" hidden>＋ フレンド申請</button>` : ''}<button class="btn-line" data-share="${ui.esc(p.name)}">このページのリンクをコピー</button><button class="btn-glow" data-close>閉じる</button></div>`;
+    <div class="modal-actions">${!mine && acc.getToken() ? `<button class="btn-line" data-friend="${ui.esc(p.name)}" hidden>＋ フレンド申請</button>` : ''}<button class="btn-line" data-card>🪪 カード画像</button><button class="btn-line" data-share="${ui.esc(p.name)}">このページのリンクをコピー</button><button class="btn-glow" data-close>閉じる</button></div>`;
   if (mine) loadInviteCode();
   else if (acc.getToken()) friendButton(p.name);
 }
@@ -503,6 +615,7 @@ async function redeemInvite(code, auto = false) {
 }
 async function onProfileClick(ev) {
   if (ev.target === $('pf-modal') || ev.target.closest('[data-close]')) { ui.overlay('pf-modal', false); return; }
+  if (ev.target.closest('[data-card]')) { shareProfileCard(ev.target.closest('[data-card]')); return; }
   const sh = ev.target.closest('[data-share]');
   if (sh) { copy(shareUrl('player=' + encodeURIComponent(sh.dataset.share)), 'プレイヤーページのリンクをコピーしました'); return; }
   const fb = ev.target.closest('[data-friend]');

@@ -3,6 +3,8 @@
 // - 前回の続き(mlidar_discord_state の last)からメッセージを読み、6文字のコードを mlidar_discord_redeem に渡す
 // - 返事をして、貼られたメッセージは消す。ボットの返事は10分たったら消す(ピン留めは残す)
 // - ボットのトークンは Vault の mlidar_discord_bot_token(mlidar_discord_config で受け取る)
+// - 記録のお知らせ: mlidar_discord_feed(認証した人のランキング1位・初 ALL PERFECT・HARD/EXTRA の初フルコンボ)を「記録」チャンネルに投稿する
+//   チャンネルは mlidar_discord_state の feed_channel。なければ名前に「記録」か record が入ったテキストチャンネルを探して覚える(まだなければ待つ)
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const GUILD = '1573657919239622786';
@@ -68,11 +70,57 @@ Deno.serve(async (req) => {
   }
   if (last && last !== st?.v) await db.from('mlidar_discord_state').upsert({ k: 'last', v: last });
 
+  // 記録のお知らせ
+  const posted = await postFeed().catch((e) => { console.error(e); return 0; });
+
   // ボットの返事・ピン留めのお知らせは10分で消す
   const r2 = await dc('GET', `/channels/${CHANNEL}/messages?limit=50`);
   const recent = r2?.ok ? await r2.json() : [];
   for (const m of Array.isArray(recent) ? recent : []) {
     if (m.author?.id === BOT && !m.pinned && Date.now() - Date.parse(m.timestamp) > 10 * 60e3) await dc('DELETE', `/channels/${CHANNEL}/messages/${m.id}`);
   }
-  return new Response(JSON.stringify({ ok: true, done }), { headers: { 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify({ ok: true, done, posted }), { headers: { 'Content-Type': 'application/json' } });
+
+  async function postFeed() {
+    const { data: rows } = await db.from('mlidar_discord_feed').select('*').is('posted_at', null).order('id').limit(10);
+    if (!rows?.length) return 0;
+    const { data: fc } = await db.from('mlidar_discord_state').select('v').eq('k', 'feed_channel').maybeSingle();
+    let ch: string | undefined = fc?.v;
+    if (!ch) {
+      const rc = await dc('GET', `/guilds/${GUILD}/channels`);
+      const chans = rc?.ok ? await rc.json() : [];
+      const hit = (Array.isArray(chans) ? chans : []).find((c: { type: number; name: string }) => c.type === 0 && /記録|record/i.test(c.name));
+      if (!hit) return 0; // 「記録」チャンネルができたら送る
+      ch = hit.id as string;
+      await db.from('mlidar_discord_state').upsert({ k: 'feed_channel', v: ch });
+    }
+    // 曲名・色・曲ページ(サイトの data/cards.json。i = 曲の id)
+    const songs = await fetch('https://music-lidar.com/data/cards.json').then((r) => r.json()).catch(() => []);
+    const byId = new Map((Array.isArray(songs) ? songs : []).map((s: { i: string }) => [s.i, s]));
+    let n = 0;
+    for (const f of rows) {
+      const s = byId.get(f.song) as { u: string; t: string; c: string; l: number[] } | undefined;
+      const title = s?.t || f.song;
+      const lv = s ? ({ easy: s.l[0], normal: s.l[1], hard: s.l[2] } as Record<string, number>)[f.diff] : undefined;
+      const head = f.kind === 'top' ? '🏆 ランキング1位!' : f.kind === 'ap' ? '🌈 ALL PERFECT!' : '🔥 フルコンボ!';
+      const name = String(f.name).replace(/[\\*_`~|>]/g, '\\$&');
+      const what = f.kind === 'top' ? 'ランキング1位になりました' : f.kind === 'ap' ? 'ALL PERFECT を達成しました' : 'フルコンボを達成しました';
+      const r = await dc('POST', `/channels/${ch}/messages`, {
+        allowed_mentions: { parse: [] },
+        embeds: [{
+          title: `${head} ${title}`, url: s ? `https://music-lidar.com/music/${s.u}/` : 'https://music-lidar.com/',
+          color: parseInt((s?.c || '#5ef2ff').replace('#', ''), 16) || 0x5ef2ff,
+          description: `<@${f.discord_id}>(**${name}**)さんが **${title}** の ${String(f.diff).toUpperCase()}${lv ? ' Lv' + lv : ''} で${what}!`,
+          fields: [{ name: 'スコア', value: Number(f.score).toLocaleString('en-US'), inline: true }, ...(f.acc != null ? [{ name: '精度', value: Number(f.acc).toFixed(2) + '%', inline: true }] : [])],
+          footer: { text: 'MUSIC LiDAR ・ music-lidar.com' }, timestamp: f.created_at,
+        }],
+      });
+      // 送れた・送れない理由が直らない(4xx)ときは済みにする(同じものを何度も送らないように)
+      if (r && (r.ok || (r.status >= 400 && r.status < 500 && r.status !== 429))) {
+        await db.from('mlidar_discord_feed').update({ posted_at: new Date().toISOString() }).eq('id', f.id);
+        if (r.ok) n++; else console.error('feed post', r.status, await r.text().catch(() => ''));
+      }
+    }
+    return n;
+  }
 });

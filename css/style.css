@@ -1180,6 +1180,8 @@ body.live #btn-p-retry { display: none; }
 .hl-card.daily .hl-ico i { border-radius: 8px; }
 .hl-card.course { --tc: #b18cff; animation-delay: 0.32s; }
 .hl-card.course .hl-ico i { width: 30px; height: 30px; }
+.hl-card.diag { --tc: #ffd25e; animation-delay: 0.36s; }
+.hl-card.diag .hl-ico i { border-radius: 4px; transform: rotate(45deg); }
 .hl-card.course .hl-ico i:nth-child(2) { margin-top: 12px; }
 .daily-info { position: relative; display: flex; gap: 12px; align-items: center; max-width: 34em; }
 .daily-info img { width: 64px; height: 64px; border-radius: 6px; flex-shrink: 0; border: 1px solid var(--tc); }
@@ -1764,6 +1766,28 @@ body.playing .season-fx { display: none; }
    選曲: 曲は縦のリストにして画面いっぱいに並べ、下に「選んだ曲・難易度・PLAY」だけを固定で出す。
    記録・ランキング・練習などは「記録・ランキング」ボタンで下から引き出す(.detail.open。main.js の setDetailOpen) */
 .d-more { display: none; }
+/* レベル診断の結果 */
+.dg-lead { margin: 8px 0 0; text-align: center; color: var(--muted); }
+.dg-range { margin: 0 0 12px; text-align: center; font: 900 44px var(--font-d); color: #fff; text-shadow: 0 0 20px var(--accent); }
+.dg-bars { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
+.dg-bars li { display: grid; grid-template-columns: 120px 1fr 48px; gap: 10px; align-items: center; font: 700 13px var(--font-d); }
+.dg-bars i { height: 10px; border-radius: 5px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.dg-bars b { display: block; height: 100%; border-radius: 5px; }
+.dg-bars em { font-style: normal; text-align: right; }
+.dg-songs { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 6px; }
+.dg-songs button { width: 100%; display: flex; gap: 10px; align-items: center; text-align: left; color: inherit; border: 1px solid var(--panel-line); background: var(--panel); border-radius: 8px; padding: 6px; }
+.dg-songs button:hover { border-color: var(--accent); }
+.dg-songs img { width: 48px; height: 48px; border-radius: 4px; }
+.dg-songs span { display: flex; flex-direction: column; min-width: 0; }
+.dg-songs b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hot-tag { margin-right: 4px; font-size: 0.9em; }
+.r-bonus { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; font: 800 12px var(--font-b); color: #05121a; background: linear-gradient(90deg, #5ef2ff, #ffd25e); vertical-align: 2px; }
+/* 譜面の密度グラフ(選曲画面) */
+.d-density { position: relative; margin: -4px 0 10px; }
+.d-density[hidden] { display: none; }
+.d-density canvas { display: block; width: 100%; height: 44px; border-bottom: 1px solid var(--panel-line); }
+.d-density span { position: absolute; right: 2px; top: -2px; font: 600 10px var(--font-b); color: var(--muted); background: rgba(6, 9, 26, 0.6); padding: 0 4px; border-radius: 3px; }
+@media (max-width: 760px) { #select .d-density { margin: -2px 0 8px; } #select .d-density canvas { height: 24px; } }
 /* 動画の書き出し中(リプレイを録っているあいだ)の表示。DOM なので動画には映らない */
 .rec-badge { display: none; position: fixed; z-index: 11; top: calc(12px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); padding: 6px 14px; border-radius: 999px;
   background: rgba(40, 6, 12, 0.85); border: 1px solid #ff4d6a; color: #ffd6dd; font: 700 13px var(--font-b); white-space: nowrap; pointer-events: none; animation: recBlink 1.6s ease-in-out infinite; }

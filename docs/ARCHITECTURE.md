@@ -343,6 +343,8 @@ export default {
 - Edge Function は前回の続き(`mlidar_discord_state` の `last`)からメッセージを読み、`mlidar_discord_redeem`(service_role だけ)でつなぐ → ◎500・`meta.discord = {name, at}`・`mlidar_discord_links`(アカウントと Discord ID はどちらも1回だけ)。ロール「✅ 認証済み」を付け、返事をして、貼られたメッセージは消す。ボットの返事は10分で消す(ピン留めの案内は残す)
 - ボットのトークンは Vault の `mlidar_discord_bot_token`(`mlidar_discord_config` で Edge Function だけが読む)。ボットは Claude Code の Discord プラグインと同じアプリなので、**スラッシュコマンド(HTTP の interactions endpoint)は使わない**(設定するとプラグインのボタンが動かなくなる)。メッセージを読むのに Message Content Intent を使っている
 - ブラウザはコードを出したあと15秒ごとに `acc.refresh()` して、`meta.discord` が入ったら表示を変える
+- **記録のお知らせ(1.79.0〜)**: `mlidar_scores` のトリガー `mlidar_scores_feed` が、Discord 認証した人の「ほかの人もいる譜面でランキング1位になった」「その譜面で初めて ALL PERFECT」「HARD・EXTRA で初めてフルコンボ」を `mlidar_discord_feed` に入れる(同じ人・譜面・種類は1時間に1回まで。30日で消す)
+- 同じ Edge Function が1分ごとに、それを公式Discordの「記録」チャンネルに埋め込みで投稿する。チャンネルは `mlidar_discord_state` の `feed_channel`。なければ名前に「記録」か record が入ったテキストチャンネルを探して覚える(**まだなければ投稿せずに待つ**)。曲名・色・曲ページはサイトの `data/cards.json`(`i` = 曲の id)から引く。メンションの通知はしない
 
 ### 招待
 - 段階報酬: 1人目で着せ替え「フレンド」、3人で判定ライン「アンバサダー」(`line_invite`)、10人でノーツ「クラウン」(`note_crown`)。プロフィールに進み具合と「𝕏 で誘う」
@@ -403,6 +405,24 @@ export default {
 - mp4 が録れるブラウザ(Chrome・Edge・Safari)は mp4、ほかは webm(`mp4Supported()`)。ビットレートは横 5Mbps・縦 4.5Mbps(1分半の曲で横 50MB 前後)。ライブ・譜面メーカーでは録らない
 - **requestAnimationFrame で描くので、タブが裏に回ると止まる**(プレイも自動で一時停止する)。ブラウザ確認で裏のタブ扱いになるときは、`document.hidden` と rAF を差し替えて確かめる
 
+### 譜面の密度グラフ(1.79.0〜)
+- 選曲画面の難易度の下(`#d-density`)。`main.js` の `drawDensity` が、選んだ難易度の譜面を曲の長さで48に分けて区間ごとのノーツ数を棒で描く。右上は2秒の窓でいちばん多い所の1秒あたりのノーツ数。画面の大きさが変わったら描き直す
+
+### 週末ボーナス(1.79.0〜)
+- 日本時間の土曜・日曜はプレイのコインが1.5倍(サーバーの `mlidar_play_result_core` の `v_mul`。判定は `mlidar_is_weekend()`)。周年記念ウィーク(2倍)と重なったら2倍だけ
+- 結果に `bonus`(`'weekend'` / `'anniv'`)を返し、リザルトのコインの横に「週末ボーナス ×1.5」を出す。ホームには週末だけお知らせ(`specials.js` の `weekend()`。`?event=weekend` でいつでも見られる)
+
+### 人気曲(1.79.0〜)
+- 遊んだら1人1曲1日1回だけ `mlidar_play_ping`(ゲストも。端末の `mlidar:pinged` で重複を防ぐ)→ `mlidar_song_daily`(曲・日ごとの回数。90日より古い分は消す)
+- `mlidar_popular()` が曲ごとに [今週(直近7日の回数 + 今週ランキングを更新した人数), 累計(90日の回数 + 挑戦した人数)] を返す。選曲の並び順「🔥 人気順(今週)」「人気順(累計)」と、今週の上位10曲の曲名の前の 🔥(`main.js` の `loadPopular`。5分ごとに読み直す)
+
+### プロフィールカード(1.79.0〜)
+- プレイヤーページの「🪪 カード画像」で、名前・称号とレート・段位・プレイ数など4つ・得意ジャンル・ベスト3曲を 1200×630 の画像にして共有(スマホ)か保存(`growth.js` の `buildProfileCard`)
+
+### レベル診断(1.79.0〜)
+- LIVE の「レベル診断」→ `midnight-avenue` の盛り上がる所 48 秒を、12 秒ずつ EASY → NORMAL → HARD → EXTRA の譜面でつないで叩く(`main.js` の `startDiagnosis`。練習モードと同じ `kind: 'practice'` なので記録・ランキングには残らない)
+- 判定の記録(`r.log`)を区間に分けて精度(PERFECT 1・GREAT 0.75・GOOD 0.35)を出し、80% 以上で叩けたいちばん難しい区間と、次の区間の精度から「ちょうどいいレベル」を決める(`showDiagnosis`。端末の `mlidar:diagLevel` に残す)。その範囲の譜面から、まだ遊んでいない曲を優先して3つすすめる
+
 ### サーバーの容量(1.77.1〜)
 - 無料プランのデータベースは 500MB(目安)。このプロジェクトは MixAll・Discord ボット・Mod Wiki なども同じデータベースを使っている(2026-11-21 時点で全体 32MB、MUSIC LiDAR は 1.5MB)
 - 1人あたりで大きいのはリプレイ(1譜面 約6KB)とゴースト(約5KB)。どちらも各譜面の上位20人だけ残すので、人が増えても「全譜面 × 20人」で頭打ちになる
@@ -462,6 +482,8 @@ export default {
 | `mlidar_skins` | 着せ替えの一覧(値段・入手方法) |
 | `mlidar_charts` / `mlidar_chart_scores` / `mlidar_chart_likes` | みんなの譜面(`song` は曲の id か `a:<音声id>`) |
 | `mlidar_replays` | リプレイ(1人1譜面1つ。キーの押し・離しの記録。各譜面の上位20人だけ) |
+| `mlidar_song_daily` | 人気曲: 曲・日ごとのプレイ回数(90日まで) |
+| `mlidar_discord_feed` | Discord の「記録」チャンネルへのお知らせの順番待ち(30日まで) |
 | `mlidar_mails` | 受信メール(karubiwakame@gmail.com)。差出人・件名・本文は暗号化(鍵は Vault の `mlidar_request_key`)。500通を超えたら古いものから消す |
 | `mlidar_wishes` | 七夕の願いごと(1人1年1つ。管理者が出す/出さないを決める) |
 | `mlidar_lyrics` | 曲の歌詞と時刻(RLS でポリシーなし。関数からだけ触る) |

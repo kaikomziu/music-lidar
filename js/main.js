@@ -492,6 +492,29 @@ function renderFav() {
 
 // 曲一覧で使う難易度: EXTRA を選んでいるとき、EXTRA のない曲は HARD で見る
 const dOf = (e) => (diff === 'extra' && !e.levels.extra ? 'hard' : diff);
+// 人気曲(サーバー mlidar_popular): { 曲id: [今週, 累計] }。5分ごとに読み直す。今週の上位10曲は一覧に 🔥
+let popular = {}, popularAt = 0, hotSet = new Set();
+function loadPopular() {
+  if (Date.now() - popularAt < 300000) return;
+  popularAt = Date.now();
+  rpc('mlidar_popular', {}).then((p) => {
+    popular = p || {};
+    hotSet = new Set(Object.entries(popular).filter(([, v]) => v[0] > 0).sort((a, b) => b[1][0] - a[1][0]).slice(0, 10).map(([k]) => k));
+    if (state === 'select') renderList();
+  }).catch(() => { popularAt = 0; });
+}
+const popOf = (e, k) => popular[e.id]?.[k] || 0;
+// 人気曲の集計: 1人1曲1日1回だけ送る(ゲストも数える)
+function pingPlay(entry) {
+  if (entry.local) return;
+  const day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  const p = load('pinged', null);
+  const ids = p?.day === day ? p.ids : [];
+  if (ids.includes(entry.id)) return;
+  save('pinged', { day, ids: [...ids, entry.id].slice(-200) });
+  rpc('mlidar_play_ping', { p_song: entry.id }).catch(() => {});
+}
+
 function visibleSongs() {
   const q = songView.q.trim().toLowerCase();
   let idx = entries.map((e, i) => i).filter((i) => {
@@ -517,6 +540,8 @@ function visibleSongs() {
     name: (a, b) => entries[a].title.localeCompare(entries[b].title, 'ja'),
     score: (a, b) => (bestOf(entries[b].id, dOf(entries[b]))?.score ?? -1) - (bestOf(entries[a].id, dOf(entries[a]))?.score ?? -1),
     'score-asc': (a, b) => (bestOf(entries[a].id, dOf(entries[a]))?.score ?? -1) - (bestOf(entries[b].id, dOf(entries[b]))?.score ?? -1),
+    popular: (a, b) => popOf(entries[b], 0) - popOf(entries[a], 0) || popOf(entries[b], 1) - popOf(entries[a], 1),
+    'popular-all': (a, b) => popOf(entries[b], 1) - popOf(entries[a], 1),
   }[songView.sort];
   if (by) idx = idx.sort((a, b) => by(a, b) || a - b);
   return idx;
@@ -529,6 +554,7 @@ function renderFilters() {
 }
 
 function renderList() {
+  loadPopular();
   renderFilters();
   const list = $('song-list');
   list.innerHTML = '';
@@ -552,7 +578,7 @@ function renderList() {
       const mark = best?.ap ? 'AP' : best?.fc ? 'FC' : '';
       return `<span class="lv ${d}">${e.levels[d]}${mark ? `<span class="mark">${mark}</span>` : ''}</span>`;
     }).join('');
-    b.innerHTML = `${jacketImg(e, 128, 'sc-jacket')}<div class="sc-text"><div class="sc-title">${e.event ? '<span class="ev-tag">期間限定</span>' : ''}${esc(e.title)}</div><div class="sc-sub">${esc(e.genre)} ・ BPM ${Math.round(e.bpm)}${e.local ? ' ・ LOCAL' : ''}${mvTag(e.id)}</div></div><div class="sc-lv">${lv}</div>`;
+    b.innerHTML = `${jacketImg(e, 128, 'sc-jacket')}<div class="sc-text"><div class="sc-title">${hotSet.has(e.id) ? '<span class="hot-tag" title="今週の人気曲">🔥</span>' : ''}${e.event ? '<span class="ev-tag">期間限定</span>' : ''}${esc(e.title)}</div><div class="sc-sub">${esc(e.genre)} ・ BPM ${Math.round(e.bpm)}${e.local ? ' ・ LOCAL' : ''}${mvTag(e.id)}</div></div><div class="sc-lv">${lv}</div>`;
     b.querySelector('.sc-text').prepend(favMark(e));
     b.addEventListener('click', () => { if (sel === i) startGame(); else selectSong(i); });
     list.appendChild(b);
@@ -644,7 +670,36 @@ function renderDetail() {
   $('play-sub').textContent = ready ? (document.body.classList.contains('touch') ? '' : 'ENTER') : e.loadFailed ? '読み込み失敗・押して再試行' : '音源を準備中…(初回のみ)';
   loadRanking();
   renderSongStats(e, diff);
+  drawDensity(e, diff);
 }
+
+// 譜面の密度グラフ: 曲を48に分けて、区間ごとのノーツの数を棒で出す(どこが難しいか遊ぶ前に分かる)。右上は2秒の窓でいちばん多い所の1秒あたりの数
+function drawDensity(e, d) {
+  const box = $('d-density'), cv = box.querySelector('canvas');
+  const notes = e?.charts?.[d];
+  if (!notes?.length || !e.duration) { box.hidden = true; return; }
+  box.hidden = false;
+  const N = 48, dur = e.duration, bins = new Array(N).fill(0);
+  for (const n of notes) bins[Math.max(0, Math.min(N - 1, Math.floor((n.t / dur) * N)))]++;
+  const max = Math.max(1, ...bins);
+  let peak = 0;
+  for (let i = 0, j = 0; i < notes.length; i++) { while (notes[i].t - notes[j].t > 2) j++; peak = Math.max(peak, (i - j + 1) / 2); }
+  const dpr = Math.min(2, window.devicePixelRatio || 1), w = cv.clientWidth || 400, h = cv.clientHeight || 44;
+  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+  const g = cv.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  const bw = w / N;
+  g.fillStyle = DIFF_COLOR[d] || '#5ef2ff';
+  for (let i = 0; i < N; i++) {
+    const k = bins[i] / max, bh = k * (h - 3);
+    g.globalAlpha = 0.3 + 0.7 * k;
+    g.fillRect(i * bw + 0.5, h - bh, Math.max(1, bw - 1.5), bh);
+  }
+  g.globalAlpha = 1;
+  $('d-density-txt').textContent = `最大 ${peak.toFixed(1)} ノーツ/秒`;
+}
+window.addEventListener('resize', () => { if (state === 'select' && entries[sel]) drawDensity(entries[sel], diff); });
 
 const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
@@ -705,6 +760,82 @@ document.addEventListener('click', (ev) => { // 引き出した詳細の外を�
   setDetailOpen(false);
 }, true);
 $('btn-play').addEventListener('click', () => startGame());
+
+// ---------------------------------------------------------------------------
+// おすすめ難易度診断: 1曲の盛り上がる所 48 秒を、12 秒ずつ EASY → NORMAL → HARD → EXTRA の譜面でつないで叩いてもらい、
+// 区間ごとの精度から「ちょうどいいレベル」を出す。練習モードと同じ仕組み(kind: 'practice')なので記録・ランキングには残らない
+// ---------------------------------------------------------------------------
+const DIAG_SONG = 'midnight-avenue', DIAG_SEG = 12, DIAG_W = { PERFECT: 1, GREAT: 0.75, GOOD: 0.35, MISS: 0 };
+function startDiagnosis() {
+  const e = entries.find((x) => x.id === DIAG_SONG) || entries.find((x) => x.levels?.extra && !x.local);
+  const diffs = diffsOf(e);
+  const bar = 240 / e.bpm;
+  const from = Math.max(0, Math.round((e.previewAt - 2) / bar) * bar), to = from + DIAG_SEG * diffs.length;
+  const notes = [];
+  diffs.forEach((d, k) => {
+    const a = from + k * DIAG_SEG, b = a + DIAG_SEG;
+    for (const n of e.charts[d]) if (n.t >= a && (n.end ?? n.t) < b - 0.05) notes.push(n); // 区間をまたぐロングノーツは入れない
+  });
+  notes.sort((x, y) => x.t - y.t || x.lane - y.lane);
+  const custom = {
+    kind: 'practice', label: 'LEVEL CHECK', title: `${e.title}(レベル診断)`, level: e.levels.normal, notes, scroll: e.scroll, startFrom: from,
+    practice: { from, to, rate: 1 },
+    onExit: (r) => {
+      show('select'); renderList(); selectSong(sel, true);
+      if (r) showDiagnosis(e, diffs, from, r);
+    },
+  };
+  toast('レベル診断: 12秒ごとに難しくなります。できるところまで叩いてみてください', 4500);
+  startGame(e, 'normal', custom);
+}
+function showDiagnosis(e, diffs, from, r) {
+  // 区間ごとの精度(PERFECT 1・GREAT 0.75・GOOD 0.35・MISS 0)
+  const seg = diffs.map(() => ({ n: 0, w: 0 }));
+  for (const [t, j] of r.log || []) {
+    const k = Math.floor((t - from) / DIAG_SEG);
+    if (k < 0 || k >= seg.length) continue;
+    seg[k].n++; seg[k].w += DIAG_W[j] ?? 0;
+  }
+  const accs = seg.map((s) => (s.n ? s.w / s.n : 0));
+  const L = diffs.map((d) => e.levels[d]);
+  // 精度 80% 以上で叩けた、いちばん難しい区間までを「できた」とする。次の区間の精度で、その間のどこかを決める
+  let pass = -1;
+  for (let k = 0; k < accs.length; k++) { if (accs[k] >= 0.8) pass = k; else break; }
+  let lo, hi;
+  if (pass < 0) { lo = 1; hi = Math.max(2, L[0]); }
+  else if (pass === L.length - 1) { lo = L[pass]; hi = 15; }
+  else {
+    const est = L[pass] + (L[pass + 1] - L[pass]) * Math.max(0, Math.min(1, (accs[pass + 1] - 0.4) / 0.4));
+    lo = Math.max(1, Math.round(est) - 1); hi = Math.min(15, Math.round(est) + 1);
+  }
+  save('diagLevel', { lo, hi, at: Date.now() });
+  // おすすめの曲: その範囲のレベルの譜面から、まだ遊んでいない曲を優先して3つ(毎回同じにならないよう少し混ぜる)
+  const picks = [];
+  for (const x of entries) {
+    if (x.local || x.event) continue;
+    for (const d of diffsOf(x)) { const lv = x.levels[d]; if (lv >= lo && lv <= hi) picks.push({ x, d, lv, played: !!bestOf(x.id, d), r: Math.random() }); }
+  }
+  picks.sort((a, b) => a.played - b.played || a.r - b.r);
+  const seen = new Set(), rec = [];
+  for (const p of picks) { if (seen.has(p.x.id)) continue; seen.add(p.x.id); rec.push(p); if (rec.length >= 3) break; }
+  const range = hi >= 15 && lo >= 11 ? `Lv${lo} 以上` : `Lv${lo}〜${hi}`;
+  const lvKey = lo >= 10 ? '10-' : lo >= 5 ? '5-9' : '1-4';
+  $('diag-box').innerHTML = `<div class="panel-label"><span>LEVEL CHECK</span><span>レベル診断の結果</span></div>
+    <p class="dg-lead">あなたにちょうどいいのは</p><p class="dg-range">${range}</p>
+    <ul class="dg-bars">${diffs.map((d, k) => `<li><span style="color:${DIFF_COLOR[d]}">${d.toUpperCase()} Lv${L[k]}</span><i><b style="width:${Math.round(accs[k] * 100)}%;background:${DIFF_COLOR[d]}"></b></i><em>${seg[k].n ? Math.round(accs[k] * 100) + '%' : '—'}</em></li>`).join('')}</ul>
+    <h3 class="pf-h">おすすめの曲</h3>
+    <ul class="dg-songs">${rec.map((p) => `<li><button data-dg="${entries.indexOf(p.x)}" data-d="${p.d}">${jacketImg(p.x, 64, '')}<span><b>${esc(p.x.title)}</b><small style="color:${DIFF_COLOR[p.d]}">${p.d.toUpperCase()} Lv${p.lv}</small></span></button></li>`).join('') || '<li class="muted">ちょうどいい曲が見つかりませんでした</li>'}</ul>
+    <p class="muted small">精度は PERFECT を100%として数えています。慣れてきたら、もう一度診断してみてください。</p>
+    <div class="modal-actions"><button class="btn-line" data-dg-filter="${lvKey}">このレベルで絞り込む</button><button class="btn-glow" data-dg-close>閉じる</button></div>`;
+  overlay('diag-modal', true);
+}
+$('diag-modal').addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-dg]');
+  if (b) { overlay('diag-modal', false); diff = b.dataset.d; save('diff', diff); renderList(); selectSong(+b.dataset.dg, true); return; }
+  const f = ev.target.closest('[data-dg-filter]');
+  if (f) { songView.lv = f.dataset.dgFilter; save('songLv', songView.lv); overlay('diag-modal', false); renderList(); return; }
+  if (ev.target.closest('[data-dg-close]') || ev.target === $('diag-modal')) overlay('diag-modal', false);
+});
 
 // ---------------------------------------------------------------------------
 // 練習モード(区間をくり返す・ゆっくりにする)。記録・ランキングには残らない
@@ -1011,6 +1142,7 @@ function onGameEnd(r) {
   $('btn-back').innerHTML = playing.live ? 'ルームへ <small>ENTER</small>' : '選曲へ <small>ENTER</small>';
   if (playing.live) playing.live.finish(r);
   const isNew = custom ? false : recordBest(entry.id, d, r);
+  if (!custom && !playing.live) pingPlay(entry);
   if (isNew && r.log?.length) saveGhost(entry.id, d, r.log);
   // リプレイ: いまのプレイを見返せるようにし、自己ベストなら端末に残す(レーンがランダムのプレイは同じ配置を作れないので残さない)
   const canReplay = !custom && !playing.live && r.inputs?.length && r.opts?.lane !== 'random';
@@ -1082,6 +1214,7 @@ function onGameEnd(r) {
       const n = acc.claimableCount();
       $('r-reward').innerHTML = `<span class="coin-ico">◎</span> +${res.gained} コイン` +
         (res.gained === 0 ? ' <span class="muted">(連続送信のため報酬なし)</span>' : '') +
+        (res.bonus === 'weekend' ? ' <span class="r-bonus">週末ボーナス ×1.5</span>' : res.bonus === 'anniv' ? ' <span class="r-bonus">周年記念 ×2</span>' : '') +
         (n ? ` ・ <button class="link-btn" data-nav-q>受け取れるクエストが ${n} 件</button>` : '');
       $('r-reward').querySelector('[data-nav-q]')?.addEventListener('click', () => { import('./meta.js').then((m) => m.openScreen('quest')); });
       $('r-growth').innerHTML = resultGrowth(res, r);
@@ -1467,6 +1600,7 @@ $('h-live').addEventListener('click', () => homeLive(true));
 $('h-live-back').addEventListener('click', () => { homeLive(false); $('h-live').focus({ preventScroll: true }); });
 $('btn-solo').addEventListener('click', goSelect);
 $('btn-dan').addEventListener('click', () => openDan());
+$('btn-diag').addEventListener('click', () => startDiagnosis());
 for (const b of document.querySelectorAll('[data-tutorial]')) b.addEventListener('click', () => startTutorial());
 $('btn-tut-skip').addEventListener('click', () => { save('tutorialSkipped', true); overlay('tut-offer', false); if (!acc.isLoggedIn() && !load('nameSkipped', false)) openAccount(); });
 $('btn-tut-home').addEventListener('click', () => overlay('tut-done', false));

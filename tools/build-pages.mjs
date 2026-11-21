@@ -141,7 +141,7 @@ for (const sc of SCREENS) {
 // 埋め込みカード(card.html)用の曲の一覧
 fs.mkdirSync(path.join(root, 'data'), { recursive: true });
 fs.writeFileSync(path.join(root, 'data/cards.json'), JSON.stringify(songs.filter((s) => s.urlId).map((s) => ({
-  u: s.urlId, t: s.title, a: s.artist && s.artist !== 'MUSIC LiDAR' ? s.artist : '', g: s.genre, b: Math.round(s.bpm), c: s.color,
+  i: s.id, u: s.urlId, t: s.title, a: s.artist && s.artist !== 'MUSIC LiDAR' ? s.artist : '', g: s.genre, b: Math.round(s.bpm), c: s.color,
   l: [s.levels.easy, s.levels.normal, s.levels.hard], og: ogOf(s.urlId),
 }))));
 

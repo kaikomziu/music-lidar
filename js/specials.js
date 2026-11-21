@@ -3,7 +3,8 @@
 //   ゲストは端末だけで引ける(報酬なし)。結果は 𝕏 でシェアできる
 // - 周年記念ウィーク(10/17〜10/23。公開日 2026-10-17): プレイのコイン2倍(サーバーの mlidar_play_result_core)と、
 //   記念プレゼント(年に1回: ノーツ「アニバーサリー」+ ガチャ1回。mlidar_anniv_gift)
-// - 期間外に確かめたいときは ?event=newyear / anniv(戻すときは ?event=off)。サーバーの報酬は本当の期間だけ
+// - 週末ボーナス(日本時間の土曜・日曜): プレイのコイン1.5倍(サーバーの mlidar_play_result_core。周年記念と重なったら2倍だけ)
+// - 期間外に確かめたいときは ?event=newyear / anniv / weekend(戻すときは ?event=off)。サーバーの報酬は本当の期間だけ
 import { rpc } from './ranking.js';
 import { load, save } from './storage.js';
 import * as acc from './account.js';
@@ -20,6 +21,14 @@ export function initSpecials(api) {
   ui = api;
   if (eventActive('newyear')) newYear();
   if (eventActive('anniv')) anniversary();
+  else if (isWeekend()) weekend();
+}
+
+// 日本時間の土曜・日曜か(?event=weekend でいつでも見られる)
+export const isWeekend = () => PREVIEW === 'weekend' || [0, 6].includes(new Date(Date.now() + 9 * 3600e3).getUTCDay());
+function weekend() {
+  const b = banner('weekend-banner', '#5ef2ff', `<small>WEEKEND BONUS ・ 土日</small><b>🎉 週末ボーナス!コイン1.5倍</b><span>土曜・日曜は、プレイでもらえるコインが1.5倍になります(ログインが必要)</span>`, '遊ぶ');
+  b?.addEventListener('click', () => $('h-live')?.click());
 }
 
 function banner(id, color, html, btn) {

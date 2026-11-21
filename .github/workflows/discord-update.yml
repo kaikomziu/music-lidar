@@ -1,0 +1,31 @@
+# main に更新履歴(js/changelog.js)の変更が push されたら、増えたバージョンを公式Discordに投稿する
+# どこで編集しても(CLI・デスクトップ・Web・GitHub上の直接編集など)push されれば動く
+name: Discord にアップデートを投稿
+
+on:
+  push:
+    branches: [main]
+    paths: [js/changelog.js]
+  workflow_dispatch: # 手動実行: いちばん新しいバージョンを投稿する
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 投稿する
+        env:
+          DISCORD_UPDATE_WEBHOOK: ${{ secrets.DISCORD_UPDATE_WEBHOOK }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          cp js/changelog.js "$RUNNER_TEMP/new.mjs"
+          # push 前の更新履歴(手動実行・新しいブランチのときは無い)
+          if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            git show "$BEFORE:js/changelog.js" > "$RUNNER_TEMP/old.mjs" 2>/dev/null || rm -f "$RUNNER_TEMP/old.mjs"
+          fi
+          node tools/discord-update.mjs "$RUNNER_TEMP/new.mjs" "$RUNNER_TEMP/old.mjs"

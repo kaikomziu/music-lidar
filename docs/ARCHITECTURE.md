@@ -471,6 +471,7 @@ export default {
 2. `python tools/release.py`(バージョン付け・`version.json`・曲ページ・まとめ・サイトマップ)
 3. `git fetch` で先に進んでいないか確かめる
 4. `git add -A -- . ':!AI_GUIDE.md'` → コミット → `git push origin main`(GitHub Pages に1〜2分で出る)
+- **Discord への自動投稿**: `js/changelog.js` が変わった push を main に送ると、GitHub Actions(`.github/workflows/discord-update.yml` → `tools/discord-update.mjs`)が、増えたバージョンを公式Discordの「🆕｜アップデート」チャンネルに投稿する。どこで編集しても push されれば投稿される。投稿先の Webhook は GitHub の Secret `DISCORD_UPDATE_WEBHOOK`。Actions のページから手動で動かすと、いちばん新しいバージョンを投稿する
 - 生成されたページ(`home/` `music/` など)は手で直さず、`index.html` や `tools/` を直して `release.py` で作り直す
 
 ### 確かめ方

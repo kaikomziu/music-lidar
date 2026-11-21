@@ -1752,6 +1752,15 @@ body.playing .season-fx { display: none; }
    選曲: 曲は縦のリストにして画面いっぱいに並べ、下に「選んだ曲・難易度・PLAY」だけを固定で出す。
    記録・ランキング・練習などは「記録・ランキング」ボタンで下から引き出す(.detail.open。main.js の setDetailOpen) */
 .d-more { display: none; }
+/* 動画の書き出し中(リプレイを録っているあいだ)の表示。DOM なので動画には映らない */
+.rec-badge { display: none; position: fixed; z-index: 11; top: calc(12px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); padding: 6px 14px; border-radius: 999px;
+  background: rgba(40, 6, 12, 0.85); border: 1px solid #ff4d6a; color: #ffd6dd; font: 700 13px var(--font-b); white-space: nowrap; pointer-events: none; animation: recBlink 1.6s ease-in-out infinite; }
+.rec-badge small { margin-left: 8px; font-weight: 400; opacity: 0.8; }
+body.rec.playing .rec-badge { display: block; }
+@keyframes recBlink { 50% { border-color: rgba(255, 77, 106, 0.3); } }
+.rv-pick { display: flex; gap: 8px; flex-wrap: wrap; }
+#btn-rexport[hidden], #btn-rrec[hidden] { display: none; }
+@media (max-width: 760px) { .rec-badge { padding: 4px 10px; font-size: 11px; text-align: center; border-radius: 10px; background: rgba(40, 6, 12, 0.7); } .rec-badge small { display: block; margin: 1px 0 0; font-size: 10px; } }
 #btn-replays { width: auto; padding: 0 8px; margin-right: 6px; white-space: nowrap; font-size: 11px; } /* 文字入りのボタンは幅を文字に合わせる(26px 固定だと縦に折れる) */
 .rank-head { gap: 0; flex-wrap: nowrap; }
 .rank-head h3 { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.12em; }

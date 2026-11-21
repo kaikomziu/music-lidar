@@ -40,7 +40,7 @@ import { initSpecials } from './specials.js';
 import { initPoll, syncPollButton } from './poll.js';
 import { initExtras, renderDaily, dailyResult, drawJudgeGraph, setShareResult, courseFromUrl, playDaily } from './extras.js';
 import { initSocial, renderNext, postX, resultText, ghostFor, uploadGhost, SITE } from './social.js';
-import { arm as armRecord, startRecording, stopRecording, saveVideo, recordSupported } from './recorder.js';
+import { arm as armRecord, startRecording, stopRecording, saveVideo, recordSupported, mp4Supported } from './recorder.js';
 
 const APP_ROOT_URL = new URL('../', import.meta.url);
 
@@ -334,6 +334,7 @@ function show(name) {
   for (const s of document.querySelectorAll('.screen')) s.classList.toggle('active', s.id === name);
   if (name !== 'select') { $('detail').classList.remove('open'); $('d-more').setAttribute('aria-expanded', 'false'); } // 引き出した詳細は画面を出たら閉じる
   document.body.classList.toggle('playing', name === 'game');
+  if (name !== 'game') document.body.classList.remove('rec'); // 動画の書き出し中の表示は、プレイ画面を出たら消す
   if (name !== 'game') setScreenUrl(name);
 }
 // 設定・アカウントのパネルを開いている間はそのURL、閉じたら元の画面のURLに戻す
@@ -947,7 +948,9 @@ async function startGameInner(entry, d, custom, live, extra) {
   $('btn-p-quit').textContent = live ? 'ライブを抜ける' : '選曲へ';
   $('btn-resume').innerHTML = live ? '戻る <small>ESC</small>' : '再開 <small>ESC</small>';
   game.start(custom?.startFrom || 0, live ? live.syncAt : null);
-  if (!custom && !live) startRecording(game, canvas, { entry, label, jacket: jacketURL(entry, 256) });
+  if (custom?.record) { // 動画で保存: リプレイを流しながら録る
+    if (startRecording(game, canvas, { entry, label, diff: d, jacket: jacketURL(entry, 256) }, { force: true, layout: custom.record })) document.body.classList.add('rec');
+  } else if (!custom && !live) startRecording(game, canvas, { entry, label, diff: d, jacket: jacketURL(entry, 256) });
 }
 
 function quitGame() {
@@ -1014,14 +1017,10 @@ function onGameEnd(r) {
   if (canReplay && isNew && !entry.local) saveLocalReplay(entry.id, d, r.score, r.inputs);
   show('result');
   // 縦動画を録っていたら、保存ボタンを出す
-  const rv = $('r-video');
-  rv.hidden = true;
-  stopRecording().then((v) => {
-    if (!v || state !== 'result' || lastResult !== r) return;
-    rv.hidden = false;
-    rv.innerHTML = `<span>🎬 縦型のプレイ動画ができました(${(v.blob.size / 1048576).toFixed(1)}MB)</span><button class="btn-glow small" id="btn-rv-save">動画を保存・共有</button>`;
-    $('btn-rv-save').addEventListener('click', () => saveVideo(v, toast));
-  });
+  $('r-video').hidden = true;
+  $('btn-rexport').hidden = !lastReplay || !recordSupported(); // リプレイから動画を作れるときは「動画で保存」
+  $('btn-rrec').hidden = !!lastReplay || !recordSupported(); // 作れないとき(レーンがランダム)は、もう一度遊んで録る
+  stopRecording().then((v) => { if (v && state === 'result' && lastResult === r) showVideo(v); });
   renderNext(custom ? null : entry, d, r);
   document.documentElement.style.setProperty('--accent', entry.color);
   $('r-title').textContent = entry.title;
@@ -1110,15 +1109,31 @@ $('btn-retry').addEventListener('click', retry);
 // X に投稿 / 縦動画で録ってもう一度
 $('btn-rx').addEventListener('click', () => { if (!playing || !lastResult) return; const e = playing.entry; postX(resultText(e, playing.label, lastResult), e.urlId ? songUrl(e) : SITE); });
 $('btn-rrec').hidden = !recordSupported();
+// できた動画の保存ボタンをリザルトに出す
+function showVideo(v) {
+  const rv = $('r-video');
+  rv.hidden = false;
+  const kind = v.layout === 'h' ? '横型(1920×1080)' : '縦型(1080×1920)';
+  const ext = v.name.split('.').pop().toUpperCase();
+  rv.innerHTML = `<span>🎬 ${kind}のプレイ動画ができました(${ext}・${(v.blob.size / 1048576).toFixed(1)}MB)</span><button class="btn-glow small" id="btn-rv-save">動画を保存・共有</button>`;
+  $('btn-rv-save').addEventListener('click', () => saveVideo(v, toast));
+}
 // ---------------------------------------------------------------------------
 // リプレイ(キーの押し・離しの記録を流し直す。記録・ランキングには残らない)
 // ---------------------------------------------------------------------------
 let lastReplay = null;
+// rp.record: 'v' | 'h' なら、流しながら動画に録る(動画で保存)。動画にはふつうのプレイと同じ表示(難易度・レベル)を出す
 function playReplay(entry, d, rp, back) {
   const custom = {
-    kind: 'replay', label: `REPLAY ・ ${rp.name}`, title: entry.title, level: entry.levels[d], notes: entry.charts[d], scroll: entry.scroll,
-    replay: rp.inputs, opts: rp.opts,
-    onExit: (r) => {
+    kind: 'replay', label: rp.record ? `${d.toUpperCase()} Lv${entry.levels[d]}` : `REPLAY ・ ${rp.name}`, title: entry.title, level: entry.levels[d], notes: entry.charts[d], scroll: entry.scroll,
+    replay: rp.inputs, opts: rp.opts, record: rp.record || null,
+    onExit: async (r) => {
+      if (rp.record) {
+        const v = await stopRecording(); // 途中でやめたときは quitGame が先に止めているので null
+        if (back === 'result' && lastResult) show('result'); else { show('select'); renderList(); selectSong(sel, true); }
+        if (v && r) showVideo(v); else toast('動画の書き出しをやめました');
+        return;
+      }
       if (r) toast(`${rp.name} のプレイ: ${fmtScore(r.score)}(${r.rank})`, 3000);
       if (back === 'result' && lastResult) { show('result'); return; }
       show('select'); renderList(); selectSong(sel, true);
@@ -1127,6 +1142,19 @@ function playReplay(entry, d, rp, back) {
   startGame(entry, d, custom);
 }
 $('btn-rreplay').addEventListener('click', () => { if (lastReplay) playReplay(lastReplay.entry, lastReplay.d, { inputs: lastReplay.inputs, name: 'いまのプレイ', opts: lastReplay.opts }, 'result'); });
+// 動画で保存: 向きを選ぶ → いまのプレイをリプレイで流しながら録る(曲の長さぶんかかる)
+$('btn-rexport').addEventListener('click', () => {
+  if (!lastReplay) return;
+  const rv = $('r-video');
+  rv.hidden = false;
+  const len = fmtTime(lastReplay.entry.duration || 0);
+  rv.innerHTML = `<span>🎞 動画の向きを選んでください。いまのプレイを流しながら録るので、曲の長さ(約${len})かかります${mp4Supported() ? '' : '<br><small>このブラウザは mp4 で録れないため webm で保存されます(mp4 は Chrome・Edge・Safari)</small>'}</span>
+    <span class="rv-pick"><button class="btn-glow small" data-layout="v">縦 1080×1920</button><button class="btn-glow small" data-layout="h">横 1920×1080</button></span>`;
+  for (const b of rv.querySelectorAll('[data-layout]')) b.addEventListener('click', () => {
+    rv.hidden = true;
+    playReplay(lastReplay.entry, lastReplay.d, { inputs: lastReplay.inputs, name: 'いまのプレイ', opts: lastReplay.opts, record: b.dataset.layout }, 'result');
+  });
+});
 async function openReplays() {
   const e = entries[sel];
   if (!e || e.local) { toast('この曲のリプレイはありません'); return; }

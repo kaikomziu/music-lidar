@@ -41,6 +41,13 @@ kbd { display: inline-block; min-width: 28px; text-align: center; border: 1px so
 ul { padding-left: 1.3em; }
 .table-wrap { overflow-x: auto; }
 footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; text-align: center; }
+.dc-banner { display: flex; align-items: center; gap: 16px; margin: 28px 0 8px; padding: 16px 20px; border-radius: 12px; background: linear-gradient(120deg, #5865f2, #3b44a8); color: #fff; text-decoration: none; box-shadow: 0 0 30px rgba(88,101,242,0.45); transition: transform 0.15s, box-shadow 0.15s; }
+.dc-banner:hover { transform: translateY(-2px); box-shadow: 0 0 44px rgba(88,101,242,0.8); }
+.dc-banner svg { width: 44px; height: 44px; flex: none; fill: #fff; }
+.dc-banner b { display: block; font-size: 17px; }
+.dc-banner small { display: block; font-size: 13px; opacity: 0.9; line-height: 1.6; }
+.dc-banner em { margin-left: auto; font-style: normal; font-weight: 700; white-space: nowrap; padding: 6px 14px; border-radius: 999px; background: rgba(255,255,255,0.18); }
+@media (max-width: 560px) { .dc-banner em { display: none; } }
 
 .cols { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; padding: 0; list-style: none; }
 .cols a { display: inline-block; padding: 4px 12px; border: 1px solid var(--line); border-radius: 999px; text-decoration: none; font-size: 14px; }

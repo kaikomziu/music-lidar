@@ -1141,6 +1141,40 @@ function playReplay(entry, d, rp, back) {
   };
   startGame(entry, d, custom);
 }
+// ---------------------------------------------------------------------------
+// オートプレイ(お手本)。譜面から「全部ぴったり」に押す入力を作り、リプレイの仕組みで流す
+// kind は 'replay' なので、記録・ランキング・ゴースト・コインには残らない
+// ---------------------------------------------------------------------------
+function autoInputs(notes) {
+  const ev = [];
+  const byLane = [[], [], [], []];
+  for (const n of notes) byLane[n.lane]?.push(n);
+  for (const list of byLane) {
+    list.sort((a, b) => a.t - b.t);
+    list.forEach((n, i) => {
+      const next = list[i + 1];
+      // 離す時刻: ロングノーツは終わりの少しあと、ふつうのノーツは少しあと(次のノーツより前に離す)
+      let up = n.end ? n.end + 0.02 : n.t + 0.06;
+      if (next && up >= next.t) up = n.end ? n.end : (n.t + next.t) / 2;
+      ev.push([n.t, n.lane, 1], [up, n.lane, 0]);
+    });
+  }
+  return ev.sort((a, b) => a[0] - b[0] || a[2] - b[2]); // 同じ時刻なら離すのが先
+}
+function playAuto() {
+  const entry = entries[sel];
+  if (!entry || !entry.charts[diff]?.length) return;
+  const d = diff;
+  startGame(entry, d, {
+    kind: 'replay', label: `AUTO PLAY ・ ${d.toUpperCase()} Lv${entry.levels[d]}`, title: entry.title, level: entry.levels[d], notes: entry.charts[d], scroll: entry.scroll,
+    replay: autoInputs(entry.charts[d]), opts: { lane: 'normal' },
+    onExit: (r) => {
+      if (r) toast('オートプレイは記録・ランキングに残りません', 2500);
+      show('select'); renderList(); selectSong(sel, true);
+    },
+  });
+}
+$('btn-auto').addEventListener('click', playAuto);
 $('btn-rreplay').addEventListener('click', () => { if (lastReplay) playReplay(lastReplay.entry, lastReplay.d, { inputs: lastReplay.inputs, name: 'いまのプレイ', opts: lastReplay.opts }, 'result'); });
 // 動画で保存: 向きを選ぶ → いまのプレイをリプレイで流しながら録る(曲の長さぶんかかる)
 $('btn-rexport').addEventListener('click', () => {

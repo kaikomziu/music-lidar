@@ -141,6 +141,7 @@ const EN = {
   '閉じる(投票は続く)': 'Close (poll keeps running)', '締め切って1位の曲を選ぶ': 'Close poll and pick the winner', '配信者が次に遊ぶ曲を投票': 'Vote for the streamer’s next song', '自分も遊んでみる(無料)': 'Play it yourself (free)',
   '再生位置': 'Position', 'シャッフル': 'Shuffle', '前の曲': 'Previous', '再生': 'Play', '次の曲': 'Next', 'くり返し': 'Repeat',
   '公式Discordに参加': 'Join the official Discord', '新曲のお知らせ・スコア自慢・いっしょに遊ぶ仲間さがし': 'New songs, score bragging & friends to play with', '公式Discord': 'Official Discord',
+  '🤖 オートプレイ(お手本を見る)': '🤖 Auto play (watch a demo)', 'お手本として全部 PERFECT で自動プレイします。記録・ランキングには残りません': 'Plays the chart automatically with all PERFECTs as a demo. Not saved to records or rankings', 'オートプレイは記録・ランキングに残りません': 'Auto play is not saved to records or rankings',
 };
 
 // 使う辞書(英語以外は、その言語の辞書 + 足りない所は英語)

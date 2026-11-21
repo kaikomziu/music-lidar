@@ -399,6 +399,7 @@ export async function openProfile(name) {
       <span>${x.ap ? '<span class="badge ap">AP</span>' : x.fc ? '<span class="badge fc">FC</span>' : ''}</span><span class="sc">${x.score.toLocaleString()}</span><span class="pf-v">${x.v.toFixed(2)}</span></li>`).join('') || '<li class="empty">まだ記録がありません</li>'}</ol>
     ${badgesHtml(p, ui.entries, ui.esc, mine)}
     ${mine ? inviteHtml() : ''}
+    ${mine ? discordHtml() : ''}
     <div class="modal-actions">${!mine && acc.getToken() ? `<button class="btn-line" data-friend="${ui.esc(p.name)}" hidden>＋ フレンド申請</button>` : ''}<button class="btn-line" data-share="${ui.esc(p.name)}">このページのリンクをコピー</button><button class="btn-glow" data-close>閉じる</button></div>`;
   if (mine) loadInviteCode();
   else if (acc.getToken()) friendButton(p.name);
@@ -412,6 +413,34 @@ function inviteHtml() {
     <div class="pf-code"><b id="inv-code">……</b><button class="btn-line small" data-copy-inv>リンクをコピー</button><button class="btn-line small x-btn" data-x-inv>𝕏 で誘う</button></div>
     ${canRedeem ? `<form class="pf-redeem" data-redeem><input id="inv-input" maxlength="8" placeholder="もらった招待コード" autocomplete="off"><button class="btn-line small">使う</button></form><p class="muted small">招待コードは、始めてから14日以内に1回だけ使えます</p>`
       : s.meta?.invited_by ? `<p class="muted small">${ui.esc(s.meta.invited_by)} さんの招待で始めました</p>` : ''}</section>`;
+}
+// Discord 認証: コードを出して、公式Discordの「✅｜認証」チャンネルに貼ってもらう(◎500。サーバーの Edge Function mlidar-discord が1分ごとに見る)
+const DISCORD_URL = 'https://discord.gg/aMnvqcHzNG';
+function discordHtml() {
+  const d = acc.getState()?.meta?.discord;
+  return `<section class="pf-inv pf-dc hud" id="pf-dc"><h3>Discordで認証</h3>${d ? discordDone(d)
+    : `<p class="small">公式Discordの「✅｜認証」チャンネルにコードを貼ると、<b>◎500</b> と「認証済み」ロールがもらえます(1人1回)</p>
+    <div class="pf-code" id="dc-box"><button class="btn-line small" data-dc-code>コードを出す</button><a class="btn-line small" href="${DISCORD_URL}" target="_blank" rel="noopener">Discordを開く</a></div>`}</section>`;
+}
+const discordDone = (d) => `<p class="small">✅ 認証済み${d.name ? `(Discord: ${ui.esc(d.name)})` : ''}</p>`;
+let dcTimer = 0;
+async function showDiscordCode() {
+  const box = $('dc-box');
+  if (!box) return;
+  let r;
+  try { r = await rpc('mlidar_discord_code', { p_token: acc.getToken() }); } catch (e) { ui.toast(acc.errText(e)); return; }
+  if (r?.linked) { $('pf-dc').innerHTML = '<h3>Discordで認証</h3>' + discordDone(r); return; }
+  box.innerHTML = `<b id="dc-code">${ui.esc(r.code)}</b><button class="btn-line small" data-dc-copy>コピー</button><a class="btn-glow small" href="${DISCORD_URL}" target="_blank" rel="noopener">Discordを開いて貼る</a>`;
+  box.insertAdjacentHTML('afterend', '<p class="muted small" id="dc-note">このコードを「✅｜認証」チャンネルに貼ってください(15分有効)。1分ほどでボットが返事をして、ここにも反映されます</p>');
+  // 認証されたか、しばらく見に行く(15分まで・画面を閉じたらやめる)
+  clearInterval(dcTimer);
+  const until = Date.now() + 15 * 60e3;
+  dcTimer = setInterval(async () => {
+    if (!$('dc-code') || Date.now() > until) { clearInterval(dcTimer); return; }
+    try { await acc.refresh(); } catch { return; }
+    const d = acc.getState()?.meta?.discord;
+    if (d && $('pf-dc')) { clearInterval(dcTimer); $('pf-dc').innerHTML = '<h3>Discordで認証</h3>' + discordDone(d); ui.toast('Discord認証ができました! ◎500 を受け取りました', 4000); }
+  }, 15000);
 }
 // 招待の段階報酬(1人・3人・10人)と進み具合
 const INVITE_STEPS = [[1, '着せ替え「フレンド」'], [3, '判定ライン「アンバサダー」'], [10, 'ノーツ「クラウン」とバッジ「アンバサダー」']];
@@ -478,6 +507,8 @@ async function onProfileClick(ev) {
   if (sh) { copy(shareUrl('player=' + encodeURIComponent(sh.dataset.share)), 'プレイヤーページのリンクをコピーしました'); return; }
   const fb = ev.target.closest('[data-friend]');
   if (fb) { fb.disabled = true; const r = await requestFriend(fb.dataset.friend); fb.textContent = r === 'ok' ? '✓ フレンド' : r ? '申請中' : '＋ フレンド申請'; fb.disabled = !!r; return; }
+  if (ev.target.closest('[data-dc-code]')) { showDiscordCode(); return; }
+  if (ev.target.closest('[data-dc-copy]')) { copy($('dc-code').textContent, 'コードをコピーしました'); return; }
   if (ev.target.closest('[data-copy-inv]')) {
     const c = $('inv-code').textContent;
     copy(`MUSIC LiDAR で一緒に遊ぼう!招待コード ${c} ${shareUrl('invite=' + c)}`, '招待リンクをコピーしました');

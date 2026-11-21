@@ -337,6 +337,13 @@ export default {
 - 種類は note(ノーツの色)/ line(判定ライン)/ tap(叩いた音)/ hit(PERFECT の光り方)
 - 見た目は `LOOK`。値段と入手方法はサーバーの `mlidar_skins`。購入 `mlidar_skin_buy`、装備 `mlidar_skin_equip`。タップ音を変えたら `audio.js` が音を作り直す
 
+### Discord 認証(1.77.0)
+- プロフィールの「Discordで認証」(`growth.js` の `discordHtml` / `showDiscordCode`)で `mlidar_discord_code` が6文字のコード(15分有効、`mlidar_discord_codes`)を出す。つないでいれば `linked: true` を返す
+- コードを公式Discordの「✅｜認証」チャンネル(ID 1573672597730893904)に貼ってもらう。pg_cron のジョブ `mlidar-discord-verify` が1分ごとに Edge Function `mlidar-discord`(`supabase/functions/mlidar-discord/`、verify_jwt なし。ヘッダー `x-mlidar-cron` を Vault の `mlidar_discord_cron` と比べる)を呼ぶ
+- Edge Function は前回の続き(`mlidar_discord_state` の `last`)からメッセージを読み、`mlidar_discord_redeem`(service_role だけ)でつなぐ → ◎500・`meta.discord = {name, at}`・`mlidar_discord_links`(アカウントと Discord ID はどちらも1回だけ)。ロール「✅ 認証済み」を付け、返事をして、貼られたメッセージは消す。ボットの返事は10分で消す(ピン留めの案内は残す)
+- ボットのトークンは Vault の `mlidar_discord_bot_token`(`mlidar_discord_config` で Edge Function だけが読む)。ボットは Claude Code の Discord プラグインと同じアプリなので、**スラッシュコマンド(HTTP の interactions endpoint)は使わない**(設定するとプラグインのボタンが動かなくなる)。メッセージを読むのに Message Content Intent を使っている
+- ブラウザはコードを出したあと15秒ごとに `acc.refresh()` して、`meta.discord` が入ったら表示を変える
+
 ### 招待
 - 段階報酬: 1人目で着せ替え「フレンド」、3人で判定ライン「アンバサダー」(`line_invite`)、10人でノーツ「クラウン」(`note_crown`)。プロフィールに進み具合と「𝕏 で誘う」
 - コードは `mlidar_invite_code`(6文字。0/O/1/I/L などまぎらわしい字は使わない)。リンクは `https://music-lidar.com/?invite=CODE`

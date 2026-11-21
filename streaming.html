@@ -127,7 +127,7 @@ https://music-lidar.com/
 
   <h2>そのほか</h2>
   <ul>
-    <li>配信・投稿の報告はいりません。教えてもらえたら喜んで見に行きます(ゲーム内の「リクエスト」から送れます)</li>
+    <li>配信・投稿の報告はいりません。教えてもらえたら喜んで見に行きます(ゲーム内の「リクエスト」か、<a class="mail-link" data-mail="contact|music-lidar.com">contact＠music-lidar.com</a> から送れます)</li>
     <li>このガイドラインに書いていないことも、常識の範囲なら基本的に自由です。迷ったら、ゲーム内の「リクエスト」から聞いてください</li>
     <li>ガイドラインは変わることがあります。そのときも、配信・投稿した時点のガイドラインに沿っていれば大丈夫です</li>
   </ul>
@@ -189,9 +189,11 @@ https://music-lidar.com/
   </section>
 
   <footer>
+    <p>お問い合わせ / Contact: <a class="mail-link" data-mail="contact|music-lidar.com">contact＠music-lidar.com</a></p>
     <p><a class="play" href="./">▶ MUSIC LiDAR で遊ぶ</a></p>
     <p>制作:かるわか ・ <a href="guide.html">遊び方・収録曲</a> ・ <a href="collections/">曲のまとめ</a></p>
   </footer>
 </div>
+<script>/* 連絡先のメールアドレスは、迷惑メールを集めるプログラムに拾われにくいよう分けて書き、開いたときに組み立てる */document.querySelectorAll('[data-mail]').forEach((a) => { const [u, d] = a.dataset.mail.split('|'); a.href = 'mailto:' + u + '@' + d; a.textContent = u + '@' + d; });</script>
 </body>
 </html>

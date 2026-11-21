@@ -260,8 +260,10 @@ footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
   <footer>
     <p><a class="play" href="./">▶ MUSIC LiDAR で遊ぶ</a></p>
     <p>ほかの作者さんの曲・フォント・ライブラリは <a href="credits.html">クレジット</a> にまとめています。その他の曲はブラウザ内で合成しているオリジナル曲です。</p>
+    <p>お問い合わせ:<a class="mail-link" data-mail="contact|music-lidar.com">contact＠music-lidar.com</a>(ゲーム内の「リクエスト」からも送れます)</p>
     <p>制作:かるわか ・ <a href="streaming.html">実況・配信ガイドライン</a> ・ <a href="submit-music.html">楽曲募集(作曲者さんへ)</a> ・ <a href="credits.html">クレジット</a> ・ <a href="music-guidelines.html">オリジナル曲の使用ガイドライン</a> ・ <a href="https://kaikomziu.github.io/game-links/">ほかの自作ゲーム一覧</a></p>
   </footer>
 </div>
+<script>/* 連絡先のメールアドレスは、迷惑メールを集めるプログラムに拾われにくいよう分けて書き、開いたときに組み立てる */document.querySelectorAll('[data-mail]').forEach((a) => { const [u, d] = a.dataset.mail.split('|'); a.href = 'mailto:' + u + '@' + d; a.textContent = u + '@' + d; });</script>
 </body>
 </html>

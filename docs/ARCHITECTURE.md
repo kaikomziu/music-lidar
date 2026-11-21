@@ -163,6 +163,7 @@ export default {
 - 週替わりスコアアタックとデイリーは、曲一覧から乱数で選ぶ。**曲を足すと、選ばれる曲が変わることがある**
 
 ### 受信メール(管理者ページ)
+- 公開している連絡先は `contact@music-lidar.com`。ドメインは Xserver ドメインで、DNS も Xserver(ns1〜3.xdomain.ne.jp)。MX を ImprovMX(mx1 / mx2.improvmx.com)に向け、ImprovMX が karubiwakame@gmail.com に転送する。遊び方・配信ガイドライン・クレジット・楽曲募集・使用ガイドラインのページに載せている(`data-mail="contact|music-lidar.com"` を開いたときに組み立てて mailto にする。迷惑メールを集めるプログラム対策)
 - karubiwakame@gmail.com に届いたメールを、管理者ページの「受信メール」に出す。Gmail のアカウントに入れた Google Apps Script(`tools/gmail-to-mlidar.gs`)が5分ごとに受信トレイの直近2日のメールを `mlidar_mail_put` に送る(合言葉は Vault の `mlidar_mail_secret`。同じメールは `gmail_id` で1回だけ入る)
 - **合言葉入りの Apps Script はリポジトリの外**(`C:\Users\4yoma\Desktop\Claude\music-lidar-private\gmail-to-mlidar.gs`)。リポジトリの `tools/gmail-to-mlidar.gs` は合言葉なしのひな形。合言葉を変えたら Vault の値と Apps Script の両方を直す
 - 管理者は `mlidar_mail_list`(復号して新しい順に100通)・`mlidar_mail_read`(既読/未読)。返信はメールソフトで(mailto のリンク)

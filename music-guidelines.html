@@ -102,8 +102,8 @@ footer { margin-top: 48px; color: var(--muted); font-size: 13px; text-align: cen
   <h2>連絡について</h2>
   <ul>
     <li>使うときの連絡や許可の申請はいりません</li>
-    <li>使ってくれたら、ゲーム内のリクエストや X で教えてもらえるとうれしいです</li>
-    <li>このガイドラインに当てはまらない使い方をしたいときは、ゲーム内のリクエストからご相談ください</li>
+    <li>使ってくれたら、ゲーム内のリクエスト・X・メール(<a class="mail-link" data-mail="contact|music-lidar.com">contact＠music-lidar.com</a>)で教えてもらえるとうれしいです</li>
+    <li>このガイドラインに当てはまらない使い方をしたいときは、ゲーム内のリクエストかメール(<a class="mail-link" data-mail="contact|music-lidar.com">contact＠music-lidar.com</a>)でご相談ください</li>
   </ul>
 
   <h2>そのほか</h2>
@@ -118,7 +118,7 @@ footer { margin-top: 48px; color: var(--muted); font-size: 13px; text-align: cen
   <p class="en">The original songs of MUSIC LiDAR (composed by Karuwaka; songs shown without an artist credit) may be used as background music for videos and streams, in your own games, apps and other works, and in arrangements/remixes — including monetized and paid works — as long as you credit them, e.g. <code>Music: Karuwaka (MUSIC LiDAR) "Song title"</code> with https://music-lidar.com/ if possible.
   You may not redistribute the audio files themselves (except inside Scratch projects), present the songs as your own, sell or publish them unchanged on music services, register them with Content ID, or use them for hateful or illegal content. Audio files are not distributed publicly; you may record the audio from the in-game "Listen" mode, or request the mp3 files with the form above (your email address is stored encrypted and used only to reply). No permission request is needed. Songs by other artists are not covered.</p>
 
-  <footer><a href="./">MUSIC LiDAR で遊ぶ</a> ・ <a href="guide.html">遊び方・収録曲</a> ・ <a href="streaming.html">実況・配信ガイドライン</a> ・ <a href="credits.html">クレジット</a><br>制作: かるわか</footer>
+  <footer><a href="./">MUSIC LiDAR で遊ぶ</a> ・ <a href="guide.html">遊び方・収録曲</a> ・ <a href="streaming.html">実況・配信ガイドライン</a> ・ <a href="credits.html">クレジット</a><br>お問い合わせ:<a class="mail-link" data-mail="contact|music-lidar.com">contact＠music-lidar.com</a><br>制作: かるわか</footer>
 </div>
 <script type="module">
 // 音源ファイルの申請: メールアドレスはサーバー(mlidar_audio_request)で暗号化して保存する。管理者ページの「リクエスト・お問い合わせ」に届く
@@ -143,5 +143,6 @@ $('rq-form').addEventListener('submit', async (ev) => {
   } finally { $('rq-send').disabled = false; }
 });
 </script>
+<script>/* 連絡先のメールアドレスは、迷惑メールを集めるプログラムに拾われにくいよう分けて書き、開いたときに組み立てる */document.querySelectorAll('[data-mail]').forEach((a) => { const [u, d] = a.dataset.mail.split('|'); a.href = 'mailto:' + u + '@' + d; a.textContent = u + '@' + d; });</script>
 </body>
 </html>

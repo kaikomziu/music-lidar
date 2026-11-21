@@ -1743,6 +1743,18 @@ body.playing .season-fx { display: none; }
 
 /* 管理者ページ: 受信メール */
 .adm-mail li { display: block; padding: 8px 10px; }
+/* 管理者ページ: サーバーの容量 */
+.adm-storage { border: 1px solid var(--panel-line); border-radius: 8px; padding: 12px 14px; background: var(--panel); }
+.adm-storage .as-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.adm-storage .as-row b { font-size: 18px; }
+.adm-storage .as-row span { color: var(--muted); font-size: 13px; }
+.adm-storage .as-bar { position: relative; height: 10px; margin: 8px 0; border-radius: 5px; background: rgba(255,255,255,0.08); overflow: visible; }
+.adm-storage .as-bar i { display: block; height: 100%; border-radius: 5px; background: #5ef2ff; }
+.adm-storage .as-bar em { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #ffd25e; }
+.adm-storage.warn { border-color: #ffd25e; } .adm-storage.warn .as-bar i { background: #ffd25e; }
+.adm-storage.bad { border-color: #ff5a8a; } .adm-storage.bad .as-bar i { background: #ff5a8a; }
+.adm-storage .as-msg { margin: 0 0 4px; font-size: 13px; }
+.adm-storage.warn .as-msg { color: #ffd25e; } .adm-storage.bad .as-msg { color: #ff8fb0; }
 .adm-mail li.unread { border-left: 3px solid #5ef2ff; }
 .adm-mail details { margin: 4px 0; }
 .adm-mail li.read { opacity: 0.7; }

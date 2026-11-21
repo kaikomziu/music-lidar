@@ -13,7 +13,7 @@ import { mvTag, createMV, analyzeSections, prepareMV, chartSections } from './mv
 import { CHANGELOG, VERSION } from './changelog.js';
 import { Game, PointCloud, laneOf, DIFF_COLOR, visibleTime, IS_TOUCH, FX_LEVELS } from './game.js';
 import { load, save, getSettings, setSettings, DEFAULT_SETTINGS, clientId, getBest, recordBest } from './storage.js';
-import { fetchRanking, submitScore } from './ranking.js';
+import { fetchRanking, submitScore, rpc } from './ranking.js';
 import * as acc from './account.js';
 import { initMeta, openAccount, renderHeader, gachaResultOpen, closeGacha, openScreen as openMetaScreen, showGiftGacha } from './meta.js';
 import { initMaker, openCharts, openEditor, makerKeydown, homeFeatured } from './maker.js';
@@ -1449,6 +1449,17 @@ function renderHome() {
   for (const t of document.querySelectorAll('#home .need-login')) t.classList.toggle('locked', !s);
   $('h-team').textContent = s ? fxText(acc.teamFx()) : 'キャラ5人でスキルを組み合わせる';
   $('btn-admin').hidden = !acc.isAdmin();
+  if (acc.isAdmin()) checkStorage();
+}
+// 管理者がホームを開いたら、サーバーの容量が多いときだけ知らせる(1日1回まで)
+async function checkStorage() {
+  const day = new Date().toDateString();
+  if (load('storageCheck', '') === day) return;
+  save('storageCheck', day);
+  try {
+    const s = await rpc('mlidar_admin_storage', { p_token: acc.getToken() });
+    if (s && s.db_bytes >= s.warn_bytes) toast(`サーバーの容量が ${Math.round(s.db_bytes / 1048576)}MB になりました(無料枠 ${Math.round(s.limit_bytes / 1048576)}MB)。管理者ページを確認してください`, 8000);
+  } catch { /* 管理者でない・通信できないときは何もしない */ }
 }
 $('h-live').addEventListener('click', () => homeLive(true));
 $('h-live-back').addEventListener('click', () => { homeLive(false); $('h-live').focus({ preventScroll: true }); });

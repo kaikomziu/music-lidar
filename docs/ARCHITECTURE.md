@@ -239,7 +239,7 @@ export default {
 - **判定タイミングのおすすめ**: リザルトで、そのプレイの叩いたずれ(`r.log` の3つ目、今の判定タイミングを引いたあとの値)の中央値が 12ms 以上なら「判定タイミングを ±Nms にする」ボタンを出す(40 回以上叩いたときだけ。`offsetHint`)。音に合わせて叩いて測る画面(設定の「タイミング調整」`extras.js`)も前からある
 - **練習モード**(選曲画面の「🎯 練習モード」): 区間(はじめ・おわり)・速さ(×0.5〜1.0)・くり返しを選ぶ。`custom.kind = 'practice'`、記録・ランキング・ゴースト・録画なし。遅くするときは、区間の前後を WAV にして `<audio>`(`preservesPitch`)で鳴らし、ゲームの時計をその再生位置に合わせる(`Game.startMedia`、`this.rate`。`songTime` は rate 倍で進む)。くり返すときは終わるたびに同じ条件でもう一度始める(やめるときは Esc →「選曲へ」)。選んだ条件は `mlidar:practice:<曲id>`
 - **オートプレイ**(選曲画面の「🤖 オートプレイ」、`main.js` の `playAuto`): 譜面から全部ぴったりに押す入力を `autoInputs` で作り、リプレイと同じ `custom.kind = 'replay'` で流す(だから記録・ランキング・ゴースト・コインには残らない)。離すのはノーツの 0.06 秒後(ロングノーツは終わりの 0.02 秒後)、同じレーンの次のノーツより前。スマホでは練習モードと同じく「記録・ランキング」のシートの中に出る
-- **リプレイ**(`replay.js`): ふつうのプレイ中はキーの押し・離し `[判定の時刻, レーン, 1/0]` を `game.inputs` に記録。リプレイは `custom.kind = 'replay'` で `replay` を渡し、その時刻が来たら `pressAt` / `releaseAt` を呼ぶ(キー入力は受け付けない)。自己ベストを更新したら、端末(`mlidar:replay:<曲id>/<難易度>`、最大 15 譜面)とサーバー(`mlidar_replays`。ランキングに記録したスコア以下だけ受け付ける)に残す。レーンがランダムのプレイは残さない。選曲画面の「▶ リプレイ」で自分のベストと上位 10 人、リザルトの「▶ リプレイを見る」でいまのプレイを見られる
+- **リプレイ**(`replay.js`): ふつうのプレイ中はキーの押し・離し `[判定の時刻, レーン, 1/0]` を `game.inputs` に記録。リプレイは `custom.kind = 'replay'` で `replay` を渡し、その時刻が来たら `pressAt` / `releaseAt` を呼ぶ(キー入力は受け付けない)。自己ベストを更新したら、端末(`mlidar:replay:<曲id>/<難易度>`、最大 15 譜面)とサーバー(`mlidar_replays`。ランキングに記録したスコア以下だけ受け付ける。**各譜面のスコア上位20人分だけ残し、それより下は保存するときに消す**)に残す。レーンがランダムのプレイは残さない。選曲画面の「▶ リプレイ」で自分のベストと上位 10 人、リザルトの「▶ リプレイを見る」でいまのプレイを見られる
 - **EXTRA**(4つ目の難易度): `levels.extra` がある曲だけ。**音源曲**は曲ファイルの `levels.extra` と `fixedCharts.extra`(Crying Red・暮らし泳ぐ・INMU KING・シャイニングスター・SUMMER TRIANGLE・水の追憶・Hydrangea・蒼。GHOST 2曲は HARD がすでに8分上限の重ねる譜面なので付けていない)。**内蔵曲**は `composer.js` の `extraParam`(HARD の値から最小間隔×0.72・上限×1.45・点数の下限×0.45・同時押し+0.16)で `generateChart(…, 'extra', …)` を作り、レベルは `js/songs/extra-levels.js`(`node tools/extra-levels.mjs` で作る。EXTRA が HARD より15%以上ノーツが多い曲だけ。レベルは全曲の密度とレベルの対応から推定し、HARD+1 以上)。曲や譜面の作り方を変えたら `node tools/extra-levels.mjs` を作り直す。ひとりでライブだけ(みんなでライブ・週替わり・段位などは3つのまま)。曲一覧のカードには EXTRA のレベルも紫で出す。EXTRA を選んでいるとき、EXTRA のない曲は HARD のレベルで絞り込み・並べ替える(`dOf`)。EXTRA のない曲では HARD を見せる。サーバーの `mlidar_scores.diff` と `mlidar_play_result_core` は `extra` も受け付ける(コインは HARD より少し多い)。譜面は `LAYERED_TARGET=extra python tools/audiochart/layered.py <data.js> <T_END> <目標nps> 0`(遅い曲は `LAYERED_GRID=16` で16分まで)
 
 ---
@@ -403,10 +403,18 @@ export default {
 - mp4 が録れるブラウザ(Chrome・Edge・Safari)は mp4、ほかは webm(`mp4Supported()`)。ビットレートは横 5Mbps・縦 4.5Mbps(1分半の曲で横 50MB 前後)。ライブ・譜面メーカーでは録らない
 - **requestAnimationFrame で描くので、タブが裏に回ると止まる**(プレイも自動で一時停止する)。ブラウザ確認で裏のタブ扱いになるときは、`document.hidden` と rAF を差し替えて確かめる
 
+### サーバーの容量(1.77.1〜)
+- 無料プランのデータベースは 500MB(目安)。このプロジェクトは MixAll・Discord ボット・Mod Wiki なども同じデータベースを使っている(2026-11-21 時点で全体 32MB、MUSIC LiDAR は 1.5MB)
+- 1人あたりで大きいのはリプレイ(1譜面 約6KB)とゴースト(約5KB)。どちらも各譜面の上位20人だけ残すので、人が増えても「全譜面 × 20人」で頭打ちになる
+- 管理者ページの「サーバーの容量」に、データベース・ファイル置き場の使用量と大きいテーブルを出す(`mlidar_admin_storage`。管理者だけ)。300MB(`warn_bytes`)を超えると黄色、450MB で赤
+- 管理者がホームを開いたとき、300MB を超えていたらトーストで知らせる(1日1回。`main.js` の `checkStorage`、端末の `mlidar:storageCheck`)
+- 人が増えると、容量より先に通信量(無料枠 月5GB くらい)が効くことがある。Supabase の管理画面の Usage で見る
+
 ### オンラインのゴースト
 - 設定の「ゴースト」(`settings.ghostMode`: `self` / `rival` / `top` / `off`。古い `settings.ghost` は true/false)
 - 自己ベストを出すと、ランキングへ送ったあとに判定の記録を `mlidar_ghost_put` で送る(ランキングにそれ以上のスコアがあるときだけ受け付ける)。形は端末のゴーストと同じで、頭文字を小文字(p/g/o/m)に
 - 遊ぶ前に `mlidar_ghost_get`(rival = 自分のすぐ上、top = 1位。自分より上の人がいなければ null)。1.5秒で返らなければ自己ベスト。画面には「名前 ±差」
+- サーバーのゴーストも、リプレイと同じく**各譜面の上位20人分だけ**残す(`mlidar_ghost_put` が保存のときに21位以下を消す)。21位以下の人のライバルは「残っている中でいちばん下(20位)」になる
 
 ### みんなでライブの招待リンク
 - ルームの「🔗 招待リンク」は `https://music-lidar.com/?room=CODE`。開いてタイトルを抜けると、ログイン済みならそのルームへ入る。ログインしていなければログインのあとで入る(`live.js` の `joinFromLink`)
@@ -453,7 +461,7 @@ export default {
 | `mlidar_units` / `mlidar_banners` | キャラ図鑑 / 期間限定ガチャ |
 | `mlidar_skins` | 着せ替えの一覧(値段・入手方法) |
 | `mlidar_charts` / `mlidar_chart_scores` / `mlidar_chart_likes` | みんなの譜面(`song` は曲の id か `a:<音声id>`) |
-| `mlidar_replays` | リプレイ(1人1譜面1つ。キーの押し・離しの記録) |
+| `mlidar_replays` | リプレイ(1人1譜面1つ。キーの押し・離しの記録。各譜面の上位20人だけ) |
 | `mlidar_mails` | 受信メール(karubiwakame@gmail.com)。差出人・件名・本文は暗号化(鍵は Vault の `mlidar_request_key`)。500通を超えたら古いものから消す |
 | `mlidar_wishes` | 七夕の願いごと(1人1年1つ。管理者が出す/出さないを決める) |
 | `mlidar_lyrics` | 曲の歌詞と時刻(RLS でポリシーなし。関数からだけ触る) |

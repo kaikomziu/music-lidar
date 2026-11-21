@@ -8,6 +8,7 @@ const KIND = { ...REQ_KIND, audio: '音源の申請' }; // 音源の申請はガ
 const $ = (id) => document.getElementById(id);
 let ui = null; // { entries, show, back, current, esc, toast }
 let timer = 0, data = null, sortKey = 'last_seen', requests = [];
+let storage = null; // サーバーの容量(mlidar_admin_storage)
 const ONLINE_MS = 2.5 * 60 * 1000; // 最後のやりとりからこの時間以内なら「オンライン」
 
 const PLACE = {
@@ -53,6 +54,7 @@ async function refresh() {
     requests = await rpc('mlidar_request_list', { p_token: load('token', null) }).catch(() => requests);
     wishes = await rpc('mlidar_wish_admin', { p_token: load('token', null) }).catch(() => wishes);
     mails = await rpc('mlidar_mail_list', { p_token: load('token', null) }).catch(() => mails);
+    storage = await rpc('mlidar_admin_storage', { p_token: load('token', null) }).catch(() => storage);
     // 返信を書いている途中なら描き直さない(入力が消えるので)
     if (!document.activeElement?.closest?.('.adm-rq')) render();
   } catch (e) {
@@ -62,6 +64,24 @@ async function refresh() {
   }
   // 開いている間は20秒ごとに更新
   timer = setTimeout(() => { if (ui.current() === 'admin' && !document.hidden) refresh(); else if (ui.current() === 'admin') timer = setTimeout(refresh, 5000); }, 20000);
+}
+
+// サーバーの容量: データベース(無料枠 500MB の目安)とファイル置き場。300MB を超えたら黄色、450MB を超えたら赤
+const mb = (b) => (b / 1048576).toFixed(b < 10485760 ? 1 : 0) + 'MB';
+function storageHtml() {
+  const s = storage;
+  if (!s) return '';
+  const k = s.db_bytes / s.limit_bytes, lv = s.db_bytes >= s.limit_bytes * 0.9 ? 'bad' : s.db_bytes >= s.warn_bytes ? 'warn' : 'ok';
+  const msg = lv === 'bad' ? 'もうすぐ無料枠の上限です。古いデータを消すか、有料プラン・プロジェクトを分けることを考えてください'
+    : lv === 'warn' ? `${mb(s.warn_bytes)} を超えました。大きいテーブルを確認してください` : 'まだ余裕があります';
+  return `<h3 class="adm-h">サーバーの容量</h3>
+    <div class="adm-storage ${lv}">
+      <div class="as-row"><b>データベース ${mb(s.db_bytes)}</b><span>/ ${mb(s.limit_bytes)}(${(k * 100).toFixed(1)}%)</span></div>
+      <div class="as-bar"><i style="width:${Math.min(100, k * 100).toFixed(1)}%"></i><em style="left:${(s.warn_bytes / s.limit_bytes * 100).toFixed(1)}%" title="警告の線"></em></div>
+      <p class="as-msg">${msg}</p>
+      <p class="muted small">MUSIC LiDAR のぶん ${mb(s.mlidar_bytes)} ・ リプレイ ${s.replays}件・ゴースト ${s.ghosts}件(各譜面の上位20人だけ残します) ・ ファイル置き場 ${mb(s.file_bytes)} / ${mb(s.file_limit_bytes)}<br>
+      同じデータベースに MixAll などほかのサイトのデータも入っています。大きいもの: ${s.top.map((t) => `${ui.esc(t.name)} ${mb(t.bytes)}`).join(' ・ ')}</p>
+    </div>`;
 }
 
 function render() {
@@ -87,6 +107,8 @@ function render() {
       ${card('ランキング記録', t.records, `投稿譜面 ${t.charts}`)}
       ${card('招待で始めた人', t.invited ?? 0, '友だち招待')}
     </div>
+
+    ${storageHtml()}
 
     <h3 class="adm-h">受信メール(karubiwakame@gmail.com ・ 未読 ${mails.filter((m) => !m.read).length}通)</h3>
     <p class="muted small">Gmail に入れた Apps Script(tools/gmail-to-mlidar.gs)が5分ごとに送ってきます。差出人・件名・本文は暗号化して保存しています。</p>

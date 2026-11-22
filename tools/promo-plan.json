@@ -16,5 +16,6 @@
   {"type": "gimmick", "hook": "画面がぐるぐる回る音ゲー", "scenes": [{"id": "spin-cycle", "diff": "hard", "beat": 60}]},
   {"type": "gimmick", "hook": "逆さまでも叩ける？", "scenes": [{"id": "gravity-flip", "diff": "hard", "beat": 92}]},
   {"type": "gimmick", "hook": "光る・揺れる・止まる", "scenes": [{"id": "strobe-storm", "diff": "hard", "beat": 148}]},
-  {"type": "gimmick", "hook": "レーンが逃げていく", "sub": "点滅なしのギミック譜面", "scenes": [{"id": "drift-lane", "diff": "hard", "beat": 156}]}
+  {"type": "gimmick", "hook": "レーンが逃げていく", "sub": "点滅なしのギミック譜面", "scenes": [{"id": "drift-lane", "diff": "hard", "beat": 156}]},
+  {"type": "gimmick", "name": "mix", "hook": "This rhythm game chart went feral", "sub": "5 GIMMICK CHARTS", "scenes": [{"id": "drift-lane", "diff": "hard", "beat": 40, "label": "MOVING LANES"}, {"id": "gravity-flip", "diff": "hard", "beat": 64, "label": "UPSIDE DOWN"}, {"id": "spin-cycle", "diff": "hard", "beat": 200, "label": "SPINNING"}, {"id": "strobe-storm", "diff": "hard", "beat": 176, "label": "STROBE"}, {"id": "vertigo-scan", "diff": "hard", "beat": 176, "label": "EVERYTHING"}], "lang": "en"}
 ]

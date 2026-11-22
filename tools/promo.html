@@ -343,9 +343,10 @@ const PLAY_BIG = { cx: 540, yTop: 560, yJ: 1390, wTop: 170, wBot: 940 };
 const PLAY_SMALL = { cx: 540, yTop: 1010, yJ: 1400, wTop: 150, wBot: 760 };
 const PLAY_GIM = { cx: 540, yTop: 640, yJ: 1360, wTop: 160, wBot: 820 }; // ギミック: 回っても画面に収まるよう少し小さめ
 const WARN = 2.8; // 光の点滅の注意の画面(秒)
+const GNAME_EN = { stop: 'FREEZE', speed: 'SLOW DOWN', cover: 'COVER', hidden: 'VANISH', sway: 'SWAY', shift: 'LANE SHIFT', judge: 'LINE MOVE', flip: 'UPSIDE DOWN', spin: 'SPIN', shake: 'SHAKE', flash: 'FLASH', strobe: 'STROBE' }; // 英語版(lang: 'en')
 const GNAME = { stop: '停止', speed: 'スロー', cover: '隠し', hidden: '消える', sway: '揺れる', shift: 'レーン移動', judge: '判定ライン移動', flip: '上下反転', spin: '回転', shake: '画面揺れ', flash: 'フラッシュ', strobe: '点滅' };
 // いま始まったギミックの名前(0.9 秒だけ出す)。解除(to: 0 など)は出さない
-function gimmickNow(def, s) {
+function gimmickNow(def, s, en = false) {
   const spb = 60 / def.bpm;
   let best = null;
   for (const gm of def.gimmicks || []) {
@@ -353,12 +354,12 @@ function gimmickNow(def, s) {
     if (t > s || s - t > 0.9) continue;
     if (gm.type !== 'stop' && gm.type !== 'flash' && !gm.to) continue;
     if (gm.type === 'speed' && gm.to >= 1) continue;
-    if (!best || t >= best.t) best = { t, name: GNAME[gm.type] };
+    if (!best || t >= best.t) best = { t, name: (en ? GNAME_EN : GNAME)[gm.type] };
   }
   return best;
 }
 // 注意の画面(光の点滅・画面の動き)
-function drawWarn(g, v) {
+function drawWarn(g, v, en = false) {
   g.fillStyle = '#05060f'; g.fillRect(0, 0, W, H);
   const a = clamp(v / 0.25) * (1 - clamp((v - WARN + 0.3) / 0.3));
   g.save(); g.globalAlpha = a;
@@ -369,11 +370,14 @@ function drawWarn(g, v) {
   g.shadowBlur = 0; g.fillStyle = '#05060f'; g.font = '900 210px "Noto Sans JP"'; g.textAlign = 'center'; g.fillText('!', 0, 118);
   g.restore();
   g.restore();
-  text(g, '注意', 540, 960, { size: 130, glow: '#ffd25e', alpha: a });
-  text(g, 'この動画には 光の点滅・', 540, 1110, { size: 62, alpha: a, glow: '#ffd25e', blur: 10 });
-  text(g, '画面の回転や揺れ があります', 540, 1195, { size: 62, alpha: a, glow: '#ffd25e', blur: 10 });
-  text(g, '光に敏感な方・気分が悪くなりやすい方は', 540, 1320, { size: 42, color: '#e6f0ff', blur: 6, alpha: a });
-  text(g, '視聴をお控えください', 540, 1380, { size: 42, color: '#e6f0ff', blur: 6, alpha: a });
+  const L = en
+    ? ['WARNING', 'This video contains flashing lights,', 'screen rotation and shaking.', 'Viewer discretion is advised for', 'photosensitive viewers.']
+    : ['注意', 'この動画には 光の点滅・', '画面の回転や揺れ があります', '光に敏感な方・気分が悪くなりやすい方は', '視聴をお控えください'];
+  text(g, L[0], 540, 960, { size: en ? 120 : 130, font: en ? 'Orbitron' : '"Noto Sans JP"', glow: '#ffd25e', alpha: a });
+  text(g, L[1], 540, 1110, { size: en ? 54 : 62, alpha: a, glow: '#ffd25e', blur: 10 });
+  text(g, L[2], 540, 1195, { size: en ? 54 : 62, alpha: a, glow: '#ffd25e', blur: 10 });
+  text(g, L[3], 540, 1320, { size: 42, color: '#e6f0ff', blur: 6, alpha: a });
+  text(g, L[4], 540, 1380, { size: 42, color: '#e6f0ff', blur: 6, alpha: a });
 }
 function drawFrame(g, v, X) {
   const { spec, tl, mvPanel, panel } = X;
@@ -413,7 +417,7 @@ function drawFrame(g, v, X) {
           const p = pop(v, t0, 0.2);
           text(g, scn.label, 540, 450, { size: 96, color: '#fff', glow: def.color || CYAN, blur: 36, alpha: p.alpha, scale: p.scale });
         }
-        const gn = gimmickNow(def, s);
+        const gn = gimmickNow(def, s, spec.lang === 'en');
         if (gn) {
           const p = pop(s, gn.t, 0.18), out = 1 - clamp((s - gn.t - 0.6) / 0.3);
           text(g, gn.name + '!', 540, spec.scenes.length > 1 ? 560 : 470, { size: 92, color: '#fff', glow: '#ffd25e', blur: 34, alpha: p.alpha * out, scale: p.scale });
@@ -481,7 +485,7 @@ function drawFrame(g, v, X) {
       // フラッシュ・点滅: 画面に白を重ねる(動画では強さを 0.6 倍に抑える)
       const so = X.songs[tl.sceneAt(v)], fl = Math.max(so.scroll.flashAt(s), so.scroll.strobeAt(s)) * 0.6 * fadeK;
       if (fl > 0.003) { g.fillStyle = `rgba(255,255,255,${fl})`; g.fillRect(0, 0, W, H); }
-      if (X.warn) text(g, '※光の点滅・画面の動きがあります', 540, 1720, { size: 30, color: 'rgba(255,230,160,0.9)', glow: '#ffd25e', blur: 4 });
+      if (X.warn) text(g, spec.lang === 'en' ? '* Contains flashing lights & screen motion' : '※光の点滅・画面の動きがあります', 540, 1720, { size: 30, color: 'rgba(255,230,160,0.9)', glow: '#ffd25e', blur: 4 });
     }
   }
   if (inEnd) {
@@ -491,9 +495,9 @@ function drawFrame(g, v, X) {
     const p = pop(v, tl.main + 0.1, 0.4);
     g.save(); g.translate(540, 820); g.scale(p.scale, p.scale); g.translate(-540, -820); wordmark(g, 540, 820, 230, p.alpha); g.restore();
     text(g, '4KEY RHYTHM SCANNER', 540, 930, { size: 34, font: 'Orbitron', weight: 700, color: CYAN, blur: 10, alpha: p.alpha });
-    text(g, 'ブラウザで無料・インストール不要', 540, 1080, { size: 58, alpha: clamp((v - tl.main - 0.4) / 0.3) });
+    text(g, spec.lang === 'en' ? 'Free in your browser · No download' : 'ブラウザで無料・インストール不要', 540, 1080, { size: 58, alpha: clamp((v - tl.main - 0.4) / 0.3) });
     text(g, 'music-lidar.com', 540, 1190, { size: 72, font: 'Orbitron', color: CYAN, glow: CYAN, alpha: clamp((v - tl.main - 0.6) / 0.3) });
-    text(g, 'で検索 ・ プロフィールのリンクから', 540, 1265, { size: 38, color: '#e6f0ff', blur: 6, alpha: clamp((v - tl.main - 0.8) / 0.3) });
+    text(g, spec.lang === 'en' ? 'Link in bio' : 'で検索 ・ プロフィールのリンクから', 540, 1265, { size: 38, color: '#e6f0ff', blur: 6, alpha: clamp((v - tl.main - 0.8) / 0.3) });
   }
 }
 
@@ -532,7 +536,7 @@ async function loadSong(id, needDiffs, allowGimmick = false) {
 async function makeVideo(spec, idx) {
   const multi = spec.type === 'range' || spec.type === 'gimmick'; // 場面ごとに曲を変える型
   const ids = multi ? spec.scenes.map((x) => x.id) : [spec.id];
-  const name = `promo-${String(idx + 1).padStart(2, '0')}-${spec.type}-${spec.type === 'range' ? 'levels' : spec.type === 'gimmick' ? (spec.name || ids[0]) : spec.id}`;
+  const name = `promo-${String(idx + 1).padStart(2, '0')}-${spec.type}-${spec.type === 'range' ? 'levels' : spec.type === 'gimmick' ? (spec.name || ids[0]) : spec.id}${spec.lang === 'en' ? '-en' : ''}`;
   $('status').textContent = `${name}: 曲を合成中…`;
   const songs = [];
   for (let i = 0; i < ids.length; i++) {
@@ -569,7 +573,7 @@ async function makeVideo(spec, idx) {
   };
   const t0 = performance.now();
   for (let f = 0; f < N; f++) {
-    if (f / FPS < off) drawWarn(g, f / FPS); else drawFrame(g, f / FPS - off, X);
+    if (f / FPS < off) drawWarn(g, f / FPS, spec.lang === 'en'); else drawFrame(g, f / FPS - off, X);
     inflight.push(encode(g.getImageData(0, 0, W, H).data.buffer));
     if (inflight.length >= WORKERS * 2) { const j = await inflight.shift(); parts.push(j); size += j.length; }
     if (parts.length >= BATCH) await flush();

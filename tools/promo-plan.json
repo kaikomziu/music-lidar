@@ -10,5 +10,11 @@
   {"type": "diff", "id": "hyperpop-glitch", "diffs": ["easy", "hard", "extra"], "hook": "EASY と EXTRA、ちがいすぎ"},
   {"type": "diff", "id": "chip-dungeon", "diffs": ["easy", "hard", "extra"], "hook": "難易度を上げるとこうなる"},
   {"type": "range", "hook": "かんたんから鬼まで、ぜんぶ遊べる", "scenes": [{"id": "first-light", "diff": "easy", "label": "かんたん"}, {"id": "neon-highway", "diff": "normal", "label": "ふつう"}, {"id": "paper-planes", "diff": "hard", "label": "むずかしい"}, {"id": "lidar-rush", "diff": "hard", "label": "激ムズ"}, {"id": "sakura-blizzard", "diff": "hard", "label": "鬼"}]},
-  {"type": "range", "hook": "初心者から上級者まで", "scenes": [{"id": "cotton-candy", "diff": "easy", "label": "かんたん"}, {"id": "midnight-avenue", "diff": "normal", "label": "ふつう"}, {"id": "disco-mirrorball", "diff": "hard", "label": "むずかしい"}, {"id": "hyper-sakura", "diff": "hard", "label": "激ムズ"}, {"id": "neutron-overdrive", "diff": "hard", "label": "鬼"}]}
+  {"type": "range", "hook": "初心者から上級者まで", "scenes": [{"id": "cotton-candy", "diff": "easy", "label": "かんたん"}, {"id": "midnight-avenue", "diff": "normal", "label": "ふつう"}, {"id": "disco-mirrorball", "diff": "hard", "label": "むずかしい"}, {"id": "hyper-sakura", "diff": "hard", "label": "激ムズ"}, {"id": "neutron-overdrive", "diff": "hard", "label": "鬼"}]},
+  {"type": "gimmick", "name": "mix", "hook": "音ゲーの譜面が暴れだした", "sub": "ギミック譜面 5曲", "scenes": [{"id": "drift-lane", "diff": "hard", "beat": 40, "label": "レーンが動く"}, {"id": "gravity-flip", "diff": "hard", "beat": 64, "label": "上下反転"}, {"id": "spin-cycle", "diff": "hard", "beat": 200, "label": "画面が回る"}, {"id": "strobe-storm", "diff": "hard", "beat": 176, "label": "点滅"}, {"id": "vertigo-scan", "diff": "hard", "beat": 176, "label": "ぜんぶ"}]},
+  {"type": "gimmick", "hook": "この譜面、酔う", "sub": "回転・反転・揺れ・フラッシュ", "scenes": [{"id": "vertigo-scan", "diff": "hard", "beat": 156}]},
+  {"type": "gimmick", "hook": "画面がぐるぐる回る音ゲー", "scenes": [{"id": "spin-cycle", "diff": "hard", "beat": 60}]},
+  {"type": "gimmick", "hook": "逆さまでも叩ける？", "scenes": [{"id": "gravity-flip", "diff": "hard", "beat": 92}]},
+  {"type": "gimmick", "hook": "光る・揺れる・止まる", "scenes": [{"id": "strobe-storm", "diff": "hard", "beat": 148}]},
+  {"type": "gimmick", "hook": "レーンが逃げていく", "sub": "点滅なしのギミック譜面", "scenes": [{"id": "drift-lane", "diff": "hard", "beat": 156}]}
 ]

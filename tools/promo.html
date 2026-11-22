@@ -75,7 +75,7 @@ function densest(notes, len, duration, bar) {
 // ---------- 時間の割り当て ----------
 // 動画の時刻 v → 曲の時刻・難易度。難易度くらべは同じ区間(約5秒・小節単位)を3回くり返す
 function timeline(spec, def, duration, songs) {
-  if (spec.type === 'range') { // いろんな難易度: 場面ごとに曲と難易度を変える(本編を場面の数で等分)
+  if (spec.type === 'range' || spec.type === 'gimmick') { // いろんな難易度・ギミック: 場面ごとに曲と難易度を変える(本編を場面の数で等分)
     const n = spec.scenes.length, seg = MAIN / n, total = MAIN + END;
     const segs = spec.scenes.map((sc, i) => {
       const len = i === n - 1 ? seg + END : seg, so = songs[i];
@@ -113,14 +113,14 @@ function clickBuf(sr) { // タップ音(短い「カッ」)
   }
   return out;
 }
-function buildAudio(songs, tl, withClicks) {
-  const sr = songs[0].buf.sampleRate, n = Math.ceil(tl.total * sr);
+function buildAudio(songs, tl, withClicks, pre = 0) { // pre: 頭に入れる無音の秒数(注意の画面)
+  const sr = songs[0].buf.sampleRate, P0 = Math.round(pre * sr), n = Math.ceil(tl.total * sr) + P0;
   const L = new Float32Array(n), R = new Float32Array(n);
   const multi = songs.length > 1; // 曲が切り替わる(いろんな難易度)
   for (const [v0, len, s0, , k] of tl.segs) {
     const buf = songs[k].buf, g = loudnessGain(buf);
     const sL = buf.getChannelData(0), sR = buf.numberOfChannels > 1 ? buf.getChannelData(1) : sL;
-    const a = Math.round(v0 * sr), b = Math.min(n, Math.round((v0 + len) * sr)), j0 = Math.round(s0 * sr);
+    const a = P0 + Math.round(v0 * sr), b = Math.min(n, P0 + Math.round((v0 + len) * sr)), j0 = Math.round(s0 * sr);
     const fade = Math.round(sr * (multi ? 0.07 : 0.012)); // 継ぎ目がプツッとしないように(曲が変わるときは少し長めに)
     for (let i = a; i < b; i++) {
       const j = j0 + (i - a);
@@ -136,7 +136,7 @@ function buildAudio(songs, tl, withClicks) {
         if (nt.t < s0 || nt.t >= s0 + len) continue;
         const v = v0 + (nt.t - s0);
         if (v >= tl.main) continue;
-        const a = Math.round(v * sr);
+        const a = P0 + Math.round(v * sr);
         for (let i = 0; i < c.length && a + i < n; i++) { L[a + i] += c[i] * 0.22; R[a + i] += c[i] * 0.22; }
       }
     }
@@ -145,7 +145,7 @@ function buildAudio(songs, tl, withClicks) {
   const fi = Math.round(sr * 0.04), fo = Math.round(sr * 1.2);
   let pk = 0;
   for (let i = 0; i < n; i++) {
-    const k = Math.min(1, i / fi, (n - i) / fo);
+    const k = Math.min(1, Math.max(0, i - P0) / fi, (n - i) / fo);
     L[i] *= k; R[i] *= k;
     pk = Math.max(pk, Math.abs(L[i]), Math.abs(R[i]));
   }
@@ -193,22 +193,46 @@ const pop = (v, start, len = 0.28) => { const k = clamp((v - start) / len); retu
 // ---------- プレイ画面(3D風の4レーン) ----------
 // P: { cx, yTop, yJ, wTop, wBot, hs(ノーツが奥から来るまでの秒) }
 // opt.hs: ノーツが奥から判定ラインまで来る秒数(小さいほど速く流れて、ノーツの間が広く見える)
+// opt.sc: ギミック(buildScroll の結果)。あればノーツの位置をスクロール量で決め、レーンの移動・回転なども描く
 function drawPlay(g, P, notes, s, opt = {}) {
-  const { cx, yTop, yJ, wTop, wBot } = P;
+  const sc = opt.sc;
+  let { cx, yTop, yJ, wTop, wBot } = P;
   const hs = opt.hs ?? 0.9;
-  const K = 2.3, sc = wBot / 920;
+  let cover = 0, hide = 0;
+  g.save();
+  if (sc) {
+    // 移動・揺れ: 横にずらす。ずれても画面に収まるように、ずれている間はレーンを細くする(ゲームと同じ考え)
+    const sway = sc.swayAt(s), shift = sc.shiftAt(s), bpm = opt.bpm || 120;
+    const off = (sway > 0.001 ? sway * Math.sin((s * bpm / 60) * Math.PI / 2) : 0) + shift;
+    const f = Math.min(1, 1000 / (wBot + (2 * (Math.max(0, sway) + Math.abs(shift)) * wBot) / 4));
+    wTop *= f; wBot *= f; cx += (off * wBot) / 4;
+    // 判定ラインの高さ(マイナスで上へ)
+    yJ = Math.max(yTop + 260, yJ + sc.judgeAt(s) * 1500);
+    cover = sc.coverAt(s); hide = sc.hideAt(s);
+    // 上下反転・回転・画面揺れ: プレイ画面の真ん中を軸にする
+    const flip = sc.flipAt(s), spin = sc.spinAt(s), shake = sc.shakeAt(s);
+    const ox = 540, oy = (P.yTop + P.yJ + 120) / 2;
+    g.translate(ox, oy);
+    if (shake > 0.001) g.translate(shake * 34 * Math.sin(s * 61) * Math.cos(s * 23), shake * 34 * Math.sin(s * 47 + 1));
+    if (Math.abs(spin) > 0.01) g.rotate((spin * Math.PI) / 180);
+    if (flip > 0.001) g.scale(1, Math.cos(Math.min(1, flip) * Math.PI));
+    g.translate(-ox, -oy);
+  }
+  // ノーツの奥行き(0 = 判定ライン、1 = いちばん奥)。ギミックがあればスクロール量(停止・変速)で決める
+  const S0 = sc ? sc.S(s) : s;
+  const zOf = (t) => ((sc ? sc.S(t) : t) - S0) / hs;
+  const K = 2.3, ws = wBot / 920;
   const yAt = (z) => yJ - (yJ - yTop) * (z * (1 + K)) / (1 + K * z);
   const wAt = (y) => wTop + (wBot - wTop) * (y - yTop) / (yJ - yTop);
   const xAt = (lane, y) => { const w = wAt(y); return cx - w / 2 + (w * lane) / 4; };
-  const yB = yJ + 120 * sc;
-  g.save();
+  const yB = yJ + 120 * ws;
   // 床
   g.beginPath(); g.moveTo(xAt(0, yTop), yTop); g.lineTo(xAt(4, yTop), yTop); g.lineTo(xAt(4, yB), yB); g.lineTo(xAt(0, yB), yB); g.closePath();
   const fl = g.createLinearGradient(0, yTop, 0, yB);
   fl.addColorStop(0, 'rgba(3,5,18,0.25)'); fl.addColorStop(0.5, 'rgba(3,5,18,0.7)'); fl.addColorStop(1, 'rgba(3,5,18,0.88)');
   g.fillStyle = fl; g.fill();
   // 見えているノーツ(ロングは終わりまで)
-  const vis = notes.filter((n) => (n.end ?? n.t) >= s - 0.35 && n.t <= s + hs);
+  const vis = notes.filter((n) => (n.end ?? n.t) >= s - 0.35 && zOf(n.t) <= 1);
   // 叩いた瞬間の光の柱
   for (const n of vis) {
     const age = s - n.t;
@@ -224,7 +248,7 @@ function drawPlay(g, P, notes, s, opt = {}) {
   for (let i = 0; i <= 4; i++) {
     const outer = i === 0 || i === 4;
     g.strokeStyle = outer ? 'rgba(94,242,255,0.95)' : 'rgba(150,180,255,0.28)';
-    g.lineWidth = (outer ? 5 : 2) * sc;
+    g.lineWidth = (outer ? 5 : 2) * ws;
     g.shadowColor = CYAN; g.shadowBlur = outer ? 18 : 0;
     g.beginPath(); g.moveTo(xAt(i, yTop), yTop); g.lineTo(xAt(i, yB), yB); g.stroke();
   }
@@ -232,7 +256,7 @@ function drawPlay(g, P, notes, s, opt = {}) {
   // ロングノーツの帯
   for (const n of vis) {
     if (!n.end || n.end < s) continue;
-    const z0 = clamp((n.t - s) / hs), z1 = clamp((n.end - s) / hs);
+    const z0 = clamp(zOf(n.t)), z1 = clamp(zOf(n.end));
     if (z1 <= z0) continue;
     const y0 = yAt(z0), y1 = yAt(z1), held = n.t <= s;
     const ins = (y) => (wAt(y) / 4) * 0.2;
@@ -244,44 +268,53 @@ function drawPlay(g, P, notes, s, opt = {}) {
   // ノーツ
   for (let i = vis.length - 1; i >= 0; i--) {
     const n = vis[i];
-    const z = (n.t - s) / hs;
+    const z = zOf(n.t);
     if (z < 0 || z > 1) continue;
+    if (cover > 0.001 && z > 1 - cover) continue; // 隠し: 奥が見えない
+    if (hide > 0.001 && z < hide) continue; // 消える: 手前で見えなくなる
     const y = yAt(z), f = (y - yTop) / (yJ - yTop);
-    const h = (10 + 34 * f) * sc, inset = (wAt(y) / 4) * 0.06;
+    const h = (10 + 34 * f) * ws, inset = (wAt(y) / 4) * 0.06;
     const x0 = xAt(n.lane, y) + inset, x1 = xAt(n.lane + 1, y) - inset;
     g.globalAlpha = 0.35 + 0.65 * clamp(f * 3);
-    g.shadowColor = LC[n.lane]; g.shadowBlur = 22 * sc;
+    g.shadowColor = LC[n.lane]; g.shadowBlur = 22 * ws;
     g.fillStyle = LC[n.lane]; g.fillRect(x0, y - h / 2, x1 - x0, h);
     g.shadowBlur = 0; g.fillStyle = 'rgba(255,255,255,0.85)'; g.fillRect(x0 + (x1 - x0) * 0.1, y - h * 0.12, (x1 - x0) * 0.8, Math.max(2, h * 0.24));
   }
   g.globalAlpha = 1;
+  if (cover > 0.001) { // 隠し: 奥を幕で覆う
+    const yc = yAt(1 - cover);
+    g.beginPath(); g.moveTo(xAt(0, yTop) - 6, yTop - 6); g.lineTo(xAt(4, yTop) + 6, yTop - 6); g.lineTo(xAt(4, yc) + 6, yc); g.lineTo(xAt(0, yc) - 6, yc); g.closePath();
+    g.fillStyle = 'rgba(6,8,22,0.97)'; g.fill();
+    g.strokeStyle = 'rgba(94,242,255,0.8)'; g.lineWidth = 4 * ws; g.beginPath(); g.moveTo(xAt(0, yc) - 6, yc); g.lineTo(xAt(4, yc) + 6, yc); g.stroke();
+  }
   // 判定ライン
-  g.strokeStyle = '#fff'; g.lineWidth = 7 * sc; g.shadowColor = CYAN; g.shadowBlur = 24;
+  g.strokeStyle = '#fff'; g.lineWidth = 7 * ws; g.shadowColor = CYAN; g.shadowBlur = 24;
   g.beginPath(); g.moveTo(xAt(0, yJ) - 10, yJ); g.lineTo(xAt(4, yJ) + 10, yJ); g.stroke();
   g.shadowBlur = 0;
   // キー(D F J K)。叩いた直後とロングを押している間は光る
-  const keyTop = yJ + 14 * sc, keyBot = yJ + 104 * sc;
+  const keyTop = yJ + 14 * ws, keyBot = yJ + 104 * ws;
   for (let l = 0; l < 4; l++) {
     const on = vis.some((n) => n.lane === l && ((s - n.t >= 0 && s - n.t < 0.12) || (n.end && n.t <= s && s < n.end)));
-    const ins = 10 * sc;
+    const ins = 10 * ws;
     g.beginPath();
     g.moveTo(xAt(l, keyTop) + ins, keyTop); g.lineTo(xAt(l + 1, keyTop) - ins, keyTop); g.lineTo(xAt(l + 1, keyBot) - ins, keyBot); g.lineTo(xAt(l, keyBot) + ins, keyBot); g.closePath();
     g.fillStyle = on ? LC[l] + '88' : 'rgba(10,14,34,0.75)'; g.fill();
-    g.lineWidth = 3 * sc; g.strokeStyle = LC[l] + (on ? 'ff' : '88'); g.stroke();
-    g.font = `900 ${40 * sc}px Orbitron, sans-serif`; g.textAlign = 'center'; g.fillStyle = on ? '#fff' : 'rgba(220,230,255,0.8)';
-    g.fillText('DFJK'[l], (xAt(l, keyBot) + xAt(l + 1, keyBot)) / 2, keyBot - 26 * sc);
+    g.lineWidth = 3 * ws; g.strokeStyle = LC[l] + (on ? 'ff' : '88'); g.stroke();
+    g.font = `900 ${40 * ws}px Orbitron, sans-serif`; g.textAlign = 'center'; g.fillStyle = on ? '#fff' : 'rgba(220,230,255,0.8)';
+    g.fillText('DFJK'[l], (xAt(l, keyBot) + xAt(l + 1, keyBot)) / 2, keyBot - 26 * ws);
   }
-  // コンボと判定
+  // コンボと判定(ギミックの回転・反転・揺れはここまで。文字は読めるようにまっすぐ出す)
+  if (sc) { g.restore(); g.save(); }
   let combo = 0, last = -1;
   for (const n of notes) { if (n.t <= s) { combo++; last = n.t; } else break; }
   if (opt.combo !== false && combo > 0) {
     const y = yJ - (yJ - yTop) * 0.6;
-    text(g, 'COMBO', cx, y - 120 * sc, { size: 30 * sc, font: 'Orbitron', weight: 700, color: 'rgba(220,230,255,0.85)', blur: 8, maxW: 600 });
-    text(g, String(combo), cx, y, { size: 120 * sc, font: 'Orbitron', alpha: 0.92, blur: 30, maxW: 700 });
+    text(g, 'COMBO', cx, y - 120 * ws, { size: 30 * ws, font: 'Orbitron', weight: 700, color: 'rgba(220,230,255,0.85)', blur: 8, maxW: 600 });
+    text(g, String(combo), cx, y, { size: 120 * ws, font: 'Orbitron', alpha: 0.92, blur: 30, maxW: 700 });
   }
   if (last >= 0 && s - last < 0.45) {
     const age = s - last, k = age < 0.1 ? 1.25 - 0.25 * (age / 0.1) : 1;
-    text(g, 'PERFECT', cx, yJ - (yJ - yTop) * 0.3, { size: 76 * sc, font: 'Orbitron', color: '#fff', glow: PINK, blur: 30, scale: k, alpha: 0.85 * (1 - clamp((age - 0.3) / 0.15)), maxW: 800 });
+    text(g, 'PERFECT', cx, yJ - (yJ - yTop) * 0.3, { size: 76 * ws, font: 'Orbitron', color: '#fff', glow: PINK, blur: 30, scale: k, alpha: 0.85 * (1 - clamp((age - 0.3) / 0.15)), maxW: 800 });
   }
   g.restore();
 }
@@ -308,6 +341,40 @@ function wordmark(g, cx, cy, big, alpha = 1) {
 const speedOf = (lv) => clamp(0.92 - ((lv || 1) - 1) * 0.026, 0.55, 0.92);
 const PLAY_BIG = { cx: 540, yTop: 560, yJ: 1390, wTop: 170, wBot: 940 };
 const PLAY_SMALL = { cx: 540, yTop: 1010, yJ: 1400, wTop: 150, wBot: 760 };
+const PLAY_GIM = { cx: 540, yTop: 640, yJ: 1360, wTop: 160, wBot: 820 }; // ギミック: 回っても画面に収まるよう少し小さめ
+const WARN = 2.8; // 光の点滅の注意の画面(秒)
+const GNAME = { stop: '停止', speed: 'スロー', cover: '隠し', hidden: '消える', sway: '揺れる', shift: 'レーン移動', judge: '判定ライン移動', flip: '上下反転', spin: '回転', shake: '画面揺れ', flash: 'フラッシュ', strobe: '点滅' };
+// いま始まったギミックの名前(0.9 秒だけ出す)。解除(to: 0 など)は出さない
+function gimmickNow(def, s) {
+  const spb = 60 / def.bpm;
+  let best = null;
+  for (const gm of def.gimmicks || []) {
+    const t = gm.beat * spb;
+    if (t > s || s - t > 0.9) continue;
+    if (gm.type !== 'stop' && gm.type !== 'flash' && !gm.to) continue;
+    if (gm.type === 'speed' && gm.to >= 1) continue;
+    if (!best || t >= best.t) best = { t, name: GNAME[gm.type] };
+  }
+  return best;
+}
+// 注意の画面(光の点滅・画面の動き)
+function drawWarn(g, v) {
+  g.fillStyle = '#05060f'; g.fillRect(0, 0, W, H);
+  const a = clamp(v / 0.25) * (1 - clamp((v - WARN + 0.3) / 0.3));
+  g.save(); g.globalAlpha = a;
+  // 三角の注意マーク
+  g.save(); g.translate(540, 640); g.lineJoin = 'round';
+  g.beginPath(); g.moveTo(0, -150); g.lineTo(170, 140); g.lineTo(-170, 140); g.closePath();
+  g.fillStyle = '#ffd25e'; g.shadowColor = '#ffd25e'; g.shadowBlur = 40; g.fill();
+  g.shadowBlur = 0; g.fillStyle = '#05060f'; g.font = '900 210px "Noto Sans JP"'; g.textAlign = 'center'; g.fillText('!', 0, 118);
+  g.restore();
+  g.restore();
+  text(g, '注意', 540, 960, { size: 130, glow: '#ffd25e', alpha: a });
+  text(g, 'この動画には 光の点滅・', 540, 1110, { size: 62, alpha: a, glow: '#ffd25e', blur: 10 });
+  text(g, '画面の回転や揺れ があります', 540, 1195, { size: 62, alpha: a, glow: '#ffd25e', blur: 10 });
+  text(g, '光に敏感な方・気分が悪くなりやすい方は', 540, 1320, { size: 42, color: '#e6f0ff', blur: 6, alpha: a });
+  text(g, '視聴をお控えください', 540, 1380, { size: 42, color: '#e6f0ff', blur: 6, alpha: a });
+}
 function drawFrame(g, v, X) {
   const { spec, tl, mvPanel, panel } = X;
   const { def, charts, levels, mvBg } = X.songs[tl.sceneAt(v)];
@@ -334,8 +401,27 @@ function drawFrame(g, v, X) {
       text(g, '♪ ' + def.title, 540, 930, { size: 84, font: 'Orbitron', glow: def.color || CYAN, maxW: 920 });
       text(g, `${def.genre} ・ BPM ${Math.round(def.bpm)} ・ ${d.toUpperCase()} Lv${levels[d]}`, 540, 990, { size: 34, font: 'Orbitron', weight: 700, color: 'rgba(225,235,255,0.9)', blur: 6 });
     } else {
-      drawPlay(g, PLAY_BIG, charts[d], s, { hs: speedOf(levels[d]) });
-      if (spec.type === 'auto') {
+      const gim = spec.type === 'gimmick';
+      drawPlay(g, gim ? PLAY_GIM : PLAY_BIG, charts[d], s, { hs: speedOf(levels[d]), sc: gim ? X.songs[tl.sceneAt(v)].scroll : null, bpm: def.bpm });
+      if (gim) {
+        // ギミック: 上に見出し、いま始まったギミックの名前をポンと出す。下に曲名と難易度
+        const i = tl.sceneAt(v), t0 = i * tl.seg, scn = spec.scenes[i];
+        const p0 = pop(v, 0);
+        text(g, spec.hook, 540, 250, { size: 84, alpha: p0.alpha, scale: p0.scale, glow: PINK });
+        if (spec.sub) text(g, spec.sub, 540, 330, { size: 44, color: '#ffe6f6', glow: PINK, alpha: clamp((v - 0.3) / 0.3) });
+        if (spec.scenes.length > 1 && scn.label) { // 何曲かつなぐときは場面の言葉
+          const p = pop(v, t0, 0.2);
+          text(g, scn.label, 540, 450, { size: 96, color: '#fff', glow: def.color || CYAN, blur: 36, alpha: p.alpha, scale: p.scale });
+        }
+        const gn = gimmickNow(def, s);
+        if (gn) {
+          const p = pop(s, gn.t, 0.18), out = 1 - clamp((s - gn.t - 0.6) / 0.3);
+          text(g, gn.name + '!', 540, spec.scenes.length > 1 ? 560 : 470, { size: 92, color: '#fff', glow: '#ffd25e', blur: 34, alpha: p.alpha * out, scale: p.scale });
+        }
+        text(g, def.title, 540, 1500, { size: 50, font: 'Orbitron', glow: def.color || CYAN, maxW: 860 });
+        badge(g, `${d.toUpperCase()} ${levels[d]}`, 540, 1570 - 4, DC[d], 30);
+        if (i > 0) { const fl = 1 - clamp((v - t0) / 0.2); if (fl > 0) { g.fillStyle = `rgba(255,255,255,${fl * 0.3})`; g.fillRect(0, 0, W, H); } }
+      } else if (spec.type === 'auto') {
         const p = pop(v, 0);
         text(g, spec.hook, 540, 300, { size: 96, alpha: p.alpha, scale: p.scale });
         if (spec.sub) text(g, spec.sub, 540, 380, { size: 46, color: '#ffe6f6', glow: PINK, alpha: clamp((v - 0.4) / 0.3) });
@@ -390,7 +476,13 @@ function drawFrame(g, v, X) {
       }
     }
     g.restore();
-    text(g, 'music-lidar.com', 540, 1560, { size: 34, font: 'Orbitron', weight: 700, color: 'rgba(230,240,255,0.85)', blur: 8 });
+    text(g, 'music-lidar.com', 540, spec.type === 'gimmick' ? 1660 : 1560, { size: 34, font: 'Orbitron', weight: 700, color: 'rgba(230,240,255,0.85)', blur: 8 });
+    if (spec.type === 'gimmick') {
+      // フラッシュ・点滅: 画面に白を重ねる(動画では強さを 0.6 倍に抑える)
+      const so = X.songs[tl.sceneAt(v)], fl = Math.max(so.scroll.flashAt(s), so.scroll.strobeAt(s)) * 0.6 * fadeK;
+      if (fl > 0.003) { g.fillStyle = `rgba(255,255,255,${fl})`; g.fillRect(0, 0, W, H); }
+      if (X.warn) text(g, '※光の点滅・画面の動きがあります', 540, 1720, { size: 30, color: 'rgba(255,230,160,0.9)', glow: '#ffd25e', blur: 4 });
+    }
   }
   if (inEnd) {
     // エンド画面: ロゴと「ブラウザで無料」「music-lidar.com」
@@ -422,11 +514,11 @@ let jid = 0;
 function encode(buf) { const p = pool[jid % WORKERS], id = ++jid; return new Promise((r) => { p.pend.set(id, r); p.w.postMessage({ id, buf }, [buf]); }); }
 
 // 1曲ぶんの用意: 合成した音・譜面・背景のMV
-async function loadSong(id, needDiffs) {
+async function loadSong(id, needDiffs, allowGimmick = false) {
   const def = SONGS.find((x) => x.id === id);
   if (!def) throw new Error('曲が見つかりません: ' + id);
   if (def.audio) throw new Error('ほかの作者さんの曲は使えません: ' + id);
-  if (def.gimmicks?.length) throw new Error('ギミックのある曲は使えません(見た目がずれるため): ' + id);
+  if (def.gimmicks?.length && !allowGimmick) throw new Error('ギミックのある曲は使えません(見た目がずれるため): ' + id);
   const { events, duration } = composeSong(def);
   const { charts, levels } = chartsOf(def, events, duration);
   for (const d of needDiffs) if (!charts[d]) throw new Error(`${def.id} に ${d} の譜面がありません`);
@@ -434,36 +526,40 @@ async function loadSong(id, needDiffs) {
   await prepareMV(def.id);
   const auto = { title: def.title, genre: def.genre, color: def.color, sections: analyzeSections(events, def.bpm, duration) };
   const mvBg = createMV(def.id, def.bpm, 0, { scale: 0.5, maxW: 540 }, auto);
-  return { def, duration, charts, levels, buf, auto, mvBg };
+  return { def, duration, charts, levels, buf, auto, mvBg, scroll: buildScroll(def.gimmicks, def.bpm) };
 }
 
 async function makeVideo(spec, idx) {
-  const ids = spec.type === 'range' ? spec.scenes.map((x) => x.id) : [spec.id];
-  const name = `promo-${String(idx + 1).padStart(2, '0')}-${spec.type}-${spec.type === 'range' ? 'levels' : spec.id}`;
+  const multi = spec.type === 'range' || spec.type === 'gimmick'; // 場面ごとに曲を変える型
+  const ids = multi ? spec.scenes.map((x) => x.id) : [spec.id];
+  const name = `promo-${String(idx + 1).padStart(2, '0')}-${spec.type}-${spec.type === 'range' ? 'levels' : spec.type === 'gimmick' ? (spec.name || ids[0]) : spec.id}`;
   $('status').textContent = `${name}: 曲を合成中…`;
   const songs = [];
   for (let i = 0; i < ids.length; i++) {
-    const need = spec.type === 'range' ? [spec.scenes[i].diff] : [spec.diff, ...(spec.diffs || [])].filter(Boolean);
-    const so = await loadSong(ids[i], need);
+    const need = multi ? [spec.scenes[i].diff] : [spec.diff, ...(spec.diffs || [])].filter(Boolean);
+    const so = await loadSong(ids[i], need, spec.type === 'gimmick');
     const bar = 240 / so.def.bpm;
     // 区間の頭: 自動プレイ・いろんな難易度は、いちばんノーツが多い所。ほかは試聴の位置(サビ)
-    if (spec.type === 'range') so.auto = densest(so.charts[spec.scenes[i].diff], MAIN / spec.scenes.length, so.duration, bar);
+    if (spec.type === 'gimmick') so.auto = (spec.scenes[i].beat ?? so.def.preview ?? 32) * 60 / so.def.bpm; // ギミック: 見せたい拍から
+    else if (spec.type === 'range') so.auto = densest(so.charts[spec.scenes[i].diff], MAIN / spec.scenes.length, so.duration, bar);
     else so.auto = spec.type === 'auto' ? densest(so.charts[spec.diff], MAIN, so.duration, bar) : (so.def.preview ?? 32) * 60 / so.def.bpm;
     songs.push(so);
   }
   const { def, duration } = songs[0];
   spec._auto = songs[0].auto;
   const tl = timeline(spec, def, duration, songs);
-  await post('/x/wav?' + qs({ name }), buildAudio(songs, tl, spec.type !== 'song'));
+  const warn = spec.type === 'gimmick' && songs.some((so) => so.def.photosensitive); // 光の点滅の注意を頭に入れる
+  const off = warn ? WARN : 0;
+  await post('/x/wav?' + qs({ name }), buildAudio(songs, tl, spec.type !== 'song', off));
   // 曲の紹介は、上の画面用のMVも
   const mvPanel = spec.type === 'song' ? createMV(def.id, def.bpm, 0, { scale: 0.75, maxW: 960 }, songs[0].auto) : null;
   const panel = document.createElement('canvas'); panel.width = 960; panel.height = 540;
-  const X = { spec, tl, songs, mvPanel, panel };
-  await post('/x/vstart?' + qs({ name, fps: FPS, title: `MUSIC LiDAR - ${spec.type === 'range' ? 'いろんな難易度' : def.title}` }));
+  const X = { spec, tl, songs, mvPanel, panel, warn };
+  await post('/x/vstart?' + qs({ name, fps: FPS, title: `MUSIC LiDAR - ${spec.type === 'range' ? 'いろんな難易度' : spec.type === 'gimmick' ? 'ギミック譜面' : def.title}` }));
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const g = cv.getContext('2d', { willReadFrequently: true });
   const pv = $('pv').getContext('2d');
-  const N = Math.ceil(tl.total * FPS);
+  const N = Math.ceil((tl.total + off) * FPS);
   const inflight = []; let parts = [], size = 0;
   const flush = async () => {
     const body = new Uint8Array(size); let o = 0;
@@ -473,7 +569,7 @@ async function makeVideo(spec, idx) {
   };
   const t0 = performance.now();
   for (let f = 0; f < N; f++) {
-    drawFrame(g, f / FPS, X);
+    if (f / FPS < off) drawWarn(g, f / FPS); else drawFrame(g, f / FPS - off, X);
     inflight.push(encode(g.getImageData(0, 0, W, H).data.buffer));
     if (inflight.length >= WORKERS * 2) { const j = await inflight.shift(); parts.push(j); size += j.length; }
     if (parts.length >= BATCH) await flush();
@@ -485,7 +581,7 @@ async function makeVideo(spec, idx) {
   while (inflight.length) { const j = await inflight.shift(); parts.push(j); size += j.length; }
   if (parts.length) await flush();
   await post('/x/vend?' + qs({ name }));
-  log(`作成 ${name}(${tl.total.toFixed(1)}秒・${spec.type === 'range' ? songs.length + '曲' : '曲の ' + tl.from.toFixed(1) + '秒から'})`);
+  log(`作成 ${name}(${(tl.total + off).toFixed(1)}秒・${multi ? songs.length + '曲' : '曲の ' + tl.from.toFixed(1) + '秒から'})`);
 }
 
 async function main() {

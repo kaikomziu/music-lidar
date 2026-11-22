@@ -1766,6 +1766,14 @@ body.playing .season-fx { display: none; }
    選曲: 曲は縦のリストにして画面いっぱいに並べ、下に「選んだ曲・難易度・PLAY」だけを固定で出す。
    記録・ランキング・練習などは「記録・ランキング」ボタンで下から引き出す(.detail.open。main.js の setDetailOpen) */
 .d-more { display: none; }
+/* 光の点滅の注意 */
+.ps-box { border-color: #ffd25e; }
+.ps-lead { font-weight: 800; color: #ffd25e; margin: 8px 0; }
+.ps-list { margin: 6px 0 10px; padding-left: 1.2em; line-height: 1.7; }
+.ps-never { display: block; margin: 4px 0 8px; color: var(--muted); }
+.ps-box .ps-list { text-align: left; }
+.ps-box .modal-actions { flex-wrap: wrap; }
+.ps-box .modal-actions button { white-space: nowrap; flex: 1 1 auto; }
 /* レベル診断の結果 */
 .dg-lead { margin: 8px 0 0; text-align: center; color: var(--muted); }
 .dg-range { margin: 0 0 12px; text-align: center; font: 900 44px var(--font-d); color: #fff; text-shadow: 0 0 20px var(--accent); }

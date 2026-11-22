@@ -95,6 +95,7 @@ function fileSongEntry(def) {
     id: def.id, urlId: def.urlId, title: def.title, artist: def.artist, genre: def.genre, bpm: def.bpm, offset: def.offset || 0, color: def.color,
     event: def.event || null, levels: def.levels, charts, stats, local: false, duration: def.duration, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [],
     previewAt: def.previewAt ?? def.duration * 0.3, credit: def.credit, creditUrl: def.creditUrl, onsets, lyrics: def.lyrics || null,
+    photosensitive: !!def.photosensitive,
     jacket: def.jacket || null, // ジャケット画像(なければ自動で描く)
     // MV用の情報(区間は譜面の密度から)
     // mv: false の曲は MV を出さない(背景は点群だけ)
@@ -149,7 +150,7 @@ function builtinEntry(def) {
   const levels = EXTRA_LEVELS[def.id] ? { ...def.levels, extra: EXTRA_LEVELS[def.id] } : def.levels;
   return {
     id: def.id, urlId: def.urlId, title: def.title, artist: def.artist, genre: def.genre, bpm: def.bpm, color: def.color,
-    event: def.event || null, levels, local: false, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [],
+    event: def.event || null, levels, local: false, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [], photosensitive: !!def.photosensitive,
     get charts() { return build().charts; },
     get stats() { return build().stats; },
     get duration() { return build().duration; },
@@ -645,7 +646,7 @@ function renderDetail() {
   $('d-index').textContent = `${String(sel + 1).padStart(2, '0')} / ${String(entries.length).padStart(2, '0')}`;
   $('d-title').textContent = e.title;
   renderFav();
-  $('d-meta').textContent = `${e.artist} ・ BPM ${Math.round(e.bpm)} ・ ${fmtTime(e.duration)}${e.gimmick ? ` ・ ギミック: ${e.gimmick}` : ''}`;
+  $('d-meta').textContent = `${e.artist} ・ BPM ${Math.round(e.bpm)} ・ ${fmtTime(e.duration)}${e.gimmick ? ` ・ ギミック: ${e.gimmick}` : ''}${e.photosensitive ? ' ・ ⚠ 光の点滅・画面の動きあり' : ''}`;
   $('d-credit').innerHTML = e.credit ? `${esc(e.credit)}${e.creditUrl ? ` <a href="${esc(e.creditUrl)}" target="_blank" rel="noopener">${esc(e.creditUrl.replace(/^https?:\/\//, '').replace(/\/$/, ''))}</a>` : ''}` : '';
   if (diff === 'extra' && !e.levels.extra) diff = 'hard'; // EXTRA のない曲では HARD を見せる
   $('diffs').innerHTML = diffsOf(e).map((d) => `
@@ -1017,7 +1018,29 @@ async function startGame(entry = entries[sel], d = diff, custom = null, live = n
     return;
   }
   starting = true;
-  try { await startGameInner(entry, d, custom, live, extra); } finally { starting = false; }
+  try {
+    if (!(await confirmPhotosensitive(entry))) return;
+    await startGameInner(entry, d, custom, live, extra);
+  } finally { starting = false; }
+}
+// 光の点滅・画面の動きがある曲(曲ファイルの photosensitive: true): 始める前に注意を出す。同じ曲は開いている間に1回だけ。「次から表示しない」で端末に覚える
+const psShown = new Set();
+function confirmPhotosensitive(entry) {
+  if (!entry?.photosensitive || load('psWarnOff', false) || psShown.has(entry.id)) return Promise.resolve(true);
+  return new Promise((res) => {
+    $('ps-never').checked = false;
+    overlay('ps-warn', true);
+    const done = (ok, calm) => {
+      overlay('ps-warn', false);
+      if (ok) psShown.add(entry.id);
+      if ($('ps-never').checked) save('psWarnOff', true);
+      if (calm) { settings.calm = true; setSettings(settings); toast('設定の「光の点滅・画面の揺れを減らす」をオンにしました(設定でいつでも戻せます)', 4000); }
+      res(ok);
+    };
+    $('ps-calm').onclick = () => done(true, true);
+    $('ps-go').onclick = () => done(true, false);
+    $('ps-no').onclick = () => done(false, false);
+  });
 }
 async function startGameInner(entry, d, custom, live, extra) {
   document.activeElement?.blur?.();
@@ -1758,6 +1781,7 @@ function syncSettingsUI() {
   $('s-ghost').value = settings.ghostMode || (settings.ghost === false ? 'off' : 'self');
   $('s-mv').checked = settings.mv !== false;
   $('s-lyrics').checked = settings.lyrics !== false;
+  $('s-calm').checked = !!settings.calm;
   $('s-notesize').value = settings.noteSize || 'normal';
   $('s-palette').value = settings.palette || 'skin';
   $('o-mv').textContent = settings.mv !== false ? 'ON' : 'OFF';
@@ -1784,6 +1808,7 @@ setInterval(() => {
 applyStream();
 $('s-ghost').addEventListener('change', () => { settings.ghostMode = $('s-ghost').value; settings.ghost = settings.ghostMode !== 'off'; setSettings(settings); });
 $('s-lyrics').addEventListener('change', () => { settings.lyrics = $('s-lyrics').checked; setSettings(settings); });
+$('s-calm').addEventListener('change', () => { settings.calm = $('s-calm').checked; setSettings(settings); });
 $('s-notesize').addEventListener('change', () => { settings.noteSize = $('s-notesize').value; setSettings(settings); });
 $('s-palette').addEventListener('change', () => { settings.palette = $('s-palette').value; setSettings(settings); });
 $('s-mv').addEventListener('change', () => {

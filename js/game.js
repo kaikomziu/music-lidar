@@ -488,7 +488,7 @@ export class Game {
     if (this.canvas.width !== Math.round(W * dpr) || this.canvas.height !== Math.round(H * dpr)) {
       this.canvas.width = Math.round(W * dpr); this.canvas.height = Math.round(H * dpr);
     }
-    const J = H * this.settings.judgePos;
+    const J = H * Math.max(0.4, Math.min(0.95, this.settings.judgePos + (this.judgeOff || 0)));
     const laneW = Math.min(this.settings.laneW, (W - 24) / 4);
     const topY = H * 0.06;
     const r = Z_J / Z_FAR;
@@ -550,6 +550,8 @@ export class Game {
     // 「揺れる」ギミック: 4拍で1往復、左右に揺らす(タッチのレーン判定も同じ位置を使う)
     const sway = this.scroll.swayAt(t);
     this.swayX = sway > 0.001 ? sway * Math.sin((t * this.bpm / 60) * Math.PI / 2) : 0;
+    this.swayX += this.scroll.shiftAt(t); // 「移動」ギミック: レーン全体を横へずらす(タッチの判定も同じ)
+    this.judgeOff = this.scroll.judgeAt(t); // 「判定ライン移動」ギミック
     const G = this.geom();
     const g = this.g;
     g.setTransform(G.dpr, 0, 0, G.dpr, 0, 0);
@@ -570,6 +572,21 @@ export class Game {
     }
     if (!green) this.cloud.draw(g, W, H, Math.max(0, t), this.bpm, energy, this.color, F.cloud * (mvOn ? 0.3 : 1));
     if (!green && this.settings.bgDim > 0) { g.fillStyle = `rgba(0,0,0,${Math.min(0.85, this.settings.bgDim / 100)})`; g.fillRect(0, 0, W, H); } // 設定の「背景の暗さ」
+
+    // 画面が動くギミック(上下反転・回転・揺れ)。画面の真ん中を軸にする。HUD(スコアなど)は動かさない
+    // 設定の「光の点滅・画面の揺れを減らす」(settings.calm)がオンなら、揺れ・フラッシュ・点滅は出さない
+    const sc = this.scroll, calm = !!this.settings.calm;
+    const flip = sc.flipAt(t), spin = sc.spinAt(t), shake = calm ? 0 : sc.shakeAt(t);
+    const moving = sc.moves && (flip > 0.001 || Math.abs(spin) > 0.01 || shake > 0.001);
+    this.view = { spin, flip };
+    if (moving) {
+      g.save();
+      g.translate(W / 2, H / 2);
+      if (shake > 0.001) g.translate(shake * 16 * Math.sin(t * 61) * Math.cos(t * 23), shake * 16 * Math.sin(t * 47 + 1));
+      if (Math.abs(spin) > 0.01) g.rotate((spin * Math.PI) / 180);
+      if (flip > 0.001) g.scale(1, Math.cos(Math.min(1, flip) * Math.PI)); // 0 → 1 で、潰れてからひっくり返る
+      g.translate(-W / 2, -H / 2);
+    }
 
     // レーン床(始まりは奥へ伸びていく)
     const zNear = Z_J * 0.82;
@@ -754,7 +771,13 @@ export class Game {
     }
     g.restore();
 
+    if (moving) g.restore();
     this.drawHud(G, t, perfNow);
+    // フラッシュ・点滅(画面全体が白く光る)
+    if (sc.moves && !calm) {
+      const fl = Math.max(sc.flashAt(t), sc.strobeAt(t));
+      if (fl > 0.01) { g.fillStyle = `rgba(255,255,255,${Math.min(0.85, fl)})`; g.fillRect(0, 0, W, H); }
+    }
   }
 
   drawNote(G, n, t) {
@@ -1126,6 +1149,7 @@ export class Game {
   // 現在の画面座標から、どのレーンか
   laneAt(x) {
     const G = this.geom();
+    if (this.view && Math.cos(((this.view.spin || 0) * Math.PI) / 180) < 0) x = G.W - x; // 「回転」で逆さまのときは、見た目どおり左右を入れ替える
     const l = Math.floor((x - G.cx) / G.laneW + 2);
     return Math.max(0, Math.min(3, l));
   }

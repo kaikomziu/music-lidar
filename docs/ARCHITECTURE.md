@@ -223,6 +223,8 @@ export default {
 - **光の点滅の注意**: 画面が動くギミックを使う曲は、曲ファイルに `photosensitive: true` を付ける。選曲画面の曲の情報に「⚠ 光の点滅・画面の動きあり」、始める前に注意の画面(`#ps-warn`。光過敏性発作の注意、「やめる」「点滅・揺れを減らして遊ぶ」「このまま遊ぶ」)。同じ曲は開いている間に1回、「次から表示しない」で端末の `mlidar:psWarnOff`
 - 設定の「光の点滅・画面の揺れを減らす」(`settings.calm`)がオンなら、`shake` / `flash` / `strobe` を出さない(回転・上下反転はゲームの中身なのでそのまま)
 - ギミック曲では流れる速さを1倍より速くしない(`speed` は 1 以下だけ使う。遅くする・止めるのはよい)
+- **譜面メーカー(1.80.1〜)**: ギミックの種類に「画面が動く」7つ(移動・判定ライン移動・上下反転・回転・画面揺れ・フラッシュ・点滅)を追加(`maker.js` の `syncGimmickForm` / `applyGimmick` / `gimmickText`)。判定ライン移動は%で入れる。サーバー(`mlidar_chart_save`)はギミックの種類を見ないので、そのまま保存できる
+- 譜面を差し替えて遊ぶとき(みんなの譜面・テストプレイ・練習・リプレイ)は、その譜面のギミックに `flip` / `spin` / `shake` / `flash` / `strobe` があれば(`buildScroll` の `intense`)、始める前に同じ注意を出す(`confirmPhotosensitive(entry, custom)`)
 
 ### 譜面の自動生成(`composer.js`)
 - `composeSong` で楽譜 → イベント列。`candidatesFromEvents` でノーツ候補(強さの点数つき)

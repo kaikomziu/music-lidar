@@ -17,7 +17,7 @@
 // ノーツの位置は「スクロール量 S(t)」で決める。判定はこれまでどおり時刻で行う。
 
 const ZERO = () => 0;
-export const NO_SCROLL = { S: (t) => t, coverAt: ZERO, hideAt: ZERO, swayAt: ZERO, shiftAt: ZERO, judgeAt: ZERO, flipAt: ZERO, spinAt: ZERO, shakeAt: ZERO, flashAt: ZERO, strobeAt: ZERO, stops: [], has: false, moves: false };
+export const NO_SCROLL = { S: (t) => t, coverAt: ZERO, hideAt: ZERO, swayAt: ZERO, shiftAt: ZERO, judgeAt: ZERO, flipAt: ZERO, spinAt: ZERO, shakeAt: ZERO, flashAt: ZERO, strobeAt: ZERO, stops: [], has: false, moves: false, intense: false };
 
 export function buildScroll(gimmicks, bpm) {
   if (!gimmicks?.length) return NO_SCROLL;
@@ -90,6 +90,7 @@ export function buildScroll(gimmicks, bpm) {
     S, coverAt: level('cover'), hideAt: level('hidden'), swayAt: level('sway'), stops, has: true,
     shiftAt: level('shift'), judgeAt: level('judge'), flipAt: level('flip'), spinAt: level('spin'), shakeAt: level('shake'), flashAt, strobeAt,
     moves: ['shift', 'judge', 'flip', 'spin', 'shake', 'flash', 'strobe'].some((k) => types.has(k)),
+    intense: ['flip', 'spin', 'shake', 'flash', 'strobe'].some((k) => types.has(k)), // 光の点滅・画面の動きの注意を出すもの
   };
 }
 

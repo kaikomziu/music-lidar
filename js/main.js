@@ -1019,20 +1019,22 @@ async function startGame(entry = entries[sel], d = diff, custom = null, live = n
   }
   starting = true;
   try {
-    if (!(await confirmPhotosensitive(entry))) return;
+    if (!(await confirmPhotosensitive(entry, custom))) return;
     await startGameInner(entry, d, custom, live, extra);
   } finally { starting = false; }
 }
 // 光の点滅・画面の動きがある曲(曲ファイルの photosensitive: true): 始める前に注意を出す。同じ曲は開いている間に1回だけ。「次から表示しない」で端末に覚える
 const psShown = new Set();
-function confirmPhotosensitive(entry) {
-  if (!entry?.photosensitive || load('psWarnOff', false) || psShown.has(entry.id)) return Promise.resolve(true);
+function confirmPhotosensitive(entry, custom = null) {
+  // ふつうのプレイは曲ファイルの photosensitive。譜面を差し替えて遊ぶとき(みんなの譜面・テストプレイ・練習・リプレイ)は、その譜面のギミックに点滅・揺れ・回転・上下反転があるか
+  const key = custom ? (custom.scroll?.intense ? 'c:' + (custom.chartId || custom.title || entry?.id) : null) : entry?.photosensitive ? entry.id : null;
+  if (!key || load('psWarnOff', false) || psShown.has(key)) return Promise.resolve(true);
   return new Promise((res) => {
     $('ps-never').checked = false;
     overlay('ps-warn', true);
     const done = (ok, calm) => {
       overlay('ps-warn', false);
-      if (ok) psShown.add(entry.id);
+      if (ok) psShown.add(key);
       if ($('ps-never').checked) save('psWarnOff', true);
       if (calm) { settings.calm = true; setSettings(settings); toast('設定の「光の点滅・画面の揺れを減らす」をオンにしました(設定でいつでも戻せます)', 4000); }
       res(ok);

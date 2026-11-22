@@ -498,8 +498,9 @@ function updateInfo() {
   $('ed-estlv').textContent = est ? `(目安 ${est})` : '';
   const cnt = { stop: 0, speed: 0, cover: 0, hidden: 0, sway: 0 };
   for (const g of ed.gimmicks) cnt[g.type] = (cnt[g.type] || 0) + 1;
+  const moving = ed.gimmicks.filter((g) => ['shift', 'judge', 'flip', 'spin', 'shake', 'flash', 'strobe'].includes(g.type)).length;
   $('ed-info').innerHTML = `<div><b>${n.length}</b> ノーツ(ロング ${ln})</div>
-    <div>ギミック: 停止 ${cnt.stop} / 変速 ${cnt.speed} / 隠し ${cnt.cover} / 消える ${cnt.hidden} / 揺れる ${cnt.sway}</div>
+    <div>ギミック: 停止 ${cnt.stop} / 変速 ${cnt.speed} / 隠し ${cnt.cover} / 消える ${cnt.hidden} / 揺れる ${cnt.sway} / 画面が動く ${moving}</div>
     <div>BPM ${ed.bpm.toFixed(ed.entry?.local ? 2 : 0)} ・ ${fmt(duration())}</div>`;
 }
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -739,7 +740,7 @@ export function draw() {
   ed.gimmicks.forEach((gm) => {
     const y = yOf(L, gm.t);
     if (y < -40 || (y > L.H + 40 && yOf(L, gm.t + (gm.dur || 0)) > L.H)) return;
-    const col = { stop: '#c49bff', speed: '#ffd25e', hidden: '#ff7ce6', sway: '#9dff4f' }[gm.type] || '#5ef2ff';
+    const col = { stop: '#c49bff', speed: '#ffd25e', hidden: '#ff7ce6', sway: '#9dff4f', shift: '#7dc4ff', judge: '#7dc4ff', flip: '#ff9d5e', spin: '#ff9d5e', shake: '#ff5e7d', flash: '#ffffff', strobe: '#ffffff' }[gm.type] || '#5ef2ff';
     if (gm.dur > 0) {
       const y2 = yOf(L, gm.t + gm.dur);
       g.fillStyle = col + '33';
@@ -828,6 +829,13 @@ function gimmickText(gm) {
   if (gm.type === 'speed') return `速さ ×${gm.to}${bs ? ` (${bs}拍で)` : ''}`;
   if (gm.type === 'sway') return gm.to > 0 ? `揺れる ×${gm.to}` : '揺れ 止める';
   if (gm.type === 'hidden') return gm.to > 0 ? `消える ${Math.round(gm.to * 100)}%` : '消える 解除';
+  if (gm.type === 'shift') return gm.to ? `移動 ${gm.to > 0 ? '右' : '左'} ×${Math.abs(gm.to)}` : '移動 真ん中へ';
+  if (gm.type === 'judge') return gm.to ? `判定ライン ${Math.round(gm.to * 100)}%` : '判定ライン 戻す';
+  if (gm.type === 'flip') return gm.to ? '上下反転' : '上下反転 戻す';
+  if (gm.type === 'spin') return `回転 ${gm.to}°${bs ? ` (${bs}拍で)` : ''}`;
+  if (gm.type === 'shake') return gm.to > 0 ? `画面揺れ ${gm.to}` : '画面揺れ 止める';
+  if (gm.type === 'flash') return `フラッシュ ${gm.to}`;
+  if (gm.type === 'strobe') return gm.to > 0 ? `点滅 ${gm.to}` : '点滅 止める';
   return gm.to > 0 ? `隠し ${Math.round(gm.to * 100)}%` : '隠し 解除';
 }
 
@@ -937,7 +945,7 @@ function openGimmick(index, t, cx, cy) {
   ed.gEdit = { index, t: gm.t };
   $('gp-type').value = gm.type;
   $('gp-dur').value = Math.round(((gm.dur || 0) / spb()) * 100) / 100;
-  $('gp-to').value = gm.type === 'cover' || gm.type === 'hidden' ? Math.round((gm.to ?? 0.4) * 100) : gm.to ?? 1; // 割合の種類は%で見せる
+  $('gp-to').value = gm.type === 'cover' || gm.type === 'hidden' || gm.type === 'judge' ? Math.round((gm.to ?? 0.4) * 100) : gm.to ?? 1; // 割合の種類は%で見せる
   $('gp-title').textContent = `${fmtMs(gm.t)} のギミック`;
   $('gp-del').hidden = index == null;
   syncGimmickForm(true);
@@ -950,14 +958,27 @@ function openGimmick(index, t, cx, cy) {
 function syncGimmickForm(keep) {
   const type = $('gp-type').value;
   $('gp-to-row').hidden = type === 'stop';
+  $('gp-dur-row').hidden = type === 'flash'; // フラッシュは一瞬なので長さはない
   $('gp-dur-label').textContent = type === 'stop' ? '止まる長さ(拍)' : '変化にかける拍(0で一瞬)';
-  $('gp-to-label').textContent = { speed: '速さの倍率(0.1〜4)', sway: '揺れ幅(レーン幅の倍率・0〜1.5。0で止まる)', hidden: '消える範囲(%・0で解除)' }[type] || '隠す割合(%・0で解除)';
+  $('gp-to-label').textContent = {
+    speed: '速さの倍率(0.1〜4)', sway: '揺れ幅(レーン幅の倍率・0〜1.5。0で止まる)', hidden: '消える範囲(%・0で解除)',
+    shift: 'ずらす量(レーン幅の倍率・-2〜2。0で真ん中)', judge: '判定ラインの高さ(画面の%・-40〜10。マイナスで上へ。0で元の位置)',
+    flip: '1 で逆さま、0 で元に戻る', spin: '角度(-1440〜1440。360 で1回転して元どおり)', shake: '揺れの強さ(0〜1。0で止まる)',
+    flash: '光る強さ(0〜1)', strobe: '点滅の強さ(0〜1。0で止まる)',
+  }[type] || '隠す割合(%・0で解除)';
   if (keep !== true) {
     if (type === 'speed') { $('gp-to').value = 0.5; $('gp-dur').value = 0; }
     if (type === 'cover') { $('gp-to').value = 40; $('gp-dur').value = 1; }
     if (type === 'stop') $('gp-dur').value = 1;
     if (type === 'hidden') { $('gp-to').value = 35; $('gp-dur').value = 1; }
     if (type === 'sway') { $('gp-to').value = 0.6; $('gp-dur').value = 2; }
+    if (type === 'shift') { $('gp-to').value = -1.2; $('gp-dur').value = 4; }
+    if (type === 'judge') { $('gp-to').value = -20; $('gp-dur').value = 4; }
+    if (type === 'flip') { $('gp-to').value = 1; $('gp-dur').value = 2; }
+    if (type === 'spin') { $('gp-to').value = 360; $('gp-dur').value = 8; }
+    if (type === 'shake') { $('gp-to').value = 0.5; $('gp-dur').value = 1; }
+    if (type === 'flash') { $('gp-to').value = 0.8; $('gp-dur').value = 0; }
+    if (type === 'strobe') { $('gp-to').value = 0.6; $('gp-dur').value = 0; }
   }
   $('gp-help').textContent = {
     stop: '音楽は進んだまま、ノーツの流れだけが止まります。',
@@ -965,6 +986,13 @@ function syncGimmickForm(keep) {
     cover: 'レーンの奥側を隠して、ノーツが手前で現れるようにします。',
     hidden: '判定ラインの手前でノーツが消えるようにします。タイミングは覚えて叩きます。',
     sway: 'レーン全体が左右にゆらゆら揺れます(4拍で1往復)。',
+    shift: 'レーン全体が横へ動きます。0 に戻すギミックも置いてください。',
+    judge: '判定ラインの高さが変わります。0 に戻すギミックも置いてください。',
+    flip: '画面が上下にひっくり返ります(ノーツが下から上へ流れます)。',
+    spin: '画面が回ります。値は次のギミックまで残るので、元に戻すときは 360 の倍数にします。',
+    shake: '画面がガタガタ揺れます。0 で止めます。設定で「揺れを減らす」にしている人には出ません。',
+    flash: 'その瞬間、画面が白く光ります。設定で「点滅を減らす」にしている人には出ません。',
+    strobe: '拍ごとに画面が光ります(1秒に3回まで)。0 で止めます。設定で「点滅を減らす」にしている人には出ません。',
   }[type];
 }
 function applyGimmick() {
@@ -975,9 +1003,14 @@ function applyGimmick() {
   if (type === 'cover') to = Math.max(0, Math.min(0.8, (to || 0) / 100));
   if (type === 'hidden') to = Math.max(0, Math.min(0.6, (to || 0) / 100));
   if (type === 'sway') to = Math.max(0, Math.min(1.5, to || 0));
+  if (type === 'shift') to = Math.max(-2, Math.min(2, to || 0));
+  if (type === 'judge') to = Math.max(-0.4, Math.min(0.1, (to || 0) / 100));
+  if (type === 'flip') to = to >= 0.5 ? 1 : 0;
+  if (type === 'spin') to = Math.max(-1440, Math.min(1440, to || 0));
+  if (type === 'shake' || type === 'flash' || type === 'strobe') to = Math.max(0, Math.min(1, to || 0));
   if (type === 'stop' && dur <= 0) { ui.toast('止まる長さを入れてください'); return; }
   pushUndo();
-  const gm = { t: ed.gEdit.t, type, dur, to: type === 'stop' ? 0 : to };
+  const gm = { t: ed.gEdit.t, type, dur: type === 'flash' ? 0 : dur, to: type === 'stop' ? 0 : to };
   if (ed.gEdit.index != null) ed.gimmicks[ed.gEdit.index] = gm; else ed.gimmicks.push(gm);
   ed.gimmicks.sort((a, b) => a.t - b.t);
   changed(false);

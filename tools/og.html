@@ -25,8 +25,8 @@ async function render(s) {
   cv.width = W; cv.height = H;
   const g = cv.getContext('2d');
   const img = new Image();
-  img.src = jacketURL(s, 512);
-  await img.decode();
+  // decode() はタブが裏にあると終わらないことがあるので onload で待つ
+  await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = jacketURL(s, 512); });
   // 背景: ジャケットをぼかして全面に
   g.filter = 'blur(28px) brightness(0.45)';
   g.drawImage(img, -100, -385, 1400, 1400);

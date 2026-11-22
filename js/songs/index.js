@@ -27,6 +27,9 @@ import kurashiOyogu from './kurashi-oyogu.js';
 import hikouHakusho from './hikou-hakusho.js';
 import bokutachiEpilogue from './bokutachi-epilogue.js';
 import aNewWorldWithForm from './a-new-world-with-form.js';
+import maretuShiu from './maretu-shiu.js';
+import maretuWhiteHappy from './maretu-white-happy.js';
+import maretuNyan from './maretu-nyan.js';
 import wubFracture from './wub-fracture.js';
 import overdriveRiot from './overdrive-riot.js';
 import freezeFrame from './freeze-frame.js';
@@ -162,7 +165,7 @@ export default [
   progAscent, dragonGate, cloudPoint, pixelQuest, pulseGrid, swingCircuit, lowOrbit, ironPulse, garageShuffle, neonBoulevard, gamelanMoon, thunderRoad, swingKid,
   // むずかしめ
   sakuraLattice, lastHorizon, celticRun, bigRoomBlast, glitchGarden, salsaFuego, blueNoteLane, glitterIdol, liquidSky, stellarGate, skyPrism, synthRacer, riddimRiot,
-  kawaiiBubble, lidarRush, shiningStar, inmuKing, mizuNoTsuioku, hydrangea, ao, summerTriangle, camelliaGhost, camelliaGhostVip, cryingRed, kurashiOyogu, hikouHakusho, bokutachiEpilogue, aNewWorldWithForm, wubFracture, offbeatSkater, nightDrift, psyForest, neonSamurai, braveHorizon, shamisenStorm, crystalFortress, hyperSakura, jungleLights,
+  kawaiiBubble, lidarRush, shiningStar, inmuKing, mizuNoTsuioku, hydrangea, ao, summerTriangle, camelliaGhost, camelliaGhostVip, cryingRed, kurashiOyogu, hikouHakusho, bokutachiEpilogue, aNewWorldWithForm, maretuShiu, maretuWhiteHappy, maretuNyan, wubFracture, offbeatSkater, nightDrift, psyForest, neonSamurai, braveHorizon, shamisenStorm, crystalFortress, hyperSakura, jungleLights,
   phonkGarage, overdriveRiot, hardReflector, darkShinobi, bluegrassRush, crimsonRumba,
   // 期間限定(クリスマス)
   jingleCircuit, snowlightCarol, sweetRibbon,

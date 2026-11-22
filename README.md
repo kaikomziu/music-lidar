@@ -50,6 +50,7 @@ python -m http.server 8765
 - 「飛行白書」 音楽: [ナツメダ ユキ](https://piapro.jp/YukiNatsumeda)(歌: 音街ウナ)。音源は AES-GCM 暗号化した `audio/hikou-hakusho.bin`。歌詞はまだなし。「きくだけ」モードには入れない
 - 「僕たちの旅とエピローグ。」 音楽: ああああ(Long ver.。アルバム「セーブデータとほうき星」)。作者さんのガイドライン(ゲームでの非商用利用は許諾なしで可)。音源は MP3 192kbps を AES-GCM 暗号化した `audio/bokutachi-epilogue.bin`。収益化のときは作者さんへ連絡が必要。「きくだけ」モードには入れない
 - 「A new world with form」 音楽: Patençial公式。作者さんの許可を得て使用し、ゲーム実況・配信の収益化もクレジット必須でOKです。元の MP3 は AES-GCM 暗号化した `audio/a-new-world-with-form.bin` として保存(平文の音源は置かない)。配信条件は [`streaming.html`](streaming.html#songs)
+- 「しう」「ホワイトハッピー」「ニャン」 音楽: [MARETU](https://www.youtube.com/@MARETUch)。作者さんの許可を得て使用し、ゲーム実況・配信の収益化もクレジット(「音楽：MARETU」)必須でOKです。m4a を mp3 にしてから AES-GCM 暗号化した `audio/maretu-*.bin` として保存(平文の音源は置かない)。「きくだけ」モードには入れない
 - 「Hydrangea」「蒼」 音楽: 全て蝶々の所為です。([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja))。CC BY は技術的な制限をかけてはいけないので、並べ替えずに `audio/hydrangea.mp3`・`audio/ao.mp3` のまま置く
 - そのほかの内蔵曲はブラウザ内でその場で合成しているオリジナル曲です。
 

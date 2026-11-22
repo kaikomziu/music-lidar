@@ -1485,11 +1485,13 @@ if (IS_TOUCH) {
 
 // タッチ(スマホ)
 const touchLane = new Map();
+// キャンバス内の位置で、どのレーンかを決める(「回転」中は縦の位置も使う)
+const laneOfTouch = (t) => { const r = canvas.getBoundingClientRect(); return game.laneAt(t.clientX - r.left, t.clientY - r.top); };
 canvas.addEventListener('touchstart', (ev) => {
   if (state !== 'game' || !game) return;
   ev.preventDefault();
   for (const t of ev.changedTouches) {
-    const l = game.laneAt(t.clientX);
+    const l = laneOfTouch(t);
     touchLane.set(t.identifier, l);
     game.press(l, ev.timeStamp);
   }
@@ -1508,7 +1510,7 @@ canvas.addEventListener('touchmove', (ev) => {
   // 指をスライドして隣のレーンへ移動できるように
   for (const t of ev.changedTouches) {
     const old = touchLane.get(t.identifier);
-    const l = game.laneAt(t.clientX);
+    const l = laneOfTouch(t);
     if (old == null || old === l) continue;
     touchLane.set(t.identifier, l);
     if (![...touchLane.values()].includes(old)) game.release(old, ev.timeStamp);

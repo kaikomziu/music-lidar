@@ -489,7 +489,10 @@ export class Game {
       this.canvas.width = Math.round(W * dpr); this.canvas.height = Math.round(H * dpr);
     }
     const J = H * Math.max(0.4, Math.min(0.95, this.settings.judgePos + (this.judgeOff || 0)));
-    const laneW = Math.min(this.settings.laneW, (W - 24) / 4);
+    // 「移動」「揺れる」でレーンが横へずれている間は、4レーンがずれても画面に収まる幅まで細くする
+    // (スマホなど画面が狭いと、ずれた端のレーンが画面の外に出てタッチできなくなるため。広い画面では変わらない)
+    const sx = this.swayMax || 0;
+    const laneW = Math.min(this.settings.laneW, (W - 24) / (4 + 2 * sx));
     const topY = H * 0.06;
     const r = Z_J / Z_FAR;
     const hz = (topY - J * r) / (1 - r);
@@ -550,7 +553,9 @@ export class Game {
     // 「揺れる」ギミック: 4拍で1往復、左右に揺らす(タッチのレーン判定も同じ位置を使う)
     const sway = this.scroll.swayAt(t);
     this.swayX = sway > 0.001 ? sway * Math.sin((t * this.bpm / 60) * Math.PI / 2) : 0;
-    this.swayX += this.scroll.shiftAt(t); // 「移動」ギミック: レーン全体を横へずらす(タッチの判定も同じ)
+    const shift = this.scroll.shiftAt(t);
+    this.swayX += shift; // 「移動」ギミック: レーン全体を横へずらす(タッチの判定も同じ)
+    this.swayMax = Math.max(0, sway) + Math.abs(shift); // いちばん大きくずれる量(geom でレーン幅を決める。揺れのたびに幅が変わらないように)
     this.judgeOff = this.scroll.judgeAt(t); // 「判定ライン移動」ギミック
     const G = this.geom();
     const g = this.g;
@@ -1147,10 +1152,20 @@ export class Game {
   }
 
   // 現在の画面座標から、どのレーンか
-  laneAt(x) {
+  // x, y はキャンバス内の座標。「回転」中は、画面の回転を戻した位置で考える(上下反転は横位置に影響しない)
+  laneAt(x, y = null) {
     const G = this.geom();
-    if (this.view && Math.cos(((this.view.spin || 0) * Math.PI) / 180) < 0) x = G.W - x; // 「回転」で逆さまのときは、見た目どおり左右を入れ替える
-    const l = Math.floor((x - G.cx) / G.laneW + 2);
+    const a = ((this.view?.spin || 0) * Math.PI) / 180;
+    let k = 1; // 遠近の縮み(1 = 判定ラインの幅)
+    if (a) {
+      const dx = x - G.W / 2, dy = (y ?? G.J) - G.H / 2;
+      x = G.W / 2 + dx * Math.cos(a) + dy * Math.sin(a);
+      // 回転中は、画面に見えているのがレーンの奥側のことが多い(縦長の画面で90度など)ので、その高さでのレーン幅で考える
+      const fc = Math.cos(Math.min(1, this.view.flip || 0) * Math.PI); // 上下反転の縮み(render と同じ)
+      const yy = G.H / 2 + (-dx * Math.sin(a) + dy * Math.cos(a)) / (Math.abs(fc) > 0.05 ? fc : 1);
+      k = Math.max(Z_J / Z_FAR, Math.min(1, (yy - G.hz) / (G.J - G.hz)));
+    }
+    const l = Math.floor((x - G.cx) / (G.laneW * k) + 2);
     return Math.max(0, Math.min(3, l));
   }
 }

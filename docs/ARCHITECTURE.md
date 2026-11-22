@@ -4,7 +4,7 @@
 
 - **書いていないことが必要になったら、コードを読んでこのファイルに追記する。** 仕組みを変えたら、同じコミットでここも直す
 - コードと食い違っていたら、コードが正しい。気づいたらここを直す
-- 最終更新: 2026-11-21(1.73.0 時点)
+- 最終更新: 2026-11-22(1.81.2 時点)
 
 ---
 
@@ -130,6 +130,7 @@
 | `poll.js` | 配信者モードの視聴者リクエスト投票 |
 | `request.js` | お問い合わせ(リクエスト箱) |
 | `admin.js` | 管理者ページ |
+| `traffic.js` | 訪問とプレイの集計(来た元を見分けて `mlidar_hit` に送る) |
 | `tutorial.js` | チュートリアル(専用のゆっくりの曲と手作りの譜面) |
 | `loading.js` / `motion.js` | 読み込み画面 / 画面の動き |
 | `changelog.js` | 更新履歴。**いちばん上が今のバージョン** |
@@ -440,6 +441,16 @@ export default {
 - LIVE の「レベル診断」→ `midnight-avenue` の盛り上がる所 48 秒を、12 秒ずつ EASY → NORMAL → HARD → EXTRA の譜面でつないで叩く(`main.js` の `startDiagnosis`。練習モードと同じ `kind: 'practice'` なので記録・ランキングには残らない)
 - 判定の記録(`r.log`)を区間に分けて精度(PERFECT 1・GREAT 0.75・GOOD 0.35)を出し、80% 以上で叩けたいちばん難しい区間と、次の区間の精度から「ちょうどいいレベル」を決める(`showDiagnosis`。端末の `mlidar:diagLevel` に残す)。その範囲の譜面から、まだ遊んでいない曲を優先して3つすすめる
 
+### 訪問とプレイの集計(1.81.2〜)
+- ログインしていない人も含めて「何人来て、何人遊んだか、どこから来たか」を数える。サーバーの `mlidar_hits`(日本時間の日付 × 端末ID で1行。`source`・`is_new`・`plays`)。400日より古い行は `mlidar_hit` がたまに消す
+- 送るもの: `clientId()`(端末ごとのランダムな UUID)・来た元・初めてかどうか・プレイかどうか。**名前やメールアドレスは送らない**
+- `traffic.js` の `countVisit()` を起動時に1回(`main.js` の `initInstall` の後)、`countPlay()` を `startGameInner` の `game.start` の直後に呼ぶ(リプレイを見るときは数えない)
+- 来た元: URL の `?from=xxx`(または `utm_source`)> `?embed`(embed)・`?invite`(invite)> 前のページのサイト(`HOSTS` で note / qiita / scratch / tiktok / youtube / x / discord / karuwaka / google / bing / yahoo など。ほかは host 名そのまま)> direct。同じタブでは最初の来た元を sessionStorage の `mlidar:src` に残す。1日の行の来た元は、その日最初に来たときのもの
+- 初めてかどうか: 端末の `mlidar:seen`。集計を入れる前から遊んでいた端末(`client`・`best`・`settings` がある)は初めてにしない
+- 数えない: 管理者ページを開けた端末(`mlidar:noCount`。`admin.js` が `mlidar_admin_overview` に成功したら立てる)、`navigator.webdriver`、bot っぽい UA
+- 管理者ページの「訪問とプレイ」(`mlidar_admin_traffic`。管理者だけ): きょう・7日・30日の人数、来た元ごとの人数と遊んだ割合(30日)、日ごとの数(30日)
+- 宣伝に貼るリンクは `https://music-lidar.com/?from=tiktok` のように来た元を付けると、アプリ内ブラウザ(referrer が来ない)からでも分かる
+
 ### サーバーの容量(1.77.1〜)
 - 無料プランのデータベースは 500MB(目安)。このプロジェクトは MixAll・Discord ボット・Mod Wiki なども同じデータベースを使っている(2026-11-21 時点で全体 32MB、MUSIC LiDAR は 1.5MB)
 - 1人あたりで大きいのはリプレイ(1譜面 約6KB)とゴースト(約5KB)。どちらも各譜面の上位20人だけ残すので、人が増えても「全譜面 × 20人」で頭打ちになる
@@ -525,6 +536,7 @@ export default {
 - リプレイ: `mlidar_replay_put` / `_top` / `_get`
 - 自分で選んだ音声: `mlidar_audio_get`(だれでも。曲の情報と鍵)/ `mlidar_audio_list` / `mlidar_audio_meta`(管理者)。置く・消すは Edge Function `mlidar-audio`
 - お問い合わせ・管理: `mlidar_request_send` / `_mine` / `_list` / `_set`, `mlidar_admin_overview`
+- 訪問とプレイの集計: `mlidar_hit`(だれでも)/ `mlidar_admin_traffic`(管理者)。テーブル `mlidar_hits`
 - 内部用(ブラウザから呼ばない): `mlidar_auth`, `mlidar_friend_ids`, `mlidar_state_of`, `mlidar_play_result_core`, `mlidar_missions`, `mlidar_team_fx`, `mlidar_daily`, `mlidar_today`, `mlidar_week_key`, `mlidar_season_key`, `mlidar_season_reward`, `mlidar_give_skin`, `mlidar_event_open`
 
 新しい関数を足すときは `security definer` と `set search_path = public` を付け、`revoke all … from public` してから、必要なら `grant execute … to anon, authenticated`。

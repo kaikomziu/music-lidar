@@ -32,6 +32,7 @@ import { initFriends, closeFriends, fetchFriendRanking } from './friends.js';
 import { newBadges } from './badges.js';
 import { initMatch, cancelMatch, reportMatch } from './match.js';
 import { initInstall, countPlay, maybeShowInstall } from './install.js';
+import { countVisit, countPlay as countTrafficPlay } from './traffic.js';
 import { initKeyConfig, render as renderKeys, apply as applyKeys } from './keyconfig.js';
 import { initDan, openDan, bestDan, danName } from './dan.js';
 import { initEvent, eventActive } from './event.js';
@@ -1106,6 +1107,7 @@ async function startGameInner(entry, d, custom, live, extra) {
   $('btn-p-quit').textContent = live ? 'ライブを抜ける' : '選曲へ';
   $('btn-resume').innerHTML = live ? '戻る <small>ESC</small>' : '再開 <small>ESC</small>';
   game.start(custom?.startFrom || 0, live ? live.syncAt : null);
+  if (custom?.kind !== 'replay') countTrafficPlay(); // 訪問とプレイの集計(リプレイを見るのは数えない)
   if (custom?.record) { // 動画で保存: リプレイを流しながら録る
     if (startRecording(game, canvas, { entry, label, diff: d, jacket: jacketURL(entry, 256) }, { force: true, layout: custom.record })) document.body.classList.add('rec');
   } else if (!custom && !live) startRecording(game, canvas, { entry, label, diff: d, jacket: jacketURL(entry, 256) });
@@ -1662,6 +1664,7 @@ initGrowth({
 initMatch({ entries, toast, overlay, openAccount, esc, jacketURL, rate: () => currentRate() });
 initFriends({ esc, toast, overlay, openAccount, openProfile, titleTag });
 initInstall({ toast });
+countVisit(); // 訪問の集計(traffic.js)
 initKeyConfig({ settings: () => settings, saveSettings: (s) => { settings = s; setSettings(s); }, toast });
 initDan({ entries, show: (n) => { stopPreview(); show(n); }, back: () => goHome(true), current: () => state, esc, jacketURL, toast, overlay,
   play: (entry, d, custom) => startGame(entry, d, custom) });

@@ -3,12 +3,14 @@
 import { rpc } from './ranking.js';
 import { load } from './storage.js';
 import { KIND as REQ_KIND, STATUS } from './request.js';
+import { markNoCount } from './traffic.js';
 const KIND = { ...REQ_KIND, audio: '音源の申請' }; // 音源の申請はガイドラインのページから届く(ゲーム内のフォームには出さない)
 
 const $ = (id) => document.getElementById(id);
 let ui = null; // { entries, show, back, current, esc, toast }
 let timer = 0, data = null, sortKey = 'last_seen', requests = [];
 let storage = null; // サーバーの容量(mlidar_admin_storage)
+let traffic = null; // 訪問とプレイの集計(mlidar_admin_traffic)
 const ONLINE_MS = 2.5 * 60 * 1000; // 最後のやりとりからこの時間以内なら「オンライン」
 
 const PLACE = {
@@ -51,6 +53,8 @@ async function refresh() {
   stop();
   try {
     data = await rpc('mlidar_admin_overview', { p_token: load('token', null) });
+    markNoCount(); // 管理者の端末は訪問の集計に入れない
+    traffic = await rpc('mlidar_admin_traffic', { p_token: load('token', null) }).catch(() => traffic);
     requests = await rpc('mlidar_request_list', { p_token: load('token', null) }).catch(() => requests);
     wishes = await rpc('mlidar_wish_admin', { p_token: load('token', null) }).catch(() => wishes);
     mails = await rpc('mlidar_mail_list', { p_token: load('token', null) }).catch(() => mails);
@@ -84,6 +88,39 @@ function storageHtml() {
     </div>`;
 }
 
+// 訪問とプレイ: 日ごと(30日)と、来た元ごと(30日)
+const SRC = {
+  direct: '直接・ブックマーク', note: 'note', qiita: 'Qiita', scratch: 'Scratch', tiktok: 'TikTok', youtube: 'YouTube', x: 'X(Twitter)',
+  discord: 'Discord', karuwaka: 'かるわかGAMES', google: 'Google 検索', bing: 'Bing 検索', yahoo: 'Yahoo! 検索', duckduckgo: 'DuckDuckGo',
+  embed: 'ブログ埋め込み', invite: '友だち招待', other: 'その他',
+};
+const LINK_TAGS = ['note', 'qiita', 'scratch', 'tiktok', 'youtube'];
+const pct = (a, b) => (b ? Math.round(a / b * 100) + '%' : '-');
+function trafficHtml() {
+  const tr = traffic, esc = ui.esc;
+  if (!tr) return '';
+  const days = tr.days, max = Math.max(1, ...days.map((d) => d.visitors));
+  const today = days[0] || { visitors: 0, new: 0, players: 0, plays: 0 };
+  const md = (d) => { const [, m, dd] = d.split('-'); return `${+m}/${+dd}`; };
+  return `<h3 class="adm-h">訪問とプレイ(ログインしていない人も。管理者の端末は数えません)</h3>
+    <div class="adm-cards">
+      <div class="adm-card"><small>きょう来た人</small><b>${today.visitors}</b><span>初めて ${today.new}人</span></div>
+      <div class="adm-card"><small>きょう遊んだ人</small><b>${today.players}</b><span>${today.plays}曲</span></div>
+      <div class="adm-card"><small>7日間に来た人</small><b>${tr.total7}</b><span>端末の数</span></div>
+      <div class="adm-card"><small>30日間に来た人</small><b>${tr.total30}</b><span>端末の数</span></div>
+    </div>
+    <div class="adm-table-wrap" style="margin-top:10px"><table class="adm-table adm-src">
+      <thead><tr><th>来た元(30日)</th><th>来た人</th><th>うち初めて</th><th>遊んだ人</th><th>遊んだ割合</th><th>曲数</th><th>7日間</th></tr></thead>
+      <tbody>${tr.sources.map((x) => `<tr><td>${esc(SRC[x.source] || x.source)}</td><td class="n"><b>${x.visitors}</b></td><td class="n">${x.new}</td>
+        <td class="n">${x.players}</td><td class="n">${pct(x.players, x.visitors)}</td><td class="n">${x.plays}</td><td class="n">${x.visitors7}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">まだありません</td></tr>'}</tbody></table></div>
+    <details class="adm-days"><summary>日ごとの数(30日)</summary>
+      <div class="adm-table-wrap"><table class="adm-table">
+        <thead><tr><th>日</th><th>来た人</th><th></th><th>初めて</th><th>遊んだ人</th><th>曲数</th></tr></thead>
+        <tbody>${days.map((d) => `<tr><td>${md(d.day)}</td><td class="n">${d.visitors}</td><td><i class="adm-bar" style="width:${(d.visitors / max * 120).toFixed(0)}px"></i></td>
+          <td class="n">${d.new}</td><td class="n">${d.players}</td><td class="n">${d.plays}</td></tr>`).join('')}</tbody></table></div></details>
+    <p class="muted small">宣伝に貼るリンクに <code>?from=名前</code> を付けると、来た元がその名前で分かれます(例: ${LINK_TAGS.map((t) => `<code>music-lidar.com/?from=${t}</code>`).join(' ')})。付けなくても、note・Qiita・Scratch・TikTok・YouTube などのサイトから押されたときは自動で見分けます(アプリ内のブラウザからだと「直接」になることがあります)。</p>`;
+}
+
 function render() {
   if (!data) return;
   const now = data.now, esc = ui.esc;
@@ -107,6 +144,8 @@ function render() {
       ${card('ランキング記録', t.records, `投稿譜面 ${t.charts}`)}
       ${card('招待で始めた人', t.invited ?? 0, '友だち招待')}
     </div>
+
+    ${trafficHtml()}
 
     ${storageHtml()}
 

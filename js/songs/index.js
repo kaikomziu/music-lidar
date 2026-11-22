@@ -97,6 +97,10 @@ import fractalStorm from './fractal-storm.js';
 import kickMachinegun from './kick-machinegun.js';
 import ultraSpiral from './ultra-spiral.js';
 import vertigoScan from './vertigo-scan.js';
+import driftLane from './drift-lane.js';
+import gravityFlip from './gravity-flip.js';
+import spinCycle from './spin-cycle.js';
+import strobeStorm from './strobe-storm.js';
 import jackhammerJazz from './jackhammer-jazz.js';
 import velocityZero from './velocity-zero.js';
 import terminalVelocity from './terminal-velocity.js';
@@ -165,5 +169,5 @@ export default [
   // 鬼畜・ギミック
   sugarRush, hyperpopGlitch, chipDungeon, circuitBreaker, mirageShift, freezeFrame, fractalStorm, kickMachinegun, velocityZero,
   terminalVelocity, metalcoreFury, timeTwister, clockworkChaos, hyperScanBreaker, gabberStorm, finalProtocol, abyssGate, bulletHell404,
-  thunderRequiem, jackhammerJazz, sakuraBlizzard, breakcoreCollapse, overclockOmega, ultraSpiral, vertigoScan, quantumLeap, lightspeedFlash, eventHorizon, omegaRequiem, neutronOverdrive, infinityBreaker,
+  thunderRequiem, jackhammerJazz, sakuraBlizzard, breakcoreCollapse, overclockOmega, ultraSpiral, vertigoScan, driftLane, gravityFlip, spinCycle, strobeStorm, quantumLeap, lightspeedFlash, eventHorizon, omegaRequiem, neutronOverdrive, infinityBreaker,
 ];

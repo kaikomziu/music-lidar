@@ -11,3 +11,4 @@ video/*.webm
 # CC-BY 4.0: 全て蝶々の所為です。「Hydrangea」「蒼」
 !audio/hydrangea.mp3
 !audio/ao.mp3
+supabase/.temp/

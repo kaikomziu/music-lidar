@@ -1,0 +1,12 @@
+# Crying Red (BPM 185・1小節 1.3秒)
+# 秒 区切り名(intro/A/B/chorus/interlude/break/outro)。小節ごとの音量・左右の広がり・高音・低音の変わり目から決めた(耳では確かめていない)
+0.3 intro
+2.9 A
+23.7 chorus   # 大きく左右に広い
+44.4 B       # 真ん中に寄る
+54.8 chorus
+65.2 A
+85.9 chorus
+106.7 B
+127.5 chorus
+146.9 outro

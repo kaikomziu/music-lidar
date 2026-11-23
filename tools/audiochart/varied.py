@@ -228,7 +228,7 @@ base_pi, boost = list(range(len(phrases))), [0] * len(phrases)
 first = {sec_pos[i]: i for i in range(len(phrases)) if sec[i] == 'chorus' and sec_occ[i] == BASE_OCC}
 for i in range(len(phrases)):
     if sec[i] == 'chorus' and sec_occ[i] > BASE_OCC:
-        boost[i] = sec_occ[i] - BASE_OCC
+        boost[i] = min(2, sec_occ[i] - BASE_OCC)  # 強化は2段階まで(サビが多い曲で濃くなりすぎないように)
         if sec_pos[i] in first: base_pi[i] = first[sec_pos[i]]
 plan, recent, used = [], [], {}
 for i, bs in enumerate(phrases):
@@ -261,15 +261,26 @@ LV = {
     'hard':   dict(grid=1, same=0.20, chord=0.12, maxc=2, thr=0.08),
     'extra':  dict(grid=1, same=0.18, chord=0.22, maxc=3, thr=0.03),
 }
+# 速い曲(BPM 200 以上、または CHART_FAST=1): キーボードで叩ける細かさにするため、HARD・EXTRA も8分まで(NORMAL はもともと8分まで)
+FAST = bpm >= 200 or bool(os.environ.get('CHART_FAST'))
+if FAST:
+    for k_, P_ in LV.items():
+        if k_ != 'normal': P_['grid'] *= 2
 
-BD = {}
-for i, bs in enumerate(phrases):
-    st = STYLE[sec[i]]
-    last = i + 1 >= len(sec) or sec[i + 1] != sec[i]
-    for j, b in enumerate(bs): BD[b] = st['dens'] * (1 + 0.15 * boost[i]) * (1.5 if st['fill'] and last and j == len(bs) - 1 else 1.0)
+# 小節ごとの密度の倍率。alpha は区切りごとの差の強さ(1=そのまま。目標の密度に届かない曲は弱めて作り直す)
+def make_bd(alpha):
+    bd = {}
+    for i, bs in enumerate(phrases):
+        st = STYLE[sec[i]]
+        last = i + 1 >= len(sec) or sec[i + 1] != sec[i]
+        for j, b in enumerate(bs):
+            d = st['dens'] * (1 + 0.15 * boost[i]) * (1.5 if st['fill'] and last and j == len(bs) - 1 else 1.0)
+            bd[b] = 1 + (d - 1) * alpha
+    return bd
 
-def build(lv, target):
+def build(lv, target, alpha=1.0):
     P = LV[lv]
+    BD = make_bd(alpha); cm = 1 + (1 - alpha) * 0.6  # 差を弱めるときは同時押しで密度を補う
     # 1小節の数: 盛り上がりに合わせ、全体で目標 nps になるように係数を探す
     lo_s, hi_s = 0.1, 20.0
     for _ in range(30):
@@ -285,7 +296,7 @@ def build(lv, target):
         v = plan[pi]; st = STYLE[sec[pi]]; cb = 1 + 0.5 * boost[pi]  # 強化版は同時押しも増やす
         for bi, b in enumerate(bs):
             n = min(16 // P['grid'], int(round(scale * bar_sec * BD[b] * (0.35 + 0.65 * min(1, E[b] / emax) ** 1.3))))
-            gr = 2 if st.get('grid8') and lv != 'extra' else P['grid']
+            gr = max(P['grid'], 2) if st.get('grid8') and lv != 'extra' and alpha >= 1 else P['grid']
             cs = [s for s in bars[b] if s['pos'] % gr == 0]
             # 8分の裏(16分の位置)は、強い音のときだけ
             cs = sorted(cs, key=lambda s: -(score(s, v) * (1.0 if s['pos'] % 2 == 0 else 0.8)))
@@ -350,11 +361,14 @@ def build(lv, target):
                 # 同時押し: 全帯域が強い所(拍の頭・スネア)
                 strong = (s['l'] > 0.7 and s['m'] > 0.55) or (s['pos'] in (4, 12) and s['m'] > 0.75 and s['h'] > 0.6)
                 if st['chord'] >= 2: strong = strong or s['l'] > 0.5 or (s['pos'] in (4, 12) and s['m'] > 0.5)
-                if strong and rng.random() < P['chord'] * 3 * st['chord'] * cb and (s['pos'] % 4 == 0 or (st['chord'] >= 2 and P['maxc'] >= 3 and s['pos'] % 2 == 0 and rng.random() < 0.5)):
+                if strong and rng.random() < P['chord'] * 3 * max(st['chord'], 1 - alpha) * cb * cm and (s['pos'] % 4 == 0 or (st['chord'] >= 2 and P['maxc'] >= 3 and s['pos'] % 2 == 0 and rng.random() < 0.5)):
                     notes.append([s['g'], 3 - ln if 3 - ln != ln else (ln + 2) % 4, s])
                     if P['maxc'] >= 3 and s['pos'] == 0 and bi == 0 and s['l'] > 0.8 and s['m'] > 0.7 and s['h'] > 0.6:
                         rest = [q for q in range(4) if q not in (ln, 3 - ln)]
                         notes.append([s['g'], rest[pi % len(rest)], s])
+                elif alpha < 1 and (s['l'] > 0.3 or s['m'] > 0.3) and rng.random() < (1 - alpha) * 0.75:
+                    # 差を弱めて作り直すとき(密な譜面の曲): 左右の手を重ねる2つ同時押しを、どの位置にも入れてよい
+                    notes.append([s['g'], 3 - ln if 3 - ln != ln else (ln + 2) % 4, s])
     # --- 同じレーンが近すぎる所は、近くで使っていないレーンへ逃がす。逃がせなければ消す ---
     notes.sort(key=lambda n: (n[0], n[1]))
     out, last = [], {0: -9, 1: -9, 2: -9, 3: -9}
@@ -408,12 +422,52 @@ m = re.search(r'export default (\{.*\});', src, re.S)
 data = json.loads(m.group(1))
 for lv, target in TARGETS.items():
     # 重なりで消えるぶんがあるので、目標の密度に近づくまで数回やり直す
-    want = target
-    for _ in range(5):
-        c = build(lv, want)
-        got = len(c) / T_END
-        if abs(got - target) < 0.15: break
-        want *= target / max(got, 0.1)
+    # 届かないときは、区切りごとの差を弱めて(alpha を下げて)やり直す
+    for alpha in (1.0, 0.6, 0.3, 0.0):
+        want = target
+        for _ in range(5):
+            c = build(lv, want, alpha)
+            got = len(c) / T_END
+            if abs(got - target) < 0.15: break
+            want *= target / max(got, 0.1)
+        if got >= target * 0.95: break
+    if alpha < 1: print('   区切りごとの差を弱めた: alpha', alpha)
+    # 今の譜面のロングノーツを引き継ぐ。
+    # 1) 同じ時刻(±40ms)に新しいノーツがあれば、のばしている間あいているレーンでロングにする(レーンを移してもよい)
+    # 2) なければ、のばしている間あいているレーンに新しくロングを置く(同時押しの上限は守る)
+    # 置いたぶんで目標より 3% 以上多くなったら、全体を減らして作り直す
+    old_ln = [n for n in data['charts'].get(lv, []) if len(n) > 2]
+    gap = LV[lv]['same'] * 1000
+    def carry(c):
+        kept = added = 0
+        def lane_free(ln, t_from, t_to, skip=None):
+            # その間にそのレーンで始まるノーツがなく、そのレーンでのばしているロングとも重ならない
+            return all(not (q[1] == ln and (t_from < q[0] <= t_to or (len(q) > 2 and q[0] <= t_to and q[2] + gap >= t_from))) for q in c if q is not skip)
+        for t0, l0, e0 in old_ln:
+            near = sorted((n for n in c if len(n) == 2 and abs(n[0] - t0) <= 40), key=lambda n: (n[1] != l0, abs(n[0] - t0)))
+            done = False
+            for n in near:
+                for ln in [n[1], l0] + [x for x in range(4) if x not in (n[1], l0)]:
+                    if any(q is not n and q[0] == n[0] and q[1] == ln for q in c): continue
+                    if lane_free(ln, n[0] - gap, e0 + gap, skip=n):
+                        n[1] = ln; n.append(e0 - t0 + n[0]); kept += 1; done = True; break
+                if done: break
+            if done: continue
+            same_t = [q for q in c if abs(q[0] - t0) <= 40]
+            if len(same_t) >= LV[lv]['maxc']: continue
+            for ln in [l0] + [x for x in range(4) if x != l0]:
+                if any(q[1] == ln for q in same_t): continue
+                if lane_free(ln, t0 - gap, e0 + gap):
+                    c.append([t0, ln, e0]); added += 1; break
+        c.sort(key=lambda n: (n[0], n[1]))
+        return kept, added
+    if old_ln:
+        base_c = [list(n) for n in c]
+        kept, added = carry(c)
+        if len(c) > target * T_END * 1.03:
+            c = build(lv, want * target * T_END / len(c), alpha)
+            kept, added = carry(c)
+        print('   ロングノーツ', kept + added, '/', len(old_ln), f'本を引き継いだ(新しく置いた {added} 本)')
     data['charts'][lv] = c
     print(lv, len(c), 'notes', f'{len(c) / T_END:.2f} nps', 'lanes', np.bincount([n[1] for n in c], minlength=4).tolist())
     # 区切りの種類ごとの密度(傾向が変わっているかの確認用)

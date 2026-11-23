@@ -1,0 +1,19 @@
+# 僕たちのエピローグ (BPM 91.4・1小節 2.63秒)
+# 秒 区切り名(intro/A/B/chorus/interlude/break/outro)。小節ごとの音量・左右の広がり・高音・低音の変わり目から決めた(耳では確かめていない)
+0.2 intro
+26.4 A
+50.1 chorus   # 急に大きくなる
+71.1 interlude
+86.8 A
+107.8 B
+142.0 A       # 低音なしの静かな歌
+173.5 B
+189.2 chorus
+212.8 chorus
+233.8 B
+252.2 break
+273.2 interlude
+278.5 B
+291.6 chorus  # 最後のサビ。いちばん大きい
+352.0 interlude
+365.1 outro

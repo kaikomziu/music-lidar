@@ -1,0 +1,13 @@
+# 飛行白書 (BPM 90・1小節 2.67秒)
+# 秒 区切り名(intro/A/B/chorus/interlude/break/outro)。小節ごとの音量・左右の広がり・高音・低音の変わり目から決めた(耳では確かめていない)
+0.0 intro
+13.3 A
+34.7 chorus   # 少し大きい
+74.7 interlude
+88.0 A
+109.4 B
+130.7 chorus
+173.4 interlude
+184.0 B
+192.0 chorus
+224.0 outro

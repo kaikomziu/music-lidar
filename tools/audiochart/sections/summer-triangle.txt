@@ -1,0 +1,10 @@
+# SUMMER TRIANGLE (BPM 175・1小節 1.37秒)
+# 秒 区切り名(intro/A/B/chorus/interlude/break/outro)。小節ごとの音量・左右の広がり・高音・低音の変わり目から決めた(耳では確かめていない)
+0.0 intro     # 低音が弱い
+11.0 A
+22.0 B
+33.0 chorus
+52.2 break    # 低音なし
+65.9 B
+87.8 chorus
+112.5 outro

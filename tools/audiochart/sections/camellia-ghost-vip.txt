@@ -1,0 +1,12 @@
+# GHOST (VIP Mix) (BPM 230・1小節 1.04秒)。歌のない曲なので、盛り上げ=B、ドロップ=chorus
+# 秒 区切り名(intro/A/B/chorus/interlude/break/outro)。小節ごとの音量・左右の広がり・高音・低音の変わり目から決めた(耳では確かめていない)
+0.1 intro
+9.5 B
+26.2 chorus   # ドロップ
+47.1 interlude
+61.7 chorus
+119.1 break
+152.5 B
+168.2 chorus
+233.9 chorus
+300.7 outro

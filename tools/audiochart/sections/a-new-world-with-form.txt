@@ -1,0 +1,10 @@
+# a new world with form (BPM 96・1小節 2.5秒)
+# 秒 区切り名(intro/A/B/chorus/interlude/break/outro)。小節ごとの音量・左右の広がり・高音・低音の変わり目から決めた(耳では確かめていない)
+0.1 intro
+10.1 A
+30.1 chorus
+50.1 A
+70.1 B      # 真ん中に寄り、低音が弱い
+90.1 chorus
+110.1 chorus  # いちばん大きい
+130.1 outro

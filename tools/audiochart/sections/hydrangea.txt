@@ -1,0 +1,12 @@
+# hydrangea (BPM 125・1小節 1.92秒)
+# 秒 区切り名(intro/A/B/chorus/interlude/break/outro)。小節ごとの音量・左右の広がり・高音・低音の変わり目から決めた(耳では確かめていない)
+0.1 intro
+17.4 A        # ハイハットなし
+32.7 B
+61.5 chorus   # シンバルが明るく、低音が強い
+96.1 A
+109.5 B
+140.3 chorus
+184.4 break   # 低音が弱い
+201.7 chorus
+217.1 outro

@@ -14,6 +14,9 @@ const songs = (await import(pathToFileURL(path.join(root, 'js/songs/index.js')).
 // 内蔵曲の EXTRA のレベル(曲ファイルではなく表にある)も levels に入れておく
 const EXTRA_LEVELS = (await import(pathToFileURL(path.join(root, 'js/songs/extra-levels.js')).href)).default;
 for (const s of songs) if (EXTRA_LEVELS[s.id] && !s.levels.extra) s.levels = { ...s.levels, extra: EXTRA_LEVELS[s.id] };
+// 内蔵曲の INFERNO のレベルも同じく表にある
+const INFERNO_LEVELS = (await import(pathToFileURL(path.join(root, 'js/songs/inferno-levels.js')).href)).default;
+for (const s of songs) if (INFERNO_LEVELS[s.id] && !s.levels.inferno) s.levels = { ...s.levels, inferno: INFERNO_LEVELS[s.id] };
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // --- 曲数と収録曲一覧を最新にする(検索エンジンが曲ページを見つけられるように) ---
@@ -29,7 +32,7 @@ for (const f of ['index.html', 'guide.html']) {
     const rows = new Map();
     for (const m of h.matchAll(/<tr><td><a href="music\/([a-z0-9]+)\/">[\s\S]*?<\/tr>/g)) rows.set(m[1], m[0]);
     const body = songs.map((s) => {
-      const lv = `${s.levels.easy} / ${s.levels.normal} / ${s.levels.hard}${s.levels.extra ? ` / EX ${s.levels.extra}` : ""}`;
+      const lv = `${s.levels.easy} / ${s.levels.normal} / ${s.levels.hard}${s.levels.extra ? ` / EX ${s.levels.extra}` : ""}${s.levels.inferno ? ` / INF ${s.levels.inferno}` : ""}`;
       let row = rows.get(s.urlId) ||
         `<tr><td><a href="music/${s.urlId}/">${esc(s.title)}</a></td><td>${esc(s.genre)}</td><td>${Math.round(s.bpm)}</td><td class="lv">${lv}</td></tr>`;
       row = row.replace(/<td class="lv">[^<]*<\/td>/, `<td class="lv">${lv}</td>`); // レベルは曲ファイルに合わせる

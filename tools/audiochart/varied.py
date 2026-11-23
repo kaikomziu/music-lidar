@@ -260,6 +260,7 @@ LV = {
     'normal': dict(grid=2, same=0.30, chord=0.05, maxc=2, thr=0.15),
     'hard':   dict(grid=1, same=0.20, chord=0.12, maxc=2, thr=0.08),
     'extra':  dict(grid=1, same=0.18, chord=0.22, maxc=3, thr=0.03),
+    'inferno': dict(grid=1, same=0.15, chord=0.32, maxc=3, thr=0.02),  # 5つ目の難易度(EXTRA の上)
 }
 # 速い曲(BPM 200 以上、または CHART_FAST=1): キーボードで叩ける細かさにするため、HARD・EXTRA も8分まで(NORMAL はもともと8分まで)
 FAST = bpm >= 200 or bool(os.environ.get('CHART_FAST'))
@@ -296,7 +297,7 @@ def build(lv, target, alpha=1.0):
         v = plan[pi]; st = STYLE[sec[pi]]; cb = 1 + 0.5 * boost[pi]  # 強化版は同時押しも増やす
         for bi, b in enumerate(bs):
             n = min(16 // P['grid'], int(round(scale * bar_sec * BD[b] * (0.35 + 0.65 * min(1, E[b] / emax) ** 1.3))))
-            gr = max(P['grid'], 2) if st.get('grid8') and lv != 'extra' and alpha >= 1 else P['grid']
+            gr = max(P['grid'], 2) if st.get('grid8') and lv not in ('extra', 'inferno') and alpha >= 1 else P['grid']
             cs = [s for s in bars[b] if s['pos'] % gr == 0]
             # 8分の裏(16分の位置)は、強い音のときだけ
             cs = sorted(cs, key=lambda s: -(score(s, v) * (1.0 if s['pos'] % 2 == 0 else 0.8)))
@@ -479,5 +480,5 @@ for lv, target in TARGETS.items():
     print('   ', ' '.join(f'{NAME[k]}{v[0] / v[1]:.1f}(同時{v[2] / max(1, v[0]) * 100:.0f}%)' for k, v in span.items()))
 head = src[:m.start()].rstrip('\n')
 head = re.sub(r'\n// [^\n]*varied\.py[^\n]*', '', head)  # 前の varied.py の説明は消して書き直す
-head += '\n// ' + '・'.join(TARGETS) + ' は varied.py(曲をイントロ・Aメロ・Bメロ・サビなどに区切り、区切りごとに拾う音・密度・同時押しの傾向を変え、2番以降のサビは1番サビの強化版にし、4小節ごとに拾う音を切り替えて同じ形の小節が続かないようにした譜面。区切りは tools/audiochart/sections/ の表)。'
+head += '\n// ' + '・'.join(k for k in data['charts'] if k != 'easy') + ' は varied.py(曲をイントロ・Aメロ・Bメロ・サビなどに区切り、区切りごとに拾う音・密度・同時押しの傾向を変え、2番以降のサビは1番サビの強化版にし、4小節ごとに拾う音を切り替えて同じ形の小節が続かないようにした譜面。区切りは tools/audiochart/sections/ の表)。'
 open(DATA, 'w', encoding='utf-8').write(head + '\nexport default ' + json.dumps(data, separators=(',', ':')) + ';\n')

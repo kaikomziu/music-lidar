@@ -1,7 +1,8 @@
 import { langPref, setLang } from './i18n.js'; // 多言語表示(いちばん先に読んで、画面の文字を置き換える)
 import SONGS from './songs/index.js';
-import { composeSong, candidatesFromEvents, generateChart, shapeHolds, chartStats, DIFFS, hashStr, extraParam } from './composer.js';
+import { composeSong, candidatesFromEvents, generateChart, shapeHolds, chartStats, DIFFS, ALL_DIFFS, hashStr, extraParam, infernoParam } from './composer.js';
 import EXTRA_LEVELS from './songs/extra-levels.js'; // 内蔵曲の EXTRA のレベル(tools/extra-levels.mjs で作る)
+import INFERNO_LEVELS from './songs/inferno-levels.js'; // 内蔵曲の INFERNO のレベル(tools/extra-levels.mjs で作る)
 import { getCtx, setVolumes, playPreview, stopPreview, bgmOutFor, setHiddenAudioPolicy } from './audio.js';
 import { loadSongAudio } from './audio-cache.js';
 import { loadExternalAudio } from './external-audio.js';
@@ -79,15 +80,17 @@ function touchBuffer(e) {
 }
 
 // のばす音をトリルなどに変える(composer.js の shapeHolds)。曲ファイルで holdStyle: false にすると今までのロングノーツのまま
-const holds = (notes, d, def) => (def.holdStyle === false ? notes : shapeHolds(notes, d === 'extra' ? 'hard' : d, { bpm: def.bpm, level: def.levels?.[d], seed: hashStr(def.id) }));
-// その曲で選べる難易度(EXTRA は譜面がある曲だけ)
-const diffsOf = (e) => (e?.levels?.extra ? [...DIFFS, 'extra'] : DIFFS);
+const holds = (notes, d, def) => (def.holdStyle === false ? notes : shapeHolds(notes, d === 'extra' || d === 'inferno' ? 'hard' : d, { bpm: def.bpm, level: def.levels?.[d], seed: hashStr(def.id) }));
+// その曲で選べる難易度(EXTRA・INFERNO は譜面がある曲だけ)
+const diffsOf = (e) => ALL_DIFFS.filter((d) => DIFFS.includes(d) || e?.levels?.[d]);
+// その曲に無い難易度を選んでいるときに代わりに見せる難易度(INFERNO → EXTRA → HARD)
+const diffFor = (e, d) => (e?.levels?.[d] || DIFFS.includes(d) ? d : d === 'inferno' && e?.levels?.extra ? 'extra' : 'hard');
 
 function fileSongEntry(def) {
   const charts = {}, stats = {};
   const unpack = (arr) => arr.map(([t, lane, e]) => (e ? { t: t / 1000, lane, end: e / 1000 } : { t: t / 1000, lane }));
   const scroll = buildScroll(def.gimmicks, def.bpm);
-  for (const d of [...DIFFS, ...(def.fixedCharts.extra ? ['extra'] : [])]) {
+  for (const d of ALL_DIFFS.filter((x) => def.fixedCharts[x])) {
     charts[d] = dropNotesInStops(holds(unpack(def.fixedCharts[d]), d, def), scroll.stops);
     stats[d] = chartStats(charts[d]);
   }
@@ -145,10 +148,14 @@ function builtinEntry(def) {
       charts.extra = dropNotesInStops(holds(generateChart(cands, 'extra', duration, hashStr(def.id), extraParam(def.chart?.hard, def.chart?.extra)), 'extra', def), scroll.stops);
       stats.extra = chartStats(charts.extra);
     }
+    if (levels.inferno) { // INFERNO: EXTRA の値から、さらに細かく・多くした譜面
+      charts.inferno = dropNotesInStops(holds(generateChart(cands, 'inferno', duration, hashStr(def.id), infernoParam(def.chart?.hard, def.chart?.extra, def.chart?.inferno)), 'inferno', def), scroll.stops);
+      stats.inferno = chartStats(charts.inferno);
+    }
     return (built = { events, duration, onsets, charts, stats });
   };
   const scroll = buildScroll(def.gimmicks, def.bpm);
-  const levels = EXTRA_LEVELS[def.id] ? { ...def.levels, extra: EXTRA_LEVELS[def.id] } : def.levels;
+  const levels = { ...def.levels, ...(EXTRA_LEVELS[def.id] ? { extra: EXTRA_LEVELS[def.id] } : {}), ...(INFERNO_LEVELS[def.id] ? { inferno: INFERNO_LEVELS[def.id] } : {}) };
   return {
     id: def.id, urlId: def.urlId, title: def.title, artist: def.artist, genre: def.genre, bpm: def.bpm, color: def.color,
     event: def.event || null, levels, local: false, scroll, gimmick: gimmickLabel(def.gimmicks), gimmicks: def.gimmicks || [], photosensitive: !!def.photosensitive,
@@ -257,7 +264,7 @@ function syncUrl(e) {
     document.title = e?.urlId ? `${e.title}｜MUSIC LiDAR` : 'MUSIC LiDAR｜ブラウザで遊べる無料4キー音ゲー(リズムゲーム)';
   } catch { /* file:// など */ }
 }
-let diff = [...DIFFS, 'extra'].includes(load('diff', 'normal')) ? load('diff', 'normal') : 'normal';
+let diff = ALL_DIFFS.includes(load('diff', 'normal')) ? load('diff', 'normal') : 'normal';
 
 // 起動後に、選んでいる曲の音源だけ裏で用意しておく。
 // (全曲を合成すると初回はCPUを数分使い続け、メモリも数GBになるのでしない。ほかの曲は選んだときに用意する)
@@ -492,8 +499,8 @@ function renderFav() {
   $('d-fav').textContent = on ? '★ お気に入り' : '☆ お気に入りにする';
 }
 
-// 曲一覧で使う難易度: EXTRA を選んでいるとき、EXTRA のない曲は HARD で見る
-const dOf = (e) => (diff === 'extra' && !e.levels.extra ? 'hard' : diff);
+// 曲一覧で使う難易度: EXTRA・INFERNO を選んでいるとき、その譜面のない曲は1つ下(INFERNO → EXTRA → HARD)で見る
+const dOf = (e) => diffFor(e, diff);
 // 人気曲(サーバー mlidar_popular): { 曲id: [今週, 累計] }。5分ごとに読み直す。今週の上位10曲は一覧に 🔥
 let popular = {}, popularAt = 0, hotSet = new Set();
 function loadPopular() {
@@ -552,7 +559,7 @@ function visibleSongs() {
 function renderFilters() {
   const chip = (group, [v, label]) => `<button class="f-chip ${songView[group] === v ? 'sel' : ''}" data-g="${group}" data-v="${v}">${label}</button>`;
   $('song-filters').innerHTML =
-    `<span class="f-label"${diff === 'extra' ? ' title="EXTRA のない曲は HARD のレベルで絞り込み・並べ替えます"' : ''}>${diff.toUpperCase()}</span>${LV_FILTERS.map((f) => chip('lv', f)).join('')}<span class="f-sep"></span>${STATUS_FILTERS.filter(([v]) => v !== 'local' || entries.some((e) => e.local)).map((f) => chip('status', f)).join('')}`;
+    `<span class="f-label"${diff === 'extra' ? ' title="EXTRA のない曲は HARD のレベルで絞り込み・並べ替えます"' : diff === 'inferno' ? ' title="INFERNO のない曲は EXTRA(なければ HARD)のレベルで絞り込み・並べ替えます"' : ''}>${diff.toUpperCase()}</span>${LV_FILTERS.map((f) => chip('lv', f)).join('')}<span class="f-sep"></span>${STATUS_FILTERS.filter(([v]) => v !== 'local' || entries.some((e) => e.local)).map((f) => chip('status', f)).join('')}`;
 }
 
 function renderList() {
@@ -575,7 +582,7 @@ function renderList() {
     if (k < 16) { b.classList.add('anim'); b.style.setProperty('--k', k); } // 流れ込むのは画面に見える最初の16枚だけ(全部動かすと重い)
     b.dataset.i = i;
     b.style.setProperty('--c', e.color);
-    const lv = diffsOf(e).map((d) => { // EXTRA のある曲は4つ目に紫で出す
+    const lv = diffsOf(e).map((d) => { // EXTRA は紫・INFERNO はオレンジで後ろに出す
       const best = bestOf(e.id, d);
       const mark = best?.ap ? 'AP' : best?.fc ? 'FC' : '';
       return `<span class="lv ${d}">${e.levels[d]}${mark ? `<span class="mark">${mark}</span>` : ''}</span>`;
@@ -649,7 +656,7 @@ function renderDetail() {
   renderFav();
   $('d-meta').textContent = `${e.artist} ・ BPM ${Math.round(e.bpm)} ・ ${fmtTime(e.duration)}${e.gimmick ? ` ・ ギミック: ${e.gimmick}` : ''}${e.photosensitive ? ' ・ ⚠ 光の点滅・画面の動きあり' : ''}`;
   $('d-credit').innerHTML = e.credit ? `${esc(e.credit)}${e.creditUrl ? ` <a href="${esc(e.creditUrl)}" target="_blank" rel="noopener">${esc(e.creditUrl.replace(/^https?:\/\//, '').replace(/\/$/, ''))}</a>` : ''}` : '';
-  if (diff === 'extra' && !e.levels.extra) diff = 'hard'; // EXTRA のない曲では HARD を見せる
+  diff = diffFor(e, diff); // その曲に無い難易度なら1つ下を見せる(INFERNO → EXTRA → HARD)
   $('diffs').innerHTML = diffsOf(e).map((d) => `
     <button class="diff-btn ${d}${d === diff ? ' sel' : ''}" data-d="${d}">
       <div class="dn">${d.toUpperCase()}</div><div class="dl">${e.levels[d]}</div><div class="dc">${e.stats[d].notes} notes</div>

@@ -18,7 +18,7 @@ export default {
   audio: 'audio/hikou-hakusho.bin',
   audioKey: 'aes:1aLqAT1vQGW+2P2StnHhS+aHkWvNiGK3Li9DGFI6KFs=',
   fixedCharts: data.charts,
-  levels: { easy: 2, normal: 4, hard: 6, extra: 9 }, // EXTRA: layered.py(16分まで)で裏の音も拾った最高難度
+  levels: { easy: 2, normal: 4, hard: 6, extra: 9, inferno: 11 }, // EXTRA: layered.py(16分まで)で裏の音も拾った最高難度
   previewAt: 104, // 秒
   credit: '音楽:ナツメダ ユキ「飛行白書」(歌:音街ウナ)',
   creditUrl: 'https://piapro.jp/YukiNatsumeda',

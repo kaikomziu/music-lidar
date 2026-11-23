@@ -18,7 +18,7 @@ export default {
   audio: 'audio/maretu-white-happy.bin',
   audioKey: 'aes:fAOCukoZWM0Vv4hZ7XOJrWbpQJ7h5BfaYxDcT6P9ehY=',
   fixedCharts: data.charts,
-  levels: { easy: 3, normal: 7, hard: 10, extra: 12 }, // EXTRA: layered.py で裏の音も拾った最高難度
+  levels: { easy: 3, normal: 7, hard: 10, extra: 12, inferno: 13 }, // EXTRA: layered.py で裏の音も拾った最高難度
   previewAt: 170.2, // 秒
   credit: '音楽：MARETU',
   creditUrl: 'https://www.youtube.com/@MARETUch',

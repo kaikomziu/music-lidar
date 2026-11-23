@@ -17,7 +17,7 @@ export default {
   audio: 'audio/mizu-no-tsuioku.bin', // そのままでは再生できないよう並べ替えた音源(tools/scramble_audio.py)
   audioKey: 'iPG627z5ohlSbfp08E7awoRBIZnYBIE5',
   fixedCharts: data.charts,
-  levels: { easy: 3, normal: 6, hard: 9, extra: 11 }, // EXTRA: layered.py で裏の音も拾った最高難度
+  levels: { easy: 3, normal: 6, hard: 9, extra: 11, inferno: 12 }, // EXTRA: layered.py で裏の音も拾った最高難度
   previewAt: 157.5, // 秒(いちばん盛り上がる所)
   credit: '音楽:ああああ「水の追憶」',
 };

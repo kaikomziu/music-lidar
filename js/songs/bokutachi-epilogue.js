@@ -20,7 +20,7 @@ export default {
   audio: 'audio/bokutachi-epilogue.bin',
   audioKey: 'aes:wQKaP8t7ifNNMa+qovhUqlOzYs8kJnzfSk35kUEs4xo=',
   fixedCharts: data.charts,
-  levels: { easy: 1, normal: 3, hard: 5, extra: 9 },
+  levels: { easy: 1, normal: 3, hard: 5, extra: 9, inferno: 10 },
   previewAt: 215.5, // 秒(いちばん盛り上がる所)
   credit: '音楽:ああああ「僕たちの旅とエピローグ。」',
 };

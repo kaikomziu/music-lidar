@@ -18,7 +18,7 @@ export default {
   audioKey: 'aes:Y/AE19nDRu8m3Q46xWQW+oI6UUF0tNHzTHURmWlOTLE=',
   fixedCharts: data.charts,
   holdStyle: false,
-  levels: { easy: 2, normal: 3, hard: 5, extra: 9 },
+  levels: { easy: 2, normal: 3, hard: 5, extra: 9, inferno: 11 },
   previewAt: 95.1,
   jacket: 'img/jackets/a-new-world-with-form.jpg',
   mv: false,

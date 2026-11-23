@@ -192,6 +192,17 @@ export function extraParam(hardOverride = null, extraOverride = null) {
   };
 }
 
+// INFERNO(5つ目の難易度・EXTRA の上): EXTRA の値から、さらに細かく・多く・同時押しを多めにした値。曲ファイルの chart.inferno で上書きできる
+export function infernoParam(hardOverride = null, extraOverride = null, infernoOverride = null) {
+  const x = extraParam(hardOverride, extraOverride);
+  return {
+    ...x, minGap: Math.max(0.06, x.minGap * 0.82), maxNps: x.maxNps * 1.3, minScore: x.minScore * 0.55,
+    chordP: Math.min(0.7, x.chordP + 0.1), chordAnyP: 0.3, chordMax: 3, sameGap: Math.max(0.08, x.sameGap * 0.9), ...(infernoOverride || {}),
+  };
+}
+// 難易度の並び(EXTRA・INFERNO は譜面がある曲だけ)
+export const ALL_DIFFS = ['easy', 'normal', 'hard', 'extra', 'inferno'];
+
 // key で小さい順に並べる(key は1要素1回だけ計算。同じ値ならもとの順)
 function byKey(arr, key) {
   return arr.map((v, i) => ({ v, i, k: key(v) })).sort((a, b) => a.k - b.k || a.i - b.i).map((o) => o.v);
@@ -206,7 +217,7 @@ function lowerBound(arr, x) {
 // override: 曲ごとの調整 (例: { minGap: 0.07, maxNps: 12 })。曲ファイルの chart: { hard: {...} } から渡される
 export function generateChart(cands, diff, duration, seed = 1, override = null) {
   const P = { ...(PARAM[diff] || PARAM.hard), ...(override || {}) };
-  const top = diff === 'hard' || diff === 'extra';
+  const top = diff === 'hard' || diff === 'extra' || diff === 'inferno';
   const rng = mulberry32((seed ^ hashStr(diff)) >>> 0);
 
   // 1) 重要度順に拾い、最小間隔と密度上限を守る
@@ -235,7 +246,8 @@ export function generateChart(cands, diff, duration, seed = 1, override = null) 
 
     let n = 1;
     if (k.has('crash')) n = diff === 'easy' ? 2 : Math.min(P.chordMax, 2 + (rng() < 0.5 ? 1 : 0));
-    else if (diff !== 'easy' && k.size >= 2 && c.onBeat && rng() < P.chordP) n = top && rng() < 0.2 ? 3 : 2;
+    // chordAnyP(INFERNO だけ): 拍の頭でない音・1種類だけの音でも、この確率で同時押しにする(ほかの難易度は乱数の引き方も今までどおり)
+    else if (diff !== 'easy' && ((k.size >= 2 && c.onBeat && rng() < P.chordP) || (P.chordAnyP && rng() < P.chordAnyP))) n = top && rng() < 0.2 ? 3 : 2;
     else if (diff === 'easy' && k.has('kick') && k.has('melodic') && c.onBeat && rng() < 0.08) n = 2;
     n = Math.min(n, P.chordMax);
 

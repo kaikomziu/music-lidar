@@ -69,7 +69,7 @@ kbd { font-family: var(--font-d); }
 .song-card .sc-sub { font-size: 12px; color: var(--muted); grid-column: 1; }
 .song-card .sc-lv { grid-row: 1 / span 2; grid-column: 2; display: flex; gap: 6px; }
 .lv { font-family: var(--font-d); font-size: 12px; font-weight: 700; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 6px; border: 1px solid currentColor; position: relative; }
-.lv.easy { color: #6dffb0; } .lv.normal { color: #ffd25e; } .lv.hard { color: #ff5a8a; } .lv.extra { color: #c06bff; }
+.lv.easy { color: #6dffb0; } .lv.normal { color: #ffd25e; } .lv.hard { color: #ff5a8a; } .lv.extra { color: #c06bff; } .lv.inferno { color: #ff7a45; }
 .lv .mark { position: absolute; top: -7px; right: -7px; font-size: 8px; background: #000; padding: 1px 3px; border-radius: 4px; border: 1px solid currentColor; }
 .song-card.upload { grid-template-columns: 1fr; border-style: dashed; color: var(--muted); }
 .song-card.upload::before { background: var(--muted); box-shadow: none; }
@@ -88,7 +88,7 @@ kbd { font-family: var(--font-d); }
 .diff-btn .dl { font-size: 24px; font-weight: 800; }
 .diff-btn .dc { font-size: 10px; color: var(--muted); font-family: var(--font-b); }
 .diff-btn.sel { border-color: currentColor; box-shadow: 0 0 14px color-mix(in srgb, currentColor 40%, transparent), inset 0 0 14px color-mix(in srgb, currentColor 15%, transparent); }
-.diff-btn.easy { color: #6dffb0; } .diff-btn.normal { color: #ffd25e; } .diff-btn.hard { color: #ff5a8a; } .diff-btn.extra { color: #c06bff; }
+.diff-btn.easy { color: #6dffb0; } .diff-btn.normal { color: #ffd25e; } .diff-btn.hard { color: #ff5a8a; } .diff-btn.extra { color: #c06bff; } .diff-btn.inferno { color: #ff7a45; }
 .best { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; align-items: center; font-family: var(--font-d); padding: 10px 12px; border-radius: 10px; background: rgba(0, 0, 0, 0.3); min-height: 56px; }
 .best .b-rank { font-size: 28px; font-weight: 900; grid-row: span 2; min-width: 52px; text-align: center; }
 .best .b-score { font-size: 20px; font-weight: 700; }

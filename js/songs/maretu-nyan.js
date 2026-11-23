@@ -18,7 +18,7 @@ export default {
   audio: 'audio/maretu-nyan.bin',
   audioKey: 'aes:eydbVecEQEXFcrEAE5JuGufiKvgsBLn4T6N3kWaqGO0=',
   fixedCharts: data.charts,
-  levels: { easy: 3, normal: 6, hard: 9, extra: 11 }, // EXTRA: layered.py で裏の音も拾った最高難度
+  levels: { easy: 3, normal: 6, hard: 9, extra: 11, inferno: 12 }, // EXTRA: layered.py で裏の音も拾った最高難度
   previewAt: 152.3, // 秒
   credit: '音楽：MARETU',
   creditUrl: 'https://www.youtube.com/@MARETUch',

@@ -16,7 +16,7 @@ export default {
   duration: data.duration,
   audio: 'audio/ao.mp3',
   fixedCharts: data.charts,
-  levels: { easy: 4, normal: 7, hard: 10, extra: 11 }, // EXTRA: layered.py で裏の音も拾った最高難度
+  levels: { easy: 4, normal: 7, hard: 10, extra: 11, inferno: 12 }, // EXTRA: layered.py で裏の音も拾った最高難度
   previewAt: 168, // 秒(いちばん盛り上がる所)
   credit: '音楽:全て蝶々の所為です。「蒼」(CC BY 4.0)',
   creditUrl: 'https://creativecommons.org/licenses/by/4.0/deed.ja',

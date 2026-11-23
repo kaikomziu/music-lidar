@@ -1170,7 +1170,7 @@ export class Game {
   }
 }
 
-export const DIFF_COLOR = { easy: '#6dffb0', normal: '#ffd25e', hard: '#ff5a8a', extra: '#c06bff', custom: '#c49bff', test: '#9fe8ff' };
+export const DIFF_COLOR = { easy: '#6dffb0', normal: '#ffd25e', hard: '#ff5a8a', extra: '#c06bff', inferno: '#ff7a45', custom: '#c49bff', test: '#9fe8ff' };
 
 // extraMs: 編成の判定サポートで PERFECT/GREAT 幅を広げる量
 function judgeOf(d, extraMs = 0) {

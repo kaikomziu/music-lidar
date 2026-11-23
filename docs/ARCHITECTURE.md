@@ -4,7 +4,7 @@
 
 - **書いていないことが必要になったら、コードを読んでこのファイルに追記する。** 仕組みを変えたら、同じコミットでここも直す
 - コードと食い違っていたら、コードが正しい。気づいたらここを直す
-- 最終更新: 2026-11-23(1.83.1 時点)
+- 最終更新: 2026-11-23(1.84.0 時点)
 
 ---
 
@@ -162,7 +162,7 @@ export default {
     - 区切りごとの傾向(`STYLE`): Aメロ=歌を追う単音(HARD 以下は8分だけ)・同時押しなし・密度0.7倍 / Bメロ=階段・グルーヴ、最後の小節を詰める / サビ=1.4倍・拍の頭に同時押し(EXTRA は8分にも) / イントロ・間奏=トリルや刻み / 落ち=0.5倍 / アウトロ=軽め。実行すると区切りの種類ごとの密度と同時押しの割合を表示する
     - **2番以降のサビは1番サビの強化版**: 1番サビ(Aメロか Bメロのすぐあとの最初のサビ。曲の頭のサビ頭は数えない)の完成したノーツを小節ごとにそのまま写し、その上に自分で作ったノーツから「1番の15%×何番目か」だけ足す(1番に無い細かい刻みを先に、次に同時押し)。最後に同じレーンの間隔と同時押しの上限を確かめ直す
     - 区切りの中では4小節ごとに拾う音(melody・stairs・bass・hats・groove・trill)を変える。サビ以外は、同じ区切りの同じ位置で前回使った声部を避ける。同じ形の小節が直前8小節にあれば、左右反転・手の入れ替え・回転で変える。目標の密度に近づくまで数回やり直す
-    - **音源曲は全部(16曲)、NORMAL・HARD・EXTRA をこれで作り、曲ごとに区切りの表を作る**(EASY はそのまま)。MARETU さんの3曲は 1.82.3 から、ほかの13曲は 1.83.0 から。これから足す音源曲も同じ。目標の密度は今までの譜面と同じ(ノーツ数÷最後のノーツの秒)にして、レベルを変えない
+    - **音源曲は全部(16曲)、NORMAL・HARD・EXTRA・INFERNO をこれで作り、曲ごとに区切りの表を作る**(EASY はそのまま)。MARETU さんの3曲は 1.82.3 から、ほかの13曲は 1.83.0 から。これから足す音源曲も同じ。目標の密度は今までの譜面と同じ(ノーツ数÷最後のノーツの秒)にして、レベルを変えない
     - 速い曲(BPM 200 以上、または `CHART_FAST=1`)は HARD・EXTRA も8分まで(NORMAL はもともと8分まで)
     - 目標の密度に届かないとき(遅い曲の EXTRA や GHOST の HARD のように、左右の手を重ねた同時押しが多かった譜面)は、区切りごとの差(`alpha`)を 1 → 0.6 → 0.3 → 0 と弱めて作り直し、2つ同時押しをどの位置にも入れてよくする
     - 今までの譜面のロングノーツを引き継ぐ: 同じ時刻のノーツをロングにする(のばしている間あいているレーンへ移してもよい)。近くにノーツがなければ、あいているレーンに新しく置く。置いたぶんで3%以上多くなれば全体を減らして作り直す。レーンがあかない所は引き継げない(shining-star・summer-triangle は3〜4割、inmu-king は約3分の2)
@@ -266,6 +266,13 @@ export default {
 - **オートプレイ**(選曲画面の「🤖 オートプレイ」、`main.js` の `playAuto`): 譜面から全部ぴったりに押す入力を `autoInputs` で作り、リプレイと同じ `custom.kind = 'replay'` で流す(だから記録・ランキング・ゴースト・コインには残らない)。離すのはノーツの 0.06 秒後(ロングノーツは終わりの 0.02 秒後)、同じレーンの次のノーツより前。スマホでは練習モードと同じく「記録・ランキング」のシートの中に出る
 - **リプレイ**(`replay.js`): ふつうのプレイ中はキーの押し・離し `[判定の時刻, レーン, 1/0]` を `game.inputs` に記録。リプレイは `custom.kind = 'replay'` で `replay` を渡し、その時刻が来たら `pressAt` / `releaseAt` を呼ぶ(キー入力は受け付けない)。自己ベストを更新したら、端末(`mlidar:replay:<曲id>/<難易度>`、最大 15 譜面)とサーバー(`mlidar_replays`。ランキングに記録したスコア以下だけ受け付ける。**各譜面のスコア上位20人分だけ残し、それより下は保存するときに消す**)に残す。レーンがランダムのプレイは残さない。選曲画面の「▶ リプレイ」で自分のベストと上位 10 人、リザルトの「▶ リプレイを見る」でいまのプレイを見られる
 - **EXTRA**(4つ目の難易度): `levels.extra` がある曲だけ。**音源曲**は曲ファイルの `levels.extra` と `fixedCharts.extra`(Crying Red・暮らし泳ぐ・INMU KING・シャイニングスター・SUMMER TRIANGLE・水の追憶・Hydrangea・蒼。GHOST 2曲は HARD がすでに8分上限の重ねる譜面なので付けていない)。**内蔵曲**は `composer.js` の `extraParam`(HARD の値から最小間隔×0.72・上限×1.45・点数の下限×0.45・同時押し+0.16)で `generateChart(…, 'extra', …)` を作り、レベルは `js/songs/extra-levels.js`(`node tools/extra-levels.mjs` で作る。EXTRA が HARD より15%以上ノーツが多い曲だけ。レベルは全曲の密度とレベルの対応から推定し、HARD+1 以上)。曲や譜面の作り方を変えたら `node tools/extra-levels.mjs` を作り直す。ひとりでライブだけ(みんなでライブ・週替わり・段位などは3つのまま)。曲一覧のカードには EXTRA のレベルも紫で出す。EXTRA を選んでいるとき、EXTRA のない曲は HARD のレベルで絞り込み・並べ替える(`dOf`)。EXTRA のない曲では HARD を見せる。サーバーの `mlidar_scores.diff` と `mlidar_play_result_core` は `extra` も受け付ける(コインは HARD より少し多い)。譜面は `LAYERED_TARGET=extra python tools/audiochart/layered.py <data.js> <T_END> <目標nps> 0`(遅い曲は `LAYERED_GRID=16` で16分まで)
+- **INFERNO**(5つ目の難易度・EXTRA の上。1.84.0〜。色はオレンジ #ff7a45): `levels.inferno` がある曲だけ。選べる難易度は `composer.js` の `ALL_DIFFS` から、その曲にある譜面だけ(`main.js` の `diffsOf`)。その曲に無い難易度を選んでいるときは1つ下を見せる(INFERNO → EXTRA → HARD。`diffFor`)
+  - **音源曲(16曲全部)**: `fixedCharts.inferno`(`*.data.js` の `inferno`)と曲ファイルの `levels.inferno`。譜面は varied.py の `inferno`(16分まで・同じレーン 0.15 秒・同時押し多め・3つまで)で、目標の密度は EXTRA の1.3倍(EXTRA のない GHOST 2曲は HARD の1.25倍)。速い曲は8分まで。実際は EXTRA より16〜31%多い
+  - **内蔵曲**: `tools/extra-levels.mjs` の `INFERNO_SONGS`(今は LiDAR Rush・Hyperpop Glitch・Chip Dungeon)だけ。`composer.js` の `infernoParam`(EXTRA の値から最小間隔×0.82・上限×1.3・点数の下限×0.55・同時押し+0.1、さらに `chordAnyP: 0.3` で拍の頭でない音・1種類の音も同時押しにする)で作る。EXTRA の時点で曲の音から拾えるノーツをほぼ使い切っているので、INFERNO の増え方は主に同時押し(EXTRA より26〜30%多い)。`chordAnyP` が無い難易度は乱数の引き方も今までどおり
+  - レベル: `node tools/extra-levels.mjs` が、全曲の密度とレベルの対応(INFERNO 用には音源曲の EXTRA も見本に入れる)から推定する。内蔵曲は `js/songs/inferno-levels.js` に書く(EXTRA+1 以上・最大16)。音源曲は推定値を表示するだけなので、曲ファイルの `levels.inferno` に手で書く。**このツールは `extra-levels.js` も書き直す**(今は EXTRA の対象曲・レベルが少し変わる。EXTRA を変えたくないときは実行後に `git checkout -- js/songs/extra-levels.js`)
+  - ひとりでライブだけ(みんなでライブ・週替わり・段位・ランダムマッチは3つのまま)。レート(`growth.js`)は今までどおり EASY〜HARD だけで計算する
+  - サーバー: `mlidar_scores.diff` の制約と `mlidar_play_result_core` が `inferno` を受け付ける(コインは EXTRA +30 より多い +40)。Discord の記録のお知らせ(`mlidar_scores_feed`)は INFERNO の初フルコンボも出す
+  - 曲ページの収録曲一覧は「/ INF 14」のように出す(`build-pages.mjs`)。共有画像(`tools/og.html`)も5つ並べられるが、今ある画像は作り直していない
 
 ---
 

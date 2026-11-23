@@ -19,7 +19,7 @@ export default {
   audio: 'audio/camellia-ghost.bin',
   audioKey: 'aes:sKmtHS+3tyiP7FiZDVV3ODkO8MKvm68tw4SPRtpsnZo=',
   fixedCharts: data.charts,
-  levels: { easy: 2, normal: 8, hard: 13 },
+  levels: { easy: 2, normal: 8, hard: 13, inferno: 14 },
   previewAt: 90, // 秒
   credit: '音楽:かめりあ(Camellia)「GHOST」',
 };

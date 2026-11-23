@@ -16,7 +16,7 @@ export default {
   audio: 'audio/shining-star.bin',
   audioKey: 'bDldIcWYRLkh8wU4Beyu2ygnHOgLFUS2',
   fixedCharts: data.charts,
-  levels: { easy: 3, normal: 6, hard: 8, extra: 10 }, // EXTRA: layered.py で裏の音も拾った最高難度
+  levels: { easy: 3, normal: 6, hard: 8, extra: 10, inferno: 12 }, // EXTRA: layered.py で裏の音も拾った最高難度
   previewAt: 71.43, // 秒
   credit: '音楽:魔王魂',
   creditUrl: 'https://maou.audio/',

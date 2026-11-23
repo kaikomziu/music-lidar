@@ -3,6 +3,7 @@
 # - 区切り: 自動で探す(下書き)。正確にしたいときは区切りの表(秒と区切り名)を tools/audiochart/sections/<曲>.txt に書き、SECTIONS=その表 で実行する
 # - 傾向: Aメロ=歌を追う単音(HARD 以下は8分)・同時押しなし / Bメロ=階段やグルーヴで最後の小節を詰める / サビ=いちばん濃く、拍の頭に同時押し /
 #         イントロ・間奏=トリルや刻み / 落ち=まばら / アウトロ=軽め
+# - 2番以降のサビは1番サビの強化版(1番のノーツをそのまま写し、何番目かに応じて刻みと同時押しを足す)
 # - 声部: melody(歌・メロディの高さでレーン)/ stairs(メロディの上がり下がりで階段)/ bass(低い音を左手中心)/
 #         hats(高い音を右手で刻み、キックを左手)/ groove(キック左・スネア右の同時押しあり)/ trill(2つのレーンの往復。ペアは小節ごとに変える)
 # - フレーズごとに、鳴っている帯域の強さから使える声部を選び、直前2フレーズと同じものは避ける。同じ場面(2回目のサビなど)でも違う声部になる
@@ -215,6 +216,20 @@ STYLE = {
     'outro':     dict(voices=['melody', 'trill', 'stairs'], dens=0.65, chord=0.5, fill=False),
     'break':     dict(voices=['melody', 'stairs'], dens=0.5, chord=0.0, fill=True),
 }
+# 2番以降のサビは「1番サビの強化版」: 1番サビと同じ位置では同じ声部を使い、
+# 密度と同時押しを回数に応じて増やす。base_pi は元にする1番サビのフレーズ、boost は強化の段階(1番=0、2番=1、3番=2…)
+ch_len = {}
+for i in range(len(phrases)):
+    if sec[i] == 'chorus': ch_len[sec_occ[i]] = ch_len.get(sec_occ[i], 0) + len(phrases[i])
+# 1番サビ = Aメロか Bメロのすぐあとに来る最初のサビ(曲の頭のサビ頭やイントロ直後のサビは数えない)
+after_ab = {sec_occ[i] for i in range(1, len(phrases)) if sec[i] == 'chorus' and sec_pos[i] == 0 and sec[i - 1] in ('A', 'B')}
+BASE_OCC = min(after_ab or [o for o, n in ch_len.items() if n >= 8] or [0])
+base_pi, boost = list(range(len(phrases))), [0] * len(phrases)
+first = {sec_pos[i]: i for i in range(len(phrases)) if sec[i] == 'chorus' and sec_occ[i] == BASE_OCC}
+for i in range(len(phrases)):
+    if sec[i] == 'chorus' and sec_occ[i] > BASE_OCC:
+        boost[i] = sec_occ[i] - BASE_OCC
+        if sec_pos[i] in first: base_pi[i] = first[sec_pos[i]]
 plan, recent, used = [], [], {}
 for i, bs in enumerate(phrases):
     pr = band_profile(bs); st = STYLE[sec[i]]
@@ -227,8 +242,10 @@ for i, bs in enumerate(phrases):
     c2 = [v for v in cand if v != used.get(key) and v not in recent[-1:]] or cand
     w = [len(st['voices']) - st['voices'].index(v) for v in c2]
     v = rng.choices(c2, weights=w)[0]
+    if base_pi[i] < i: v = plan[base_pi[i]]  # 1番サビと同じ声部
     plan.append(v); recent.append(v); used[key] = v
 print('phrases ', ' '.join(f'{v[:3]}' for v in plan))
+if os.environ.get('DEBUG'): print('plan    ', ' '.join(f'{sec[i][:3]}{sec_occ[i]}.{sec_pos[i]}:{plan[i][:3]}{"+" * boost[i]}' for i in range(len(plan))))
 
 def score(s, v):
     if v in ('melody', 'stairs'): return s['m'] * 1.0 + s['h'] * 0.2
@@ -249,7 +266,7 @@ BD = {}
 for i, bs in enumerate(phrases):
     st = STYLE[sec[i]]
     last = i + 1 >= len(sec) or sec[i + 1] != sec[i]
-    for j, b in enumerate(bs): BD[b] = st['dens'] * (1.5 if st['fill'] and last and j == len(bs) - 1 else 1.0)
+    for j, b in enumerate(bs): BD[b] = st['dens'] * (1 + 0.15 * boost[i]) * (1.5 if st['fill'] and last and j == len(bs) - 1 else 1.0)
 
 def build(lv, target):
     P = LV[lv]
@@ -265,7 +282,7 @@ def build(lv, target):
     hist = []  # 直前の小節の形
     lane_state = {'melody': 1, 'stairs': 0, 'dir': 1, 'trill': (0, 2), 'alt': 0}
     for pi, bs in enumerate(phrases):
-        v = plan[pi]; st = STYLE[sec[pi]]
+        v = plan[pi]; st = STYLE[sec[pi]]; cb = 1 + 0.5 * boost[pi]  # 強化版は同時押しも増やす
         for bi, b in enumerate(bs):
             n = min(16 // P['grid'], int(round(scale * bar_sec * BD[b] * (0.35 + 0.65 * min(1, E[b] / emax) ** 1.3))))
             gr = 2 if st.get('grid8') and lv != 'extra' else P['grid']
@@ -282,7 +299,7 @@ def build(lv, target):
             row = []
             if v == 'trill':  # 2つのレーンの往復。ペアは小節ごとに変える
                 pairs = [(0, 2), (1, 3), (0, 3), (1, 2), (0, 1), (2, 3)]
-                pr = pairs[(pi * 4 + bi) % len(pairs)]
+                pr = pairs[(base_pi[pi] * 4 + bi) % len(pairs)]  # 強化版は1番サビと同じペア
                 for j, s in enumerate(chosen): row.append([s, pr[j % 2]])
             elif v == 'stairs':  # メロディの上がり下がりで階段。向きは音の高さの変化に合わせる
                 prevp = None; ln = lane_state['stairs']
@@ -333,7 +350,7 @@ def build(lv, target):
                 # 同時押し: 全帯域が強い所(拍の頭・スネア)
                 strong = (s['l'] > 0.7 and s['m'] > 0.55) or (s['pos'] in (4, 12) and s['m'] > 0.75 and s['h'] > 0.6)
                 if st['chord'] >= 2: strong = strong or s['l'] > 0.5 or (s['pos'] in (4, 12) and s['m'] > 0.5)
-                if strong and rng.random() < P['chord'] * 3 * st['chord'] and (s['pos'] % 4 == 0 or (st['chord'] >= 2 and P['maxc'] >= 3 and s['pos'] % 2 == 0 and rng.random() < 0.5)):
+                if strong and rng.random() < P['chord'] * 3 * st['chord'] * cb and (s['pos'] % 4 == 0 or (st['chord'] >= 2 and P['maxc'] >= 3 and s['pos'] % 2 == 0 and rng.random() < 0.5)):
                     notes.append([s['g'], 3 - ln if 3 - ln != ln else (ln + 2) % 4, s])
                     if P['maxc'] >= 3 and s['pos'] == 0 and bi == 0 and s['l'] > 0.8 and s['m'] > 0.7 and s['h'] > 0.6:
                         rest = [q for q in range(4) if q not in (ln, 3 - ln)]
@@ -349,7 +366,42 @@ def build(lv, target):
             ln = alts[0]
         if len(same_t) >= P['maxc']: continue
         out.append([round(tm * 1000), ln]); last[ln] = tm
-    return out
+    # --- 2番以降のサビ(強化版): 1番サビの完成したノーツをそのまま写し、その上に自分で作ったノーツから足す ---
+    # 足す数は 1番の 15% × 強化の段階。足すのは、同じレーンが近すぎず、同時押しの上限を超えないものだけ
+    def bar_t(b): return (ph + b * bar_sec - step / 2) * 1000  # 半マス手前から(拍の頭のノーツを取りこぼさない)
+    for pi in range(len(phrases)):
+        bp = base_pi[pi]
+        if bp >= pi: continue
+        nb = min(len(phrases[pi]), len(phrases[bp]))
+        w0, w1 = bar_t(phrases[pi][0]), bar_t(phrases[pi][nb - 1] + 1)
+        own = [n for n in out if w0 <= n[0] < w1]
+        out = [n for n in out if not (w0 <= n[0] < w1)]
+        kept = []
+        for j in range(nb):
+            s0, d0 = bar_t(phrases[bp][j]), bar_t(phrases[pi][j])
+            kept += [[round(n[0] - s0 + d0), n[1]] for n in out if s0 <= n[0] < s0 + bar_sec * 1000]
+        add = round(len(kept) * 0.15 * boost[pi])
+        times = {}
+        for n in kept: times.setdefault(n[0], set()).add(n[1])
+        # 1番に無いタイミング(細かい刻み)を先に、次に同時押しを足す
+        cand = sorted(own, key=lambda n: (n[0] in times, rng.random()))
+        for n in cand:
+            if add <= 0: break
+            ls = times.get(n[0], set())
+            if n[1] in ls or len(ls) >= P['maxc']: continue
+            if any(k[1] == n[1] and abs(k[0] - n[0]) < P['same'] * 1000 for k in kept): continue
+            kept.append(n); times.setdefault(n[0], set()).add(n[1]); add -= 1
+        out += kept
+    # 仕上げ: 3ms 以内のずれはそろえ、同じレーンが近すぎるもの・同時押しの上限を超えるものは消す(写した所のつなぎ目のため)
+    out.sort()
+    fin, last = [], {}
+    for tm, ln in out:
+        if fin and tm - fin[-1][0] <= 3: tm = fin[-1][0]
+        same_t = [o for o in fin if o[0] == tm]
+        if any(o[1] == ln for o in same_t) or len(same_t) >= P['maxc']: continue
+        if ln in last and tm - last[ln] < P['same'] * 1000 - 2: continue
+        fin.append([tm, ln]); last[ln] = tm
+    return fin
 
 src = open(DATA, encoding='utf-8').read()
 m = re.search(r'export default (\{.*\});', src, re.S)
@@ -373,5 +425,5 @@ for lv, target in TARGETS.items():
     print('   ', ' '.join(f'{NAME[k]}{v[0] / v[1]:.1f}(同時{v[2] / max(1, v[0]) * 100:.0f}%)' for k, v in span.items()))
 head = src[:m.start()].rstrip('\n')
 head = re.sub(r'\n// [^\n]*varied\.py[^\n]*', '', head)  # 前の varied.py の説明は消して書き直す
-head += '\n// ' + '・'.join(TARGETS) + ' は varied.py(曲をイントロ・Aメロ・Bメロ・サビなどに区切り、区切りごとに拾う音・密度・同時押しの傾向を変え、4小節ごとに拾う音を切り替えて同じ形の小節が続かないようにした譜面。区切りは tools/audiochart/sections/ の表)。'
+head += '\n// ' + '・'.join(TARGETS) + ' は varied.py(曲をイントロ・Aメロ・Bメロ・サビなどに区切り、区切りごとに拾う音・密度・同時押しの傾向を変え、2番以降のサビは1番サビの強化版にし、4小節ごとに拾う音を切り替えて同じ形の小節が続かないようにした譜面。区切りは tools/audiochart/sections/ の表)。'
 open(DATA, 'w', encoding='utf-8').write(head + '\nexport default ' + json.dumps(data, separators=(',', ':')) + ';\n')

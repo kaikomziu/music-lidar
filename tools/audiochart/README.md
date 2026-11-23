@@ -10,4 +10,4 @@
 tempo.py の探索範囲(126.5〜127.3)、chart.py の T_END・タイトル文字列は曲ごとに書き換える。
 テンポが途中で変わる曲には使えない(tempo.py のずれ表示で確かめる)。
 
-繰り返しが多い曲は、chart.py のあとに `python varied.py <曲.wav> <曲名>.data.js <T_END> normal=3,hard=5,extra=7` で、4小節ごとに拾う音を切り替えた譜面に作り直せる(MARETU さんの曲は全部これで作る)。
+繰り返しが多い曲は、chart.py のあとに `SECTIONS=sections/<曲>.txt python varied.py <曲.wav> <曲名>.data.js <T_END> normal=3,hard=5,extra=7` で、イントロ・Aメロ・Bメロ・サビなどの区切りごとに傾向を変え、4小節ごとに拾う音を切り替えた譜面に作り直せる。区切りの表(`sections/`、1行に「秒 区切り名」)がなければ自動で区切る(下書き程度)。MARETU さんの曲は全部これで作る。

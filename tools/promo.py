@@ -6,6 +6,8 @@
 # 仕組み: tools/export.py と同じ。このスクリプトがローカルサーバーを立ててブラウザで tools/promo.html を開き、
 #   ページが曲を合成・プレイ画面とMVを描いて WAV と JPEG フレームを送り、ここで ffmpeg が mp4 にする。
 # オリジナル曲(音源ファイルのない曲)だけを使う。ほかの作者さんの曲は宣伝に使う許可がないため。
+# 掛け合い(type: talk)は、ページを開く前にここでセリフを読み上げて wav にする。VOICEVOX は起動しておく。
+#   ゆっくり(AquesTalk)は YMM4 の AquesTalk フォルダを koe-exo(--koe-exo)経由で使う。漢字の読みは VOICEVOX に聞くので、ゆっくりでも VOICEVOX が必要。
 import argparse, json, os, shutil, subprocess, sys, threading, webbrowser
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -17,6 +19,9 @@ ap.add_argument('--out', default=r'D:\MUSIC_LiDAR_export\promo')
 ap.add_argument('--port', type=int, default=8796)
 ap.add_argument('--no-open', action='store_true', help='ブラウザを自動で開かない(URLだけ表示)')
 ap.add_argument('--sfx', default=r'C:\Users\4yoma\Desktop\04_音楽・動画\動画編集\効果音', help='効果音のフォルダ(/sfx/ で配る。素材は再配布禁止のものがあるのでリポジトリにはコピーしない)')
+ap.add_argument('--voicevox', default='http://127.0.0.1:50021', help='VOICEVOX エンジンの URL(掛け合いの動画で使う)')
+ap.add_argument('--koe-exo', default=r'C:\Users\4yoma\koe-exo', help='ゆっくり音声(AquesTalk)を呼ぶ koe-exo のフォルダ')
+ap.add_argument('--aquestalk', default=r'C:\Users\4yoma\Onedriveに保存されたくないもの\YukkuriMovieMaker_v4\Resources\AquesTalk', help='YMM4 の AquesTalk フォルダ')
 ap.add_argument('--page', default='promo.html', help='開くページ(promo.html = 縦の宣伝動画 / trailer.html = 横の紹介動画)')
 args = ap.parse_args()
 
@@ -32,6 +37,46 @@ OUT = args.out
 TMP = os.path.join(OUT, '_tmp')
 os.makedirs(TMP, exist_ok=True)
 videos = {}
+
+# ---------- 掛け合い(type: talk)の声 ----------
+# who → 名前・声・字幕の色・クレジット。VOICEVOX はキャラごとに「VOICEVOX:名前」の表記が必要(動画の下とエンド画面に出す)
+CHARS = {
+    'zundamon': {'name': 'ずんだもん', 'engine': 'voicevox', 'style': 3, 'speed': 1.12, 'color': '#8be36b', 'credit': 'VOICEVOX:ずんだもん'},
+    'metan': {'name': '四国めたん', 'engine': 'voicevox', 'style': 2, 'speed': 1.12, 'color': '#ff7ab6', 'credit': 'VOICEVOX:四国めたん'},
+    'tsumugi': {'name': '春日部つむぎ', 'engine': 'voicevox', 'style': 8, 'speed': 1.12, 'color': '#ffb84d', 'credit': 'VOICEVOX:春日部つむぎ'},
+    'reimu': {'name': '霊夢', 'engine': 'aquestalk', 'key': 'aq1:f1', 'speed': 1.1, 'color': '#ff5a6e', 'credit': '音声:AquesTalk'},
+    'marisa': {'name': '魔理沙', 'engine': 'aquestalk', 'key': 'aq1:f2', 'speed': 1.1, 'color': '#ffd84d', 'credit': '音声:AquesTalk'},
+}
+VOICE_DIR = os.path.join(TMP, 'voice')
+voices = {}  # plan の番号(1から) → [{file, who, name, color, credit}]
+
+def make_voices():
+    plan = json.load(open(os.path.join(ROOT, 'tools', 'promo-plan.json'), encoding='utf-8'))
+    todo = [(i + 1, s) for i, s in enumerate(plan) if s.get('type') == 'talk' and (not args.only or (i + 1) in args.only)]
+    if not todo: return
+    sys.path.insert(0, args.koe_exo)
+    from voicevox import VoicevoxClient
+    vv = VoicevoxClient(args.voicevox)
+    try: vv.version()
+    except Exception: sys.exit(f'VOICEVOX が起動していません({args.voicevox})。VOICEVOX を起動してからもう一度実行してください')
+    os.makedirs(VOICE_DIR, exist_ok=True)
+    for n, spec in todo:
+        out = []
+        for k, ln in enumerate(spec['lines']):
+            c = CHARS[ln['who']]
+            say = ln.get('read', ln['text']).replace('\n', '')  # 字幕の \n は折り返しの位置なので読まない。 read: 読み上げる文(字幕と読みを変えたいとき。MUSIC LiDAR → ミュージックライダー など)
+            if c['engine'] == 'voicevox':
+                wav = vv.synthesize(say, c['style'], speed=c['speed'], pre=0.05, post=0.08, rate=48000, stereo=False)
+            else:
+                import aquestalk
+                wav = aquestalk.synthesize(args.aquestalk, c['key'], say, speed=c['speed'], pre=0.05, post=0.08, rate=48000, kana_urls=[args.voicevox])
+            f = f'{n}_{k}'
+            open(os.path.join(VOICE_DIR, f + '.wav'), 'wb').write(wav)
+            out.append({'file': f, 'who': ln['who'], 'name': c['name'], 'color': c['color'], 'credit': c['credit']})
+        voices[n] = out
+        print(f'  声 {n}番: {len(out)}セリフ', flush=True)
+
+make_voices()
 done = threading.Event()
 jobs, errors = [], []
 
@@ -64,7 +109,14 @@ class H(SimpleHTTPRequestHandler):
     def do_GET(self):
         u = urlparse(self.path)
         if u.path == '/x/config':
-            return self.reply({'only': args.only, 'out': OUT})
+            return self.reply({'only': args.only, 'out': OUT, 'voices': voices})
+        if u.path.startswith('/x/voice/'):  # 掛け合いのセリフ(make_voices で作った wav)
+            f = os.path.join(VOICE_DIR, safe(u.path[9:]) + '.wav')
+            if not os.path.isfile(f):
+                self.send_response(404); self.end_headers(); return
+            data = open(f, 'rb').read()
+            self.send_response(200); self.send_header('Content-Type', 'audio/wav'); self.send_header('Content-Length', str(len(data))); self.end_headers()
+            self.wfile.write(data); return
         if u.path.startswith('/sfx/'):  # 手元の効果音(紹介動画用)。フォルダの外は読ませない
             from urllib.parse import unquote
             base = os.path.realpath(args.sfx)

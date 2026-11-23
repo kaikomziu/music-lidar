@@ -22,7 +22,7 @@
 <div class="row"><canvas id="pv" width="270" height="480"></canvas><div id="log"></div></div>
 <script type="module">
 // tools/promo.py から開くページ。tools/promo-plan.json の動画を1本ずつ作る。
-// 1本 = 本編(15.5秒。難易度くらべは同じ区間を3回。いろんな難易度は曲を変えながら場面を切り替える)+ 最後のエンド画面(2.5秒)。縦 1080×1920・30fps。
+// 1本 = 本編(15.5秒。難易度くらべは同じ区間を3回。いろんな難易度は曲を変えながら場面を切り替える。掛け合いはセリフの長さ)+ 最後のエンド画面(2.5秒)。縦 1080×1920・30fps。
 // プレイ画面はゲーム本体(game.js)ではなく、譜面から時刻ごとに描く(自動プレイ = 全部 PERFECT)。リアルタイムではないので、タブが裏にあっても止まらない。
 // TikTok の画面の部品(上のタブ・右のボタン・下の説明文)に隠れないように、大事な文字は x 60〜920・y 180〜1480 に置く。
 import { composeSong, candidatesFromEvents, generateChart, shapeHolds, hashStr, extraParam } from '../js/composer.js';
@@ -103,6 +103,20 @@ function timeline(spec, def, duration, songs) {
   return { from, seg, main, total, songT, diffAt, segs, sceneAt: () => 0 };
 }
 
+// 掛け合い(talk): 長さはセリフで決まる(最後のセリフ + 0.6 秒)。場面はセリフの scene で切り替える
+// lines: [{ t0, t1, scene }]
+function timelineTalk(spec, songs, lines) {
+  const n = spec.scenes.length, main = lines.at(-1).t1 + 0.6, total = main + END;
+  const starts = spec.scenes.map((_, i) => (i === 0 ? 0 : lines.find((l) => l.scene >= i)?.t0 ?? main));
+  const segs = spec.scenes.map((sc, i) => {
+    const so = songs[i], bar = 240 / so.def.bpm, len = (i === n - 1 ? total : starts[i + 1]) - starts[i];
+    const from = Math.max(0, Math.min(Math.round(so.auto / bar) * bar, so.duration - len - 0.5));
+    return [starts[i], len, from, sc.diff, i];
+  });
+  const at = (v) => { let k = 0; for (let i = 0; i < n; i++) if (v >= starts[i]) k = i; return k; };
+  return { main, total, segs, seg: 0, from: segs[0][2], sceneAt: at, songT: (v) => segs[at(v)][2] + (v - segs[at(v)][0]), diffAt: (v) => segs[at(v)][3] };
+}
+
 // ---------- 音 ----------
 function clickBuf(sr) { // タップ音(短い「カッ」)
   const n = Math.round(sr * 0.05), out = new Float32Array(n);
@@ -113,7 +127,8 @@ function clickBuf(sr) { // タップ音(短い「カッ」)
   }
   return out;
 }
-function buildAudio(songs, tl, withClicks, pre = 0) { // pre: 頭に入れる無音の秒数(注意の画面)
+// pre: 頭に入れる無音の秒数(注意の画面)。voice: 掛け合いのセリフ [{ t: 動画の秒, data: Float32Array(モノラル) }]
+function buildAudio(songs, tl, withClicks, pre = 0, voice = null) {
   const sr = songs[0].buf.sampleRate, P0 = Math.round(pre * sr), n = Math.ceil(tl.total * sr) + P0;
   const L = new Float32Array(n), R = new Float32Array(n);
   const multi = songs.length > 1; // 曲が切り替わる(いろんな難易度)
@@ -139,6 +154,24 @@ function buildAudio(songs, tl, withClicks, pre = 0) { // pre: 頭に入れる無
         const a = P0 + Math.round(v * sr);
         for (let i = 0; i < c.length && a + i < n; i++) { L[a + i] += c[i] * 0.22; R[a + i] += c[i] * 0.22; }
       }
+    }
+  }
+  if (voice?.length) {
+    // 掛け合い: セリフの間は曲とタップ音を小さくして(0.08 秒で下げ、0.3 秒で戻す)、声を重ねる。声はピークを 0.85 にそろえる
+    const DUCK = 0.3, att = Math.round(sr * 0.08), rel = Math.round(sr * 0.3);
+    const env = new Float32Array(n).fill(1);
+    for (const c of voice) {
+      const a = P0 + Math.round(c.t * sr), b = a + c.data.length;
+      for (let i = Math.max(0, a - att); i < Math.min(n, b + rel); i++) {
+        const k = i < a ? 1 - (1 - DUCK) * (i - (a - att)) / att : i < b ? DUCK : DUCK + (1 - DUCK) * (i - b) / rel;
+        if (k < env[i]) env[i] = k;
+      }
+    }
+    for (let i = 0; i < n; i++) { L[i] *= env[i]; R[i] *= env[i]; }
+    for (const c of voice) {
+      let pk = 0; for (const x of c.data) pk = Math.max(pk, Math.abs(x));
+      const gn = pk > 0 ? 0.85 / pk : 1, a = P0 + Math.round(c.t * sr);
+      for (let j = 0; j < c.data.length && a + j < n; j++) { L[a + j] += c.data[j] * gn; R[a + j] += c.data[j] * gn; }
     }
   }
   // 頭はすぐ、最後の 1.2 秒でフェードアウト。割れないように頭打ち
@@ -342,7 +375,41 @@ const speedOf = (lv) => clamp(0.92 - ((lv || 1) - 1) * 0.026, 0.55, 0.92);
 const PLAY_BIG = { cx: 540, yTop: 560, yJ: 1390, wTop: 170, wBot: 940 };
 const PLAY_SMALL = { cx: 540, yTop: 1010, yJ: 1400, wTop: 150, wBot: 760 };
 const PLAY_GIM = { cx: 540, yTop: 640, yJ: 1360, wTop: 160, wBot: 820 }; // ギミック: 回っても画面に収まるよう少し小さめ
+const PLAY_TALK = { cx: 540, yTop: 470, yJ: 1150, wTop: 150, wBot: 800 }; // 掛け合い: 下にセリフの吹き出しを置くので上に寄せる
 const WARN = 2.8; // 光の点滅の注意の画面(秒)
+// セリフを幅に収まるように折り返す(\n で手で折ってもよい)。句読点・「！」「？」の後ろで折れるときはそこで折る
+function wrapText(g, s, maxW) {
+  const out = [];
+  for (const para of s.split('\n')) {
+    let cur = '';
+    for (const ch of para) {
+      if (g.measureText(cur + ch).width <= maxW) { cur += ch; continue; }
+      const cut = Math.max(...['、', '。', '！', '？', ' ', '…'].map((p) => cur.lastIndexOf(p)));
+      if (cut >= cur.length - 7 && cut > 0) { out.push(cur.slice(0, cut + 1)); cur = cur.slice(cut + 1) + ch; }
+      else { out.push(cur); cur = ch; }
+    }
+    if (cur) out.push(cur);
+  }
+  return out;
+}
+// 掛け合いの吹き出し: 名前の札(キャラの色)と、セリフ(2行まで。長いときは文字を小さく)
+function talkBubble(g, ln, v) {
+  const p = pop(v, ln.t0, 0.16), x0 = 60, x1 = 920, y0 = 1290, y1 = 1480;
+  g.save(); g.globalAlpha = p.alpha;
+  g.beginPath(); g.roundRect(x0, y0, x1 - x0, y1 - y0, 26);
+  g.fillStyle = 'rgba(5,8,24,0.88)'; g.fill();
+  g.lineWidth = 5; g.strokeStyle = ln.color; g.shadowColor = ln.color; g.shadowBlur = 22; g.stroke();
+  g.shadowBlur = 0;
+  g.font = '900 34px "Noto Sans JP"';
+  const nw = g.measureText(ln.name).width + 44;
+  g.beginPath(); g.roundRect(x0 + 26, y0 - 30, nw, 56, 28); g.fillStyle = ln.color; g.fill();
+  g.fillStyle = '#0a0d1e'; g.textAlign = 'center'; g.fillText(ln.name, x0 + 26 + nw / 2, y0 + 10);
+  let sz = 54, rows;
+  for (;;) { g.font = `900 ${sz}px "Noto Sans JP"`; rows = wrapText(g, ln.text, x1 - x0 - 80); if (rows.length <= 2 || sz <= 36) break; sz -= 4; }
+  g.restore();
+  const cy = (y0 + y1) / 2 + 12 + sz * 0.35;
+  rows.slice(0, 3).forEach((r, k, a) => text(g, r, 540 - 50, cy + (k - (a.length - 1) / 2) * sz * 1.25, { size: sz, color: '#fff', glow: ln.color, blur: 8, maxW: x1 - x0 - 70, alpha: p.alpha }));
+}
 const GNAME_EN = { stop: 'FREEZE', speed: 'SLOW DOWN', cover: 'COVER', hidden: 'VANISH', sway: 'SWAY', shift: 'LANE SHIFT', judge: 'LINE MOVE', flip: 'UPSIDE DOWN', spin: 'SPIN', shake: 'SHAKE', flash: 'FLASH', strobe: 'STROBE' }; // 英語版(lang: 'en')
 const GNAME = { stop: '停止', speed: 'スロー', cover: '隠し', hidden: '消える', sway: '揺れる', shift: 'レーン移動', judge: '判定ライン移動', flip: '上下反転', spin: '回転', shake: '画面揺れ', flash: 'フラッシュ', strobe: '点滅' };
 // いま始まったギミックの名前(0.9 秒だけ出す)。解除(to: 0 など)は出さない
@@ -405,9 +472,20 @@ function drawFrame(g, v, X) {
       text(g, '♪ ' + def.title, 540, 930, { size: 84, font: 'Orbitron', glow: def.color || CYAN, maxW: 920 });
       text(g, `${def.genre} ・ BPM ${Math.round(def.bpm)} ・ ${d.toUpperCase()} Lv${levels[d]}`, 540, 990, { size: 34, font: 'Orbitron', weight: 700, color: 'rgba(225,235,255,0.9)', blur: 6 });
     } else {
-      const gim = spec.type === 'gimmick';
-      drawPlay(g, gim ? PLAY_GIM : PLAY_BIG, charts[d], s, { hs: speedOf(levels[d]), sc: gim ? X.songs[tl.sceneAt(v)].scroll : null, bpm: def.bpm });
-      if (gim) {
+      const gim = spec.type === 'gimmick', talk = spec.type === 'talk';
+      drawPlay(g, gim ? PLAY_GIM : talk ? PLAY_TALK : PLAY_BIG, charts[d], s, { hs: speedOf(levels[d]), sc: gim ? X.songs[tl.sceneAt(v)].scroll : null, bpm: def.bpm });
+      if (talk) {
+        // 掛け合い: 上に見出しと曲名、下にいまのセリフの吹き出し(次のセリフが始まるまで、最後は 0.5 秒残す)
+        const i = tl.sceneAt(v), t0 = tl.segs[i][0];
+        if (spec.hook) { const p0 = pop(v, 0); text(g, spec.hook, 540, 250, { size: 78, alpha: p0.alpha, scale: p0.scale, glow: PINK }); }
+        const pk = pop(v, t0, 0.2);
+        text(g, def.title, 540, spec.hook ? 340 : 280, { size: 46, font: 'Orbitron', glow: def.color || CYAN, maxW: 820, alpha: pk.alpha });
+        badge(g, `${d.toUpperCase()} ${levels[d]}`, 540, spec.hook ? 405 : 345, DC[d], 28);
+        const L = X.lines;
+        let k = -1; for (let j = 0; j < L.length; j++) if (L[j].t0 <= v) k = j;
+        if (k >= 0 && v < (L[k + 1]?.t0 ?? L[k].t1 + 0.5)) talkBubble(g, L[k], v);
+        if (i > 0) { const fl = 1 - clamp((v - t0) / 0.2); if (fl > 0) { g.fillStyle = `rgba(255,255,255,${fl * 0.3})`; g.fillRect(0, 0, W, H); } }
+      } else if (gim) {
         // ギミック: 上に見出し、いま始まったギミックの名前をポンと出す。下に曲名と難易度
         const i = tl.sceneAt(v), t0 = i * tl.seg, scn = spec.scenes[i];
         const p0 = pop(v, 0);
@@ -488,6 +566,8 @@ function drawFrame(g, v, X) {
       if (X.warn) text(g, spec.lang === 'en' ? '* Contains flashing lights & screen motion' : '※光の点滅・画面の動きがあります', 540, 1720, { size: 30, color: 'rgba(255,230,160,0.9)', glow: '#ffd25e', blur: 4 });
     }
   }
+  // 音声のクレジット(VOICEVOX はキャラごとに「VOICEVOX:名前」が必要)。動画のあいだずっと下に出す
+  if (X.credits?.length) text(g, X.credits.join(' / '), 540, 1625, { size: 28, weight: 700, color: 'rgba(230,240,255,0.8)', blur: 4, maxW: 860 });
   if (inEnd) {
     // エンド画面: ロゴと「ブラウザで無料」「music-lidar.com」
     const k = clamp((v - tl.main) / 0.35);
@@ -533,10 +613,11 @@ async function loadSong(id, needDiffs, allowGimmick = false) {
   return { def, duration, charts, levels, buf, auto, mvBg, scroll: buildScroll(def.gimmicks, def.bpm) };
 }
 
+let CFG = {}; // promo.py の設定(only・out・voices)
 async function makeVideo(spec, idx) {
-  const multi = spec.type === 'range' || spec.type === 'gimmick'; // 場面ごとに曲を変える型
+  const multi = spec.type === 'range' || spec.type === 'gimmick' || spec.type === 'talk'; // 場面ごとに曲を変える型
   const ids = multi ? spec.scenes.map((x) => x.id) : [spec.id];
-  const name = `promo-${String(idx + 1).padStart(2, '0')}-${spec.type}-${spec.type === 'range' ? 'levels' : spec.type === 'gimmick' ? (spec.name || ids[0]) : spec.id}${spec.lang === 'en' ? '-en' : ''}`;
+  const name = `promo-${String(idx + 1).padStart(2, '0')}-${spec.type}-${spec.type === 'range' ? 'levels' : spec.type === 'gimmick' || spec.type === 'talk' ? (spec.name || ids[0]) : spec.id}${spec.lang === 'en' ? '-en' : ''}`;
   $('status').textContent = `${name}: 曲を合成中…`;
   const songs = [];
   for (let i = 0; i < ids.length; i++) {
@@ -545,21 +626,40 @@ async function makeVideo(spec, idx) {
     const bar = 240 / so.def.bpm;
     // 区間の頭: 自動プレイ・いろんな難易度は、いちばんノーツが多い所。ほかは試聴の位置(サビ)
     if (spec.type === 'gimmick') so.auto = (spec.scenes[i].beat ?? so.def.preview ?? 32) * 60 / so.def.bpm; // ギミック: 見せたい拍から
+    else if (spec.type === 'talk') so.auto = spec.scenes[i].beat != null ? spec.scenes[i].beat * 60 / so.def.bpm : densest(so.charts[spec.scenes[i].diff], 8, so.duration, bar); // 掛け合い: 拍の指定がなければ密な所
     else if (spec.type === 'range') so.auto = densest(so.charts[spec.scenes[i].diff], MAIN / spec.scenes.length, so.duration, bar);
     else so.auto = spec.type === 'auto' ? densest(so.charts[spec.diff], MAIN, so.duration, bar) : (so.def.preview ?? 32) * 60 / so.def.bpm;
     songs.push(so);
   }
   const { def, duration } = songs[0];
   spec._auto = songs[0].auto;
-  const tl = timeline(spec, def, duration, songs);
+  // 掛け合い: promo.py が読み上げたセリフを読み込み、0.35 秒から 0.12 秒あけて順に並べる
+  let lines = null, clips = null, credits = null;
+  if (spec.type === 'talk') {
+    const vs = CFG.voices?.[idx + 1];
+    if (!vs) throw new Error('セリフの音声がありません(promo.py が作ります)');
+    const sr = songs[0].buf.sampleRate, ac = new OfflineAudioContext(1, 1, sr);
+    let t = 0.35, scene = 0;
+    lines = []; clips = [];
+    for (let k = 0; k < vs.length; k++) {
+      const ab = await (await fetch('/x/voice/' + vs[k].file)).arrayBuffer();
+      const data = (await ac.decodeAudioData(ab)).getChannelData(0);
+      scene = Math.max(scene, spec.lines[k].scene ?? scene);
+      lines.push({ ...vs[k], text: spec.lines[k].text, t0: t, t1: t + data.length / sr, scene });
+      clips.push({ t, data });
+      t += data.length / sr + 0.12;
+    }
+    credits = [...new Set(vs.map((x) => x.credit))];
+  }
+  const tl = spec.type === 'talk' ? timelineTalk(spec, songs, lines) : timeline(spec, def, duration, songs);
   const warn = spec.type === 'gimmick' && songs.some((so) => so.def.photosensitive); // 光の点滅の注意を頭に入れる
   const off = warn ? WARN : 0;
-  await post('/x/wav?' + qs({ name }), buildAudio(songs, tl, spec.type !== 'song', off));
+  await post('/x/wav?' + qs({ name }), buildAudio(songs, tl, spec.type !== 'song', off, clips));
   // 曲の紹介は、上の画面用のMVも
   const mvPanel = spec.type === 'song' ? createMV(def.id, def.bpm, 0, { scale: 0.75, maxW: 960 }, songs[0].auto) : null;
   const panel = document.createElement('canvas'); panel.width = 960; panel.height = 540;
-  const X = { spec, tl, songs, mvPanel, panel, warn };
-  await post('/x/vstart?' + qs({ name, fps: FPS, title: `MUSIC LiDAR - ${spec.type === 'range' ? 'いろんな難易度' : spec.type === 'gimmick' ? 'ギミック譜面' : def.title}` }));
+  const X = { spec, tl, songs, mvPanel, panel, warn, lines, credits };
+  await post('/x/vstart?' + qs({ name, fps: FPS, title: `MUSIC LiDAR - ${spec.type === 'range' ? 'いろんな難易度' : spec.type === 'gimmick' ? 'ギミック譜面' : spec.type === 'talk' ? (spec.hook || '紹介') : def.title}` }));
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const g = cv.getContext('2d', { willReadFrequently: true });
   const pv = $('pv').getContext('2d');
@@ -590,7 +690,7 @@ async function makeVideo(spec, idx) {
 
 async function main() {
   await Promise.all(['900 100px Orbitron', '700 100px Orbitron', '900 100px "Noto Sans JP"', '700 100px "Noto Sans JP"'].map((f) => document.fonts.load(f, 'MUSIC LiDAR 叩ける無料音ゲーの曲')));
-  const cfg = await (await fetch('/x/config')).json();
+  const cfg = (CFG = await (await fetch('/x/config')).json());
   const plan = await (await fetch('promo-plan.json', { cache: 'no-store' })).json();
   const list = plan.map((s, i) => [s, i]).filter(([, i]) => !cfg.only.length || cfg.only.includes(i + 1));
   E.total = list.length;

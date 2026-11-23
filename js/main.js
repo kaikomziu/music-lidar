@@ -2,7 +2,7 @@ import { langPref, setLang } from './i18n.js'; // 多言語表示(いちばん�
 import SONGS from './songs/index.js';
 import { composeSong, candidatesFromEvents, generateChart, shapeHolds, chartStats, DIFFS, hashStr, extraParam } from './composer.js';
 import EXTRA_LEVELS from './songs/extra-levels.js'; // 内蔵曲の EXTRA のレベル(tools/extra-levels.mjs で作る)
-import { getCtx, setVolumes, playPreview, stopPreview, bgmOutFor } from './audio.js';
+import { getCtx, setVolumes, playPreview, stopPreview, bgmOutFor, setHiddenAudioPolicy } from './audio.js';
 import { loadSongAudio } from './audio-cache.js';
 import { loadExternalAudio } from './external-audio.js';
 import { showLoading, hideLoading } from './loading.js';
@@ -1479,6 +1479,11 @@ function pauseGame() {
 const autoPause = () => { if (!playing?.live) pauseGame(); };
 window.addEventListener('blur', autoPause);
 document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
+// 別のタブを開いている間の音(audio.js): ライブのプレイ中は止めずに消音、戻ったときゲームを一時停止中なら鳴らし直さない
+setHiddenAudioPolicy({
+  keepRunning: () => !!playing?.live && state === 'game',
+  canResume: () => !(state === 'game' && game?.paused),
+});
 $('btn-pause-game').addEventListener('click', () => { if (playing?.live && state === 'game') overlay('pause', true); else pauseGame(); });
 if (IS_TOUCH) {
   document.body.classList.add('touch');

@@ -14,15 +14,40 @@ export function getCtx() {
     seGain.connect(ctx.destination);
     tapBuf = makeTap(ctx, tapKind());
   }
-  if (ctx.state === 'suspended') ctx.resume();
+  // 別のタブを開いている間は、ほかの処理が呼んでも鳴らし直さない(戻ったときに下の visibilitychange で再開する)
+  if (ctx.state === 'suspended' && !document.hidden) ctx.resume();
   return ctx;
 }
 
 export function setVolumes(bgm, se) {
   getCtx();
+  if (hiddenMuted) { hiddenMuted = [bgm * bgm, se * se]; return; } // 消音中は戻すときの音量だけ覚える
   bgmGain.gain.value = bgm * bgm;
   seGain.gain.value = se * se;
 }
+
+// --- 別のタブを開いている間は音を出さない ---
+// ふつうは AudioContext を止める(曲の試聴・きくだけ・効果音もまとめて止まる)。戻ったら、止めたのがここなら再開する。
+// みんなでライブのプレイ中は時計を止めるとずれるので、止めずに音量だけ 0 にする。
+// どちらにするか・再開してよいかは main.js が setHiddenAudioPolicy で決める(ゲームを一時停止中なら再開しない)
+let hiddenSuspended = false, hiddenMuted = null;
+const hiddenPolicy = { keepRunning: () => false, canResume: () => true };
+export function setHiddenAudioPolicy(p) { Object.assign(hiddenPolicy, p); }
+document.addEventListener('visibilitychange', () => {
+  if (!ctx || ctx.state === 'closed') return;
+  if (document.hidden) {
+    if (hiddenPolicy.keepRunning()) {
+      hiddenMuted = [bgmGain.gain.value, seGain.gain.value];
+      bgmGain.gain.value = 0; seGain.gain.value = 0;
+    } else {
+      hiddenSuspended = true;
+      ctx.suspend();
+    }
+  } else {
+    if (hiddenMuted) { [bgmGain.gain.value, seGain.gain.value] = hiddenMuted; hiddenMuted = null; }
+    if (hiddenSuspended) { hiddenSuspended = false; if (hiddenPolicy.canResume()) ctx.resume(); }
+  }
+});
 
 export const bgmOut = () => (getCtx(), bgmGain);
 // 録画用: 曲とタップ音をまとめた MediaStream(stop で外す)

@@ -173,7 +173,7 @@ function builtinEntry(def) {
       if (this.buffer) { touchBuffer(this); return Promise.resolve(this.buffer); }
       if (!this.rendering) {
         const b = build();
-        this.rendering = loadSongAudio(def.id, b.events, b.duration, { sidechain: !!def.sidechain }, (p) => { this.progress = p; })
+        this.rendering = loadSongAudio(def.id, b.events, b.duration, { sidechain: !!def.sidechain, genre: def.genre, ...(def.palette ? { palette: def.palette } : {}) }, (p) => { this.progress = p; })
           .then((buf) => { this.buffer = buf; touchBuffer(this); return buf; })
           .catch((err) => { this.rendering = null; this.progress = 0; throw err; }); // 失敗したら次に選んだときやり直せるように
       }
@@ -329,7 +329,30 @@ function setScreenUrl(key) {
     } else if (key === 'select' || key === 'game') syncUrl(entries[sel]);
   } catch { /* file:// など */ }
 }
+// プレイ中は横画面(settings.landscape。スマホ・タブレットだけ。1.87.0〜)
+// 全画面にして横向きに固定する(Android の Chrome など)。固定できない端末(iPhone など)で縦向きなら、横にするよう案内する
+// 押した操作の中で呼ぶ(全画面は、ユーザーの操作の中でないと始められないため)
+let landLocked = false;
+function enterLandscape() {
+  if (!IS_TOUCH || !settings.landscape) return;
+  const lock = () => screen.orientation?.lock?.('landscape').then(() => { landLocked = true; }).catch(() => hintLandscape());
+  const el = document.documentElement;
+  if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' }).then(() => { landLocked = true; lock(); }, () => hintLandscape());
+  else if (screen.orientation?.lock) lock();
+  else hintLandscape();
+}
+function hintLandscape() {
+  if (matchMedia('(orientation: portrait)').matches) toast('端末を横向きにすると、横画面で遊べます(画面の回転のロックを外してください)');
+}
+function leaveLandscape() {
+  if (!landLocked) return;
+  landLocked = false;
+  try { screen.orientation?.unlock?.(); } catch { /* noop */ }
+  if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+}
+
 function show(name) {
+  if (name !== 'game' && name !== 'result') leaveLandscape(); // リザルトまでは横のまま(RETRY ですぐ遊べるように)
   // 画面が変わるときはスキャン線のワイプ演出(プレイ開始・終了時は読み込み画面やリザルト演出があるので除く)
   if (name !== state && name !== 'game' && state !== 'game' && !(state === 'title' && name === 'title')) {
     const w = $('wipe');
@@ -1026,6 +1049,7 @@ async function startGame(entry = entries[sel], d = diff, custom = null, live = n
     return;
   }
   starting = true;
+  if (!live) enterLandscape(); // みんなでライブは開始の合図で始まる(押した操作の中ではない)ので、自動では横にしない(端末を横にすれば横画面で遊べる)
   try {
     if (!(await confirmPhotosensitive(entry, custom))) return;
     await startGameInner(entry, d, custom, live, extra);
@@ -1498,37 +1522,41 @@ if (IS_TOUCH) {
 }
 
 // タッチ(スマホ)
+// 指ごとに押しているレーンの一覧。2つのレーンの境目を押すと両方を押したことになる(settings.edgeTap。初期はオン。1.87.0〜)
 const touchLane = new Map();
+const EDGE_TAP = 0.18; // 境目からレーン幅の18%以内
 // キャンバス内の位置で、どのレーンかを決める(「回転」中は縦の位置も使う)
-const laneOfTouch = (t) => { const r = canvas.getBoundingClientRect(); return game.laneAt(t.clientX - r.left, t.clientY - r.top); };
+const lanesOfTouch = (t) => { const r = canvas.getBoundingClientRect(); return game.lanesAt(t.clientX - r.left, t.clientY - r.top, settings.edgeTap === false ? 0 : EDGE_TAP); };
+const heldByOthers = (l, id) => [...touchLane].some(([k, ls]) => k !== id && ls.includes(l));
 canvas.addEventListener('touchstart', (ev) => {
   if (state !== 'game' || !game) return;
   ev.preventDefault();
   for (const t of ev.changedTouches) {
-    const l = laneOfTouch(t);
-    touchLane.set(t.identifier, l);
-    game.press(l, ev.timeStamp);
+    const ls = lanesOfTouch(t);
+    touchLane.set(t.identifier, ls);
+    for (const l of ls) game.press(l, ev.timeStamp);
   }
 }, { passive: false });
 const touchEnd = (ev) => {
   if (!game) return;
   for (const t of ev.changedTouches) {
-    const l = touchLane.get(t.identifier);
+    const ls = touchLane.get(t.identifier) || [];
     touchLane.delete(t.identifier);
-    if (l != null && ![...touchLane.values()].includes(l)) game.release(l, ev.timeStamp);
+    for (const l of ls) if (!heldByOthers(l, t.identifier)) game.release(l, ev.timeStamp);
   }
 };
 canvas.addEventListener('touchmove', (ev) => {
   if (state !== 'game' || !game) return;
   ev.preventDefault();
-  // 指をスライドして隣のレーンへ移動できるように
+  // 指をスライドして隣のレーンへ移動できるように(増えたレーンを押し、外れたレーンを離す)
   for (const t of ev.changedTouches) {
     const old = touchLane.get(t.identifier);
-    const l = laneOfTouch(t);
-    if (old == null || old === l) continue;
-    touchLane.set(t.identifier, l);
-    if (![...touchLane.values()].includes(old)) game.release(old, ev.timeStamp);
-    game.press(l, ev.timeStamp);
+    if (!old) continue;
+    const ls = lanesOfTouch(t);
+    if (ls.length === old.length && ls.every((l, i) => l === old[i])) continue;
+    touchLane.set(t.identifier, ls);
+    for (const l of old) if (!ls.includes(l) && !heldByOthers(l, t.identifier)) game.release(l, ev.timeStamp);
+    for (const l of ls) if (!old.includes(l)) game.press(l, ev.timeStamp);
   }
 }, { passive: false });
 canvas.addEventListener('touchend', touchEnd);
@@ -1819,6 +1847,8 @@ function syncSettingsUI() {
   $('s-mv').checked = settings.mv !== false;
   $('s-lyrics').checked = settings.lyrics !== false;
   $('s-calm').checked = !!settings.calm;
+  $('s-edgetap').checked = settings.edgeTap !== false;
+  $('s-landscape').checked = !!settings.landscape;
   $('s-notesize').value = settings.noteSize || 'normal';
   $('s-palette').value = settings.palette || 'skin';
   $('o-mv').textContent = settings.mv !== false ? 'ON' : 'OFF';
@@ -1846,6 +1876,8 @@ applyStream();
 $('s-ghost').addEventListener('change', () => { settings.ghostMode = $('s-ghost').value; settings.ghost = settings.ghostMode !== 'off'; setSettings(settings); });
 $('s-lyrics').addEventListener('change', () => { settings.lyrics = $('s-lyrics').checked; setSettings(settings); });
 $('s-calm').addEventListener('change', () => { settings.calm = $('s-calm').checked; setSettings(settings); });
+$('s-edgetap').addEventListener('change', () => { settings.edgeTap = $('s-edgetap').checked; setSettings(settings); });
+$('s-landscape').addEventListener('change', () => { settings.landscape = $('s-landscape').checked; setSettings(settings); });
 $('s-notesize').addEventListener('change', () => { settings.noteSize = $('s-notesize').value; setSettings(settings); });
 $('s-palette').addEventListener('change', () => { settings.palette = $('s-palette').value; setSettings(settings); });
 $('s-mv').addEventListener('change', () => {

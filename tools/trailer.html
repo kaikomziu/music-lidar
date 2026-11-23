@@ -137,7 +137,7 @@ async function loadSong(id) {
   if (!def || def.audio || def.gimmicks?.length) throw new Error('使えない曲: ' + id);
   const { events, duration } = composeSong(def);
   const { charts, levels } = chartsOf(def, events, duration);
-  const buf = await renderEvents(events, duration, { sidechain: !!def.sidechain });
+  const buf = await renderEvents(events, duration, { sidechain: !!def.sidechain, genre: def.genre, palette: def.palette });
   await prepareMV(def.id);
   const mv = createMV(def.id, def.bpm, 0, { scale: 0.5, maxW: 800 }, { title: def.title, genre: def.genre, color: def.color, sections: analyzeSections(events, def.bpm, duration) });
   const so = { def, duration, charts, levels, buf, mv };

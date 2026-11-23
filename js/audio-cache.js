@@ -3,7 +3,7 @@
 import { renderEvents } from './audio.js';
 import { hashStr } from './composer.js';
 
-const SYNTH_VERSION = 3; // 音色や合成方法を変えたら上げる
+const SYNTH_VERSION = 4; // 音色や合成方法を変えたら上げる(4: 1.87.0 のジャンルごとの楽器)
 const DB = 'mlidar-audio', STORE = 'songs', USED = 'used';
 const MAX_CACHED = 24; // 端末に保存しておく曲数(1曲 約10〜20MB)。古く使ったものから消す
 

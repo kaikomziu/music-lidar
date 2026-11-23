@@ -1168,6 +1168,18 @@ export class Game {
     const l = Math.floor((x - G.cx) / (G.laneW * k) + 2);
     return Math.max(0, Math.min(3, l));
   }
+
+  // タッチで押したレーンの一覧。edge(0〜0.5)を渡すと、2つのレーンの境目から レーン幅×edge 以内を押したとき、両隣の2レーンを返す(1.87.0〜)
+  // キーボードなら2つのキーを同時に押せるので、スマホでも1本の指で同時押しを取れるようにする
+  lanesAt(x, y = null, edge = 0) {
+    const l = this.laneAt(x, y);
+    if (!edge || this.view?.spin) return [l]; // 回転中は位置の計算が複雑なので1レーンだけ
+    const G = this.geom(), p = (x - G.cx) / G.laneW + 2, f = p - Math.floor(p);
+    if (p < 0 || p > 4) return [l];
+    if (f < edge && l >= 1) return [l - 1, l];
+    if (f > 1 - edge && l <= 2) return [l, l + 1];
+    return [l];
+  }
 }
 
 export const DIFF_COLOR = { easy: '#6dffb0', normal: '#ffd25e', hard: '#ff5a8a', extra: '#c06bff', inferno: '#ff7a45', custom: '#c49bff', test: '#9fe8ff' };

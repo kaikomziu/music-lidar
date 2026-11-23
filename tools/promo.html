@@ -606,7 +606,7 @@ async function loadSong(id, needDiffs, allowGimmick = false) {
   const { events, duration } = composeSong(def);
   const { charts, levels } = chartsOf(def, events, duration);
   for (const d of needDiffs) if (!charts[d]) throw new Error(`${def.id} に ${d} の譜面がありません`);
-  const buf = await renderEvents(events, duration, { sidechain: !!def.sidechain });
+  const buf = await renderEvents(events, duration, { sidechain: !!def.sidechain, genre: def.genre, palette: def.palette });
   await prepareMV(def.id);
   const auto = { title: def.title, genre: def.genre, color: def.color, sections: analyzeSections(events, def.bpm, duration) };
   const mvBg = createMV(def.id, def.bpm, 0, { scale: 0.5, maxW: 540 }, auto);

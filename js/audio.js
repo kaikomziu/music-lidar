@@ -513,7 +513,246 @@ const VOICES = {
     const g = env(oc, t, 0.5 * e.vel, 0.005, 0, d);
     o.connect(g); g.connect(S.drums); send(S, g, 0.4);
   },
+  // ---- 1.87.0: 生楽器ふうの音色。ジャンルごとの「楽器の組み合わせ」(PALETTES)で、lead・pad・pluck などをこれに置き換えて鳴らす ----
+  // (イベントの種類を置き換えるのは音を作るときだけ。譜面はもとのイベントから作るので変わらない)
+  // ピアノ: 少しずれた倍音(弦の硬さ)+ハンマーの音。高い音ほど早く減衰
+  piano(S, e) {
+    const { oc } = S, t = e.t, f0 = mtof(e.midi);
+    const len = Math.max(0.6, Math.min(3.2, e.dur + 1.4 - (e.midi - 60) * 0.03));
+    [[1, 0.16, 1], [2.003, 0.07, 0.7], [3.01, 0.035, 0.45], [4.02, 0.02, 0.3], [5.04, 0.01, 0.2]].forEach(([r, a, dm]) => {
+      const o = osc(oc, r === 1 ? 'triangle' : 'sine', f0 * r, t, t + len + 0.1);
+      const g = env(oc, t, a * e.vel, 0.003, 0, len * dm);
+      o.connect(g); g.connect(S.music); send(S, g, 0.22);
+    });
+    const n = noise(S, t, 0.03), f = filt(oc, 'bandpass', Math.min(5000, f0 * 6), 1.2), g = env(oc, t, 0.05 * e.vel, 0.001, 0, 0.025);
+    n.connect(f); f.connect(g); g.connect(S.music);
+  },
+  // ピアノの和音(stab・pad の代わり)
+  pianochord(S, e) {
+    for (const m of e.midis) VOICES.piano(S, { ...e, midi: m, vel: e.vel * 0.55 });
+  },
+  // 弦楽合奏(pad の代わり): ゆっくり立ち上がるのこぎり波を何本も重ね、ビブラート
+  strings(S, e) {
+    const { oc } = S, t = e.t, end = t + e.dur + 1.0;
+    const lp = filt(oc, 'lowpass', 2600, 0.6), hp = filt(oc, 'highpass', 180, 0.6);
+    const g = env(oc, t, 0.042 * e.vel, Math.min(0.35, e.dur / 2), Math.max(0, e.dur - 0.35), 0.7);
+    const lfo = osc(oc, 'sine', 5.2, t, end), lg = oc.createGain();
+    lg.gain.value = 9; lfo.connect(lg);
+    for (const m of e.midis) for (const d of [-9, 0, 10]) { const o = osc(oc, 'sawtooth', mtof(m), t, end, d); lg.connect(o.detune); o.connect(hp); }
+    hp.connect(lp); lp.connect(g); g.connect(S.music); send(S, g, 0.6);
+  },
+  // バイオリンの独奏(lead の代わり): のこぎり波を胴鳴りのフィルターに通し、少し遅れてビブラート
+  strlead(S, e) {
+    const { oc } = S, t = e.t, f0 = mtof(e.midi), end = t + e.dur + 0.4;
+    const b1 = filt(oc, 'peaking', 2800, 1.5); b1.gain.value = 6;
+    const lp = filt(oc, 'lowpass', 5200, 0.7), hp = filt(oc, 'highpass', 250, 0.7);
+    const g = env(oc, t, 0.075 * e.vel, Math.min(0.08, e.dur / 3), Math.max(0, e.dur - 0.08), 0.25);
+    const o = osc(oc, 'sawtooth', f0, t, end), o2 = osc(oc, 'sawtooth', f0, t, end, 6);
+    if (e.dur > 0.25) { const lfo = osc(oc, 'sine', 5.6, t + 0.15, end), lg = oc.createGain(); lg.gain.value = 16; lfo.connect(lg); lg.connect(o.detune); lg.connect(o2.detune); }
+    o.connect(hp); o2.connect(hp); hp.connect(b1); b1.connect(lp); lp.connect(g); g.connect(S.music); send(S, g, 0.45);
+  },
+  // トランペット・ブラス(lead の代わり): 吹き始めにフィルターが開き、音程が少し下からしゃくり上がる
+  brass(S, e) {
+    const { oc } = S, t = e.t, f0 = mtof(e.midi), end = t + e.dur + 0.25;
+    const lp = filt(oc, 'lowpass', 900, 1.2);
+    lp.frequency.setValueAtTime(700, t);
+    lp.frequency.linearRampToValueAtTime(2600 + 1800 * e.vel, t + 0.06);
+    lp.frequency.exponentialRampToValueAtTime(1700, t + 0.3);
+    const g = env(oc, t, 0.085 * e.vel, 0.025, Math.max(0, e.dur - 0.04), 0.12);
+    for (const d of [-5, 5]) {
+      const o = osc(oc, 'sawtooth', f0, t, end, d);
+      o.detune.setValueAtTime(d - 60, t); o.detune.linearRampToValueAtTime(d, t + 0.05);
+      o.connect(lp);
+    }
+    lp.connect(g); g.connect(S.music); send(S, g, 0.3);
+  },
+  // ブラスセクションの和音(stab の代わり)
+  brasssec(S, e) {
+    const { oc } = S, t = e.t, end = t + e.dur + 0.25;
+    const lp = filt(oc, 'lowpass', 900, 1);
+    lp.frequency.setValueAtTime(800, t);
+    lp.frequency.linearRampToValueAtTime(3600, t + 0.05);
+    lp.frequency.exponentialRampToValueAtTime(1500, t + 0.25);
+    const g = env(oc, t, 0.05 * e.vel, 0.02, Math.max(0, e.dur - 0.04), 0.12);
+    for (const m of e.midis) for (const d of [-7, 6]) { const o = osc(oc, 'sawtooth', mtof(m), t, end, d); o.detune.setValueAtTime(d - 40, t); o.detune.linearRampToValueAtTime(d, t + 0.04); o.connect(lp); }
+    lp.connect(g); g.connect(S.music); send(S, g, 0.35);
+  },
+  // サックス(lead の代わり): 鼻にかかった帯域と息の音、ビブラート
+  sax(S, e) {
+    const { oc } = S, t = e.t, f0 = mtof(e.midi), end = t + e.dur + 0.25;
+    const b1 = filt(oc, 'peaking', 1300, 2); b1.gain.value = 9;
+    const lp = filt(oc, 'lowpass', 3800, 0.8);
+    const g = env(oc, t, 0.07 * e.vel, 0.02, Math.max(0, e.dur - 0.04), 0.14);
+    const o = osc(oc, 'square', f0, t, end), o2 = osc(oc, 'sawtooth', f0, t, end, -4);
+    if (e.dur > 0.3) { const lfo = osc(oc, 'sine', 5, t + 0.2, end), lg = oc.createGain(); lg.gain.value = 14; lfo.connect(lg); lg.connect(o.detune); lg.connect(o2.detune); }
+    o.connect(b1); o2.connect(b1); b1.connect(lp); lp.connect(g); g.connect(S.music); send(S, g, 0.3);
+    const n = noise(S, t, e.dur + 0.1), nf = filt(oc, 'bandpass', f0 * 3, 3), ng = env(oc, t, 0.018 * e.vel, 0.02, Math.max(0, e.dur - 0.04), 0.1);
+    n.connect(nf); nf.connect(ng); ng.connect(S.music);
+  },
+  // フルート・尺八(lead の代わり): 柔らかい音と息の音。e.breath で息の多さ
+  flute(S, e) {
+    const { oc } = S, t = e.t, f0 = mtof(e.midi), end = t + e.dur + 0.3, br = e.breath || 1;
+    const g = env(oc, t, 0.11 * e.vel, 0.04, Math.max(0, e.dur - 0.06), 0.16);
+    const o = osc(oc, 'sine', f0, t, end), o2 = osc(oc, 'triangle', f0 * 2, t, end), g2 = oc.createGain();
+    g2.gain.value = 0.18; o2.connect(g2);
+    if (e.dur > 0.3) { const lfo = osc(oc, 'sine', 4.8, t + 0.25, end), lg = oc.createGain(); lg.gain.value = 12; lfo.connect(lg); lg.connect(o.detune); lg.connect(o2.detune); }
+    o.connect(g); g2.connect(g); g.connect(S.music); send(S, g, 0.45);
+    const n = noise(S, t, e.dur + 0.2), nf = filt(oc, 'bandpass', f0 * 2, 1.5), ng = env(oc, t, 0.03 * br * e.vel, 0.02, Math.max(0, e.dur - 0.05), 0.12);
+    n.connect(nf); nf.connect(ng); ng.connect(S.music); send(S, ng, 0.3);
+  },
+  shaku(S, e) { VOICES.flute(S, { ...e, breath: 2.6 }); },
+  // ナイロン弦のギター(pluck・bell の代わり)
+  nylon(S, e) {
+    const { oc } = S, t = e.t, f0 = mtof(e.midi), len = Math.max(0.5, Math.min(1.6, e.dur + 0.9));
+    const lp = filt(oc, 'lowpass', 3200, 0.9);
+    lp.frequency.setValueAtTime(3600, t);
+    lp.frequency.exponentialRampToValueAtTime(900, t + len * 0.6);
+    const g = env(oc, t, 0.19 * e.vel, 0.002, 0, len);
+    osc(oc, 'triangle', f0, t, t + len + 0.1).connect(lp);
+    const o2 = osc(oc, 'sawtooth', f0, t, t + len + 0.1), g2 = oc.createGain(); g2.gain.value = 0.35; o2.connect(g2); g2.connect(lp);
+    lp.connect(g); g.connect(S.music); send(S, g, 0.3);
+  },
+  // 琴(pluck の代わり): 明るいはじく音で、弾いた直後に音程が少し上ずる
+  koto(S, e) {
+    const { oc } = S, t = e.t, f0 = mtof(e.midi), len = Math.max(0.5, Math.min(1.8, e.dur + 1));
+    const bp = filt(oc, 'peaking', 2400, 1.4); bp.gain.value = 7;
+    const g = env(oc, t, 0.17 * e.vel, 0.001, 0, len);
+    for (const [r, a] of [[1, 1], [2, 0.5], [3, 0.3]]) {
+      const o = osc(oc, r === 1 ? 'sawtooth' : 'triangle', f0 * r, t, t + len + 0.1);
+      o.detune.setValueAtTime(35, t); o.detune.exponentialRampToValueAtTime(1, t + 0.08);
+      const ga = oc.createGain(); ga.gain.value = a * 0.6; o.connect(ga); ga.connect(bp);
+    }
+    bp.connect(g); g.connect(S.music); send(S, g, 0.4);
+  },
+  // マリンバ(pluck・bell の代わり): 木の板を叩いた丸い音
+  marimba(S, e) {
+    const { oc } = S, t = e.t, f0 = mtof(e.midi), len = Math.max(0.35, Math.min(1.1, 1.3 - (e.midi - 60) * 0.02));
+    [[1, 0.22, 1], [3.98, 0.06, 0.25], [10.1, 0.015, 0.08]].forEach(([r, a, dm]) => {
+      const o = osc(oc, 'sine', f0 * r, t, t + len + 0.05);
+      const g = env(oc, t, a * e.vel, 0.002, 0, len * dm);
+      o.connect(g); g.connect(S.music); send(S, g, 0.25);
+    });
+  },
+  // ハープ(pluck の代わり): 柔らかくはじいて長く残る
+  harp(S, e) {
+    const { oc } = S, t = e.t, f0 = mtof(e.midi), len = Math.max(0.9, Math.min(2.4, e.dur + 1.6));
+    [[1, 0.17, 1], [2, 0.05, 0.6], [3, 0.02, 0.35]].forEach(([r, a, dm]) => {
+      const o = osc(oc, r === 1 ? 'triangle' : 'sine', f0 * r, t, t + len + 0.05);
+      const g = env(oc, t, a * e.vel, 0.004, 0, len * dm);
+      o.connect(g); g.connect(S.music); send(S, g, 0.5);
+    });
+  },
+  // オルガン(pad・stab の代わり): ドローバーのように倍音を足し、ゆっくり揺らす
+  organ(S, e) {
+    const { oc } = S, t = e.t, end = t + e.dur + 0.2;
+    const g = env(oc, t, 0.03 * e.vel, 0.01, Math.max(0, e.dur - 0.02), 0.08);
+    const lfo = osc(oc, 'sine', 6.2, t, end), lg = oc.createGain(); lg.gain.value = 7; lfo.connect(lg);
+    for (const m of e.midis || [e.midi]) for (const [r, a] of [[0.5, 0.6], [1, 1], [2, 0.7], [3, 0.35], [4, 0.25]]) {
+      const o = osc(oc, 'sine', mtof(m) * r, t, end), ga = oc.createGain(); ga.gain.value = a; lg.connect(o.detune); o.connect(ga); ga.connect(g);
+    }
+    g.connect(S.music); send(S, g, 0.3);
+  },
+  // ---- 生ドラムふう(打ち込みのキット kick・snare・hat などの代わり)。サンプルにして使う(DRUM_LEN) ----
+  akick(S, e) {
+    const { oc } = S, t = e.t;
+    const o = osc(oc, 'sine', 110, t, t + 0.4);
+    o.frequency.setValueAtTime(120, t);
+    o.frequency.exponentialRampToValueAtTime(55, t + 0.08);
+    const g = env(oc, t, 0.9 * e.vel, 0.002, 0.01, 0.26);
+    o.connect(g); g.connect(S.drums);
+    const n = noise(S, t, 0.02), f = filt(oc, 'bandpass', 2500, 0.8), g2 = env(oc, t, 0.35 * e.vel, 0.001, 0, 0.015);
+    n.connect(f); f.connect(g2); g2.connect(S.drums);
+  },
+  asnare(S, e) {
+    const { oc } = S, t = e.t;
+    const n = noise(S, t, 0.3), f = filt(oc, 'highpass', 1500, 0.6), g = env(oc, t, 0.42 * e.vel, 0.001, 0.01, 0.2);
+    n.connect(f); f.connect(g); g.connect(S.drums);
+    for (const [fr, a] of [[185, 0.35], [330, 0.18]]) {
+      const o = osc(oc, 'triangle', fr, t, t + 0.12), g2 = env(oc, t, a * e.vel, 0.001, 0, 0.07);
+      o.connect(g2); g2.connect(S.drums);
+    }
+  },
+  // ブラシ(ジャズ): ザッとこする音
+  brush(S, e) {
+    const { oc } = S, t = e.t;
+    const n = noise(S, t, 0.3), f = filt(oc, 'bandpass', 3500, 0.5), g = env(oc, t, 0.3 * e.vel, 0.02, 0.03, 0.18);
+    n.connect(f); f.connect(g); g.connect(S.drums);
+  },
+  ahat(S, e) {
+    const { oc } = S, t = e.t;
+    const bp = filt(oc, 'bandpass', 10000, 0.8), hp = filt(oc, 'highpass', 7000), g = env(oc, t, 0.16 * e.vel, 0.001, 0, 0.05);
+    for (const fr of [205, 304, 370, 523, 540, 800]) osc(oc, 'square', fr, t, t + 0.08).connect(bp);
+    bp.connect(hp); hp.connect(g); g.connect(S.drums);
+  },
+  aohat(S, e) {
+    const { oc } = S, t = e.t;
+    const bp = filt(oc, 'bandpass', 10000, 0.8), hp = filt(oc, 'highpass', 6500), g = env(oc, t, 0.13 * e.vel, 0.002, 0.03, 0.3);
+    for (const fr of [205, 304, 370, 523, 540, 800]) osc(oc, 'square', fr, t, t + 0.4).connect(bp);
+    bp.connect(hp); hp.connect(g); g.connect(S.drums);
+  },
+  aride(S, e) {
+    const { oc } = S, t = e.t;
+    const bp = filt(oc, 'bandpass', 6000, 1.2), g = env(oc, t, 0.09 * e.vel, 0.001, 0, 0.6);
+    for (const fr of [310, 455, 590, 780]) osc(oc, 'square', fr, t, t + 0.7).connect(bp);
+    bp.connect(g); g.connect(S.drums);
+    const o = osc(oc, 'sine', 3800, t, t + 0.6), g2 = env(oc, t, 0.025 * e.vel, 0.001, 0, 0.5);
+    o.connect(g2); g2.connect(S.drums);
+  },
 };
+
+// ---- ジャンルごとの楽器の組み合わせ(1.87.0〜) ----
+// 内蔵曲はどれも同じシンセの音色(lead・pad・pluck…)で鳴っていて、ジャンルが違っても似た音に聞こえやすかったので、
+// 生楽器が似合うジャンルでは、音を作るときにイベントの種類を置き換える。電子音楽のジャンルは今までどおり。
+// 譜面はもとのイベントから作るので変わらない(置き換えるのはここだけ)。曲ファイルの palette で組み合わせを指定・'none' で置き換えなし
+const ACOUSTIC_KIT = { kick: 'akick', snare: 'asnare', hat: 'ahat', ohat: 'aohat', ride: 'aride' };
+const PALETTES = {
+  orchestra: { ...ACOUSTIC_KIT, pad: 'strings', lead: 'strlead', supersaw: 'strlead', square: 'brass', stab: 'brasssec', pluck: 'harp', keys: 'piano' },
+  jazz: { ...ACOUSTIC_KIT, snare: 'brush', lead: 'sax', square: 'brass', supersaw: 'sax', stab: 'brasssec', pad: 'strings', pluck: 'piano', bass: 'upright' },
+  soul: { ...ACOUSTIC_KIT, lead: 'sax', stab: 'brasssec', pad: 'organ', square: 'brass', pluck: 'piano' },
+  funk: { stab: 'brasssec', square: 'brass', lead: 'sax', pad: 'strings' },
+  latin: { ...ACOUSTIC_KIT, pluck: 'nylon', bell: 'marimba', lead: 'brass', square: 'brass', stab: 'brasssec', pad: 'strings' },
+  bossa: { ...ACOUSTIC_KIT, snare: 'brush', pluck: 'nylon', bell: 'nylon', lead: 'flute', square: 'flute', pad: 'strings', bass: 'upright' },
+  folk: { ...ACOUSTIC_KIT, pluck: 'nylon', bell: 'nylon', lead: 'strlead', square: 'flute', pad: 'organ', keys: 'piano', stab: 'pianochord' },
+  celtic: { ...ACOUSTIC_KIT, pluck: 'harp', bell: 'harp', lead: 'flute', square: 'strlead', pad: 'strings' },
+  wa: { pluck: 'koto', bell: 'koto', lead: 'shaku', square: 'shaku', pad: 'strings' },
+  piano: { lead: 'piano', square: 'piano', pluck: 'piano', keys: 'piano', bell: 'piano', stab: 'pianochord', pad: 'strings' },
+  rock: { ...ACOUSTIC_KIT, pad: 'organ', keys: 'piano' },
+  symphonic: { ...ACOUSTIC_KIT, pad: 'strings', stab: 'brasssec', square: 'brass', pluck: 'harp', keys: 'piano' },
+  march: { ...ACOUSTIC_KIT, lead: 'brass', square: 'brass', supersaw: 'brass', stab: 'brasssec', pad: 'strings', pluck: 'marimba' },
+  toy: { pluck: 'marimba', bell: 'marimba', square: 'flute', pad: 'strings' },
+  world: { ...ACOUSTIC_KIT, pluck: 'marimba', lead: 'flute', stab: 'organ', pad: 'strings' },
+  reggae: { ...ACOUSTIC_KIT, stab: 'organ', pluck: 'nylon', pad: 'organ', lead: 'brass' },
+  strings: { pad: 'strings', lead: 'strlead', pluck: 'harp', keys: 'piano', stab: 'pianochord' },
+};
+// ジャンル名 → 組み合わせ(上から順に見て最初に当てはまったもの)。どれにも当てはまらなければ置き換えない
+const GENRE_PALETTE = [
+  [/SYMPHONIC|ORCHESTRAL CORE|POWER METAL/, 'symphonic'],
+  [/^WA-|CHINESE|GAMELAN/, 'wa'],
+  [/METAL|ROCK|PUNK/, 'rock'],
+  [/ORCHESTRAL|BOSS BATTLE|WALTZ|TANGO|CHRISTMAS POP|WINTER/, 'orchestra'],
+  [/CELTIC/, 'celtic'],
+  [/BOSSA|SAMBA|LOUNGE/, 'bossa'],
+  [/JAZZ|BIG BAND|SWING|BLUES/, 'jazz'],
+  [/GOSPEL|NEO SOUL|R&B/, 'soul'],
+  [/^FUNK|DISCO|CITY POP/, 'funk'],
+  [/SALSA|MARIACHI|FLAMENCO|LATIN/, 'latin'],
+  [/FOLK|COUNTRY|BLUEGRASS|ACOUSTIC|CAMPFIRE|POLKA/, 'folk'],
+  [/^PIANO$|BALLAD/, 'piano'],
+  [/MARCH/, 'march'],
+  [/REGGAE$|DUB$/, 'reggae'],
+  [/AFROBEATS|ARABIAN|BOLLYWOOD/, 'world'],
+  [/KIDS POP|TOY POP|MUSIC BOX/, 'toy'],
+  [/SPRING POP|SHIBUYA-KEI|ANISON|J-POP/, 'strings'],
+];
+// 置き換えたときの音量合わせ(もとの音と同じ大きさになる倍率。tools で1音ずつ合成して RMS を比べて決めた)
+const MATCH = {"pad":{"strings":0.72,"organ":0.61},"lead":{"strlead":2.1,"brass":1.94,"sax":1.46,"flute":1.5,"shaku":1.49,"piano":2.22},"supersaw":{"strlead":1.14,"sax":0.79,"brass":1.06},"square":{"brass":2.06,"flute":1.59,"shaku":1.58,"strlead":2.22,"piano":2.35},"stab":{"brasssec":1.88,"pianochord":2.11,"organ":2.14},"pluck":{"harp":0.78,"piano":0.95,"nylon":0.77,"koto":1.55,"marimba":0.78},"bell":{"nylon":0.81,"marimba":0.82,"harp":0.82,"koto":1.64,"piano":1},"keys":{"piano":0.77},"bass":{"upright":1.98},"kick":{"akick":1.47},"snare":{"asnare":0.56,"brush":0.85},"hat":{"ahat":2.22},"ohat":{"aohat":1.9},"ride":{"aride":0.89}};
+export function paletteOf(genre, override = null) {
+  if (override === 'none') return null;
+  if (override) return typeof override === 'string' ? PALETTES[override] || null : override;
+  const g = String(genre || '').toUpperCase();
+  for (const [re, name] of GENRE_PALETTE) if (re.test(g)) return PALETTES[name];
+  return null;
+}
 
 // 区間ごとに並列でオフライン合成する。
 // - ノイズ・残響用のバッファは一度だけ作って使い回す
@@ -527,8 +766,8 @@ function workerCount() {
 }
 
 // ドラムは毎回ノードを組むと重いので、1音ずつ先に録っておいてサンプルとして鳴らす
-const DRUM_LEN = { kick: 0.45, hardkick: 0.4, snare: 0.25, clap: 0.26, hat: 0.07, ohat: 0.34, ride: 0.5, crash: 1.8, chipkick: 0.26, chipsnare: 0.2, chiphat: 0.05 };
-const DRUM_SEND = { snare: 0.25, clap: 0.3, crash: 0.4 };
+const DRUM_LEN = { kick: 0.45, hardkick: 0.4, snare: 0.25, clap: 0.26, hat: 0.07, ohat: 0.34, ride: 0.5, crash: 1.8, chipkick: 0.26, chipsnare: 0.2, chiphat: 0.05, akick: 0.4, asnare: 0.3, brush: 0.3, ahat: 0.08, aohat: 0.4, aride: 0.7 };
+const DRUM_SEND = { snare: 0.25, clap: 0.3, crash: 0.4, asnare: 0.22, brush: 0.2, aride: 0.15 };
 let drumSamples = null;
 async function prepareDrums() {
   if (drumSamples) return drumSamples;
@@ -554,7 +793,10 @@ function playDrum(S, e) {
 }
 
 // onProgress(0〜1) で進み具合を知らせる
+// opts.genre(と opts.palette)があれば、ジャンルの楽器の組み合わせで鳴らす(paletteOf)。もとの events は書き換えない
 export async function renderEvents(events, duration, opts = {}, onProgress = null) {
+  const pal = paletteOf(opts.genre, opts.palette);
+  if (pal) events = events.map((e) => (pal[e.type] ? { ...e, type: pal[e.type], vel: e.vel * (MATCH[e.type]?.[pal[e.type]] ?? 1) } : e));
   sharedNoise ||= makeNoise(new OfflineAudioContext(1, 1, SR));
   sharedIR ||= makeIR(new OfflineAudioContext(2, 1, SR), 2.6, 2.6);
   await prepareDrums();
@@ -629,7 +871,7 @@ async function renderSegment(events, a, len, opts) {
   if (opts.sidechain) {
     let lastK = -1;
     for (const e of events) {
-      if (e.type !== 'kick' || e.t - lastK < 0.2) continue;
+      if ((e.type !== 'kick' && e.type !== 'akick') || e.t - lastK < 0.2) continue;
       lastK = e.t;
       music.gain.setValueAtTime(1, e.t);
       music.gain.linearRampToValueAtTime(0.35, e.t + 0.012);

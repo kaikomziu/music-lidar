@@ -139,7 +139,7 @@ async function main() {
       const x = list[next++];
       try {
         const { events, duration } = composeSong(x.d);
-        const buf = await renderEvents(events, duration, { sidechain: !!x.d.sidechain });
+        const buf = await renderEvents(events, duration, { sidechain: !!x.d.sidechain, genre: x.d.genre, palette: x.d.palette });
         await post('/x/wav?' + qs({ name: x.name, title: x.d.title, artist: 'MUSIC LiDAR', album: 'MUSIC LiDAR', genre: x.d.genre, track: x.i + 1 }), wavBytes(buf));
         if (x.a) log(`音声 ${x.name}`);
         if (x.v) videoChain = videoChain.then(() => exportVideo(x.d, x.name, buf.duration, events).then(() => log(`MV ${x.name}`)))

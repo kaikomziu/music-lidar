@@ -526,12 +526,12 @@ function inviteHtml() {
     ${canRedeem ? `<form class="pf-redeem" data-redeem><input id="inv-input" maxlength="8" placeholder="もらった招待コード" autocomplete="off"><button class="btn-line small">使う</button></form><p class="muted small">招待コードは、始めてから14日以内に1回だけ使えます</p>`
       : s.meta?.invited_by ? `<p class="muted small">${ui.esc(s.meta.invited_by)} さんの招待で始めました</p>` : ''}</section>`;
 }
-// Discord 認証: コードを出して、公式Discordの「✅｜認証」チャンネルに貼ってもらう(◎500。サーバーの Edge Function mlidar-discord が1分ごとに見る)
+// Discord 認証: コードを出して、公式Discordで /verify コード と打ってもらう(◎500。Edge Function mlidar-discord-cmd がすぐ答える)。「✅｜認証」チャンネルに貼っても、mlidar-discord が10分ごとに見る
 const DISCORD_URL = 'https://discord.gg/aMnvqcHzNG';
 function discordHtml() {
   const d = acc.getState()?.meta?.discord;
   return `<section class="pf-inv pf-dc hud" id="pf-dc"><h3>Discordで認証</h3>${d ? discordDone(d)
-    : `<p class="small">公式Discordの「✅｜認証」チャンネルにコードを貼ると、<b>◎500</b> と「認証済み」ロールがもらえます(1人1回)</p>
+    : `<p class="small">公式Discordで <b>/verify コード</b> と打つと、<b>◎500</b> と「認証済み」ロールがもらえます(1人1回)</p>
     <div class="pf-code" id="dc-box"><button class="btn-line small" data-dc-code>コードを出す</button><a class="btn-line small" href="${DISCORD_URL}" target="_blank" rel="noopener">Discordを開く</a></div>`}</section>`;
 }
 const discordDone = (d) => `<p class="small">✅ 認証済み${d.name ? `(Discord: ${ui.esc(d.name)})` : ''}</p>`;
@@ -543,7 +543,7 @@ async function showDiscordCode() {
   try { r = await rpc('mlidar_discord_code', { p_token: acc.getToken() }); } catch (e) { ui.toast(acc.errText(e)); return; }
   if (r?.linked) { $('pf-dc').innerHTML = '<h3>Discordで認証</h3>' + discordDone(r); return; }
   box.innerHTML = `<b id="dc-code">${ui.esc(r.code)}</b><button class="btn-line small" data-dc-copy>コピー</button><a class="btn-glow small" href="${DISCORD_URL}" target="_blank" rel="noopener">Discordを開いて貼る</a>`;
-  box.insertAdjacentHTML('afterend', '<p class="muted small" id="dc-note">このコードを「✅｜認証」チャンネルに貼ってください(15分有効)。1分ほどでボットが返事をして、ここにも反映されます</p>');
+  box.insertAdjacentHTML('afterend', '<p class="muted small" id="dc-note">公式Discordのどのチャンネルでも <b>/verify このコード</b> と打ってください(15分有効)。すぐに認証され、ここにも反映されます</p>');
   // 認証されたか、しばらく見に行く(15分まで・画面を閉じたらやめる)
   clearInterval(dcTimer);
   const until = Date.now() + 15 * 60e3;

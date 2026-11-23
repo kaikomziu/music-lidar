@@ -1,5 +1,8 @@
 // 公式Discordの「✅｜認証」チャンネルを見て、ゲームのアカウントとつなぐ(◎500 と「✅ 認証済み」ロールを渡す)
-// - pg_cron(ジョブ mlidar-discord-verify)が1分ごとに呼ぶ。ヘッダー x-mlidar-cron が Vault の mlidar_discord_cron と同じときだけ動く
+// - pg_cron が呼ぶ。ヘッダー x-mlidar-cron が Vault の mlidar_discord_cron と同じときだけ動く
+//   - ジョブ mlidar-discord-feed: 1分ごと。ただし投稿していない記録のお知らせがあるときだけ呼ぶ(body {"mode":"feed"} → お知らせだけ)
+//   - ジョブ mlidar-discord-verify: 10分ごと(チャンネルに貼られたコードの処理・返事の片付け・お知らせ)。Supabase の節約のため 2026-11-23 に1分 → 10分
+//   - 認証はふだんスラッシュコマンド /verify(mlidar-discord-cmd)ですぐ済む。チャンネルに貼る方法も残している
 // - 前回の続き(mlidar_discord_state の last)からメッセージを読み、6文字のコードを mlidar_discord_redeem に渡す
 // - 返事をして、貼られたメッセージは消す。ボットの返事は10分たったら消す(ピン留めは残す)
 // - ボットのトークンは Vault の mlidar_discord_bot_token(mlidar_discord_config で受け取る)
@@ -25,6 +28,7 @@ Deno.serve(async (req) => {
   const { data: cfg } = await db.rpc('mlidar_discord_config');
   if (!cfg?.token || !cfg?.cron || req.headers.get('x-mlidar-cron') !== cfg.cron) return new Response('NO', { status: 403 });
 
+  const mode = ((await req.json().catch(() => ({}))) as { mode?: string }).mode;
   const headers = { Authorization: 'Bot ' + cfg.token, 'Content-Type': 'application/json' };
   // Discord の API(レート制限なら待ってやり直す)
   const dc = async (method: string, path: string, body?: unknown) => {
@@ -36,6 +40,11 @@ Deno.serve(async (req) => {
     return null;
   };
   const say = (uid: string, text: string) => dc('POST', `/channels/${CHANNEL}/messages`, { content: `<@${uid}> ${text}`, allowed_mentions: { users: [uid] } });
+
+  if (mode === 'feed') { // 記録のお知らせだけ
+    const posted = await postFeed().catch((e) => { console.error(e); return 0; });
+    return new Response(JSON.stringify({ ok: true, posted }), { headers: { 'Content-Type': 'application/json' } });
+  }
 
   // 新しいメッセージ(古い順)
   const { data: st } = await db.from('mlidar_discord_state').select('v').eq('k', 'last').maybeSingle();
@@ -54,7 +63,7 @@ Deno.serve(async (req) => {
     const code = words.find((w) => w.length === 6);
     let text: string;
     if (!code) {
-      text = 'コードが見つかりませんでした。ゲームのプロフィールの「Discordで認証」に出る6文字のコードを、そのまま貼ってください';
+      text = 'コードが見つかりませんでした。ゲームのプロフィールの「Discordで認証」に出る6文字のコードで `/verify コード` と打つと、すぐに認証できます';
     } else {
       const { data: res, error } = await db.rpc('mlidar_discord_redeem', { p_code: code, p_discord_id: uid, p_name: m.author.global_name || m.author.username });
       if (error) { console.error(error); text = 'うまく処理できませんでした。少しあとでもう一度試してください'; }

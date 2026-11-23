@@ -1,12 +1,13 @@
 // 公式Discordの「MUSIC LiDAR bot」のスラッシュコマンド(Discord の Interactions Endpoint。1.87.x〜)
 // - Discord からのリクエストは、アプリの公開鍵(Ed25519)で署名を確かめてから答える(公開鍵は Discord の API から取って覚える)
-// - コマンド: /help /me /profile /ranking /song(公式サーバーだけに登録する)
+// - コマンド: /help /verify /me /profile /ranking /song(公式サーバーだけに登録する)
 // - 準備(コマンドの登録と Interactions Endpoint URL の設定): ヘッダー x-mlidar-cron(Vault の mlidar_discord_cron)を付けて
 //   POST {"action":"setup"}。SQL から net.http_post で呼ぶ(秘密の値を外に出さないため)。コマンドを変えたらもう一度
 // - ボットのトークンは Vault の mlidar_discord_bot_token(mlidar_discord_config で受け取る)
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const GUILD = '1573657919239622786';
+const ROLE = '1573672593334993037'; // 「✅ 認証済み」
 const API = 'https://discord.com/api/v10';
 const SITE = 'https://music-lidar.com/';
 const SELF = 'https://kifnzvktwbomxthzvvgy.supabase.co/functions/v1/mlidar-discord-cmd';
@@ -19,6 +20,7 @@ const DAN = ['', '初段', '二段', '三段', '四段', '五段', '六段', '�
 // 公式サーバーに登録するコマンド
 const COMMANDS = [
   { name: 'help', description: 'MUSIC LiDAR bot のコマンドの一覧' },
+  { name: 'verify', description: 'ゲームのアカウントとつなぐ(◎500 と「認証済み」ロール)', options: [{ type: 3, name: 'code', description: 'ゲームのプロフィールの「Discordで認証」に出る6文字のコード', required: true }] },
   { name: 'me', description: '自分の記録を見る(ゲームのプロフィールの「Discordで認証」をした人)' },
   { name: 'profile', description: 'プレイヤーの記録を見る', options: [{ type: 3, name: 'name', description: 'ゲームでの名前', required: true }] },
   {
@@ -68,6 +70,11 @@ const norm = (s: string) => s.normalize('NFKC').toLowerCase().replace(/\s+/g, ''
 const findSong = (list: Card[], q: string) => list.find((c) => c.i === q) || list.find((c) => norm(c.t) === norm(q)) || list.find((c) => norm(c.t).includes(norm(q)));
 const md = (s: string) => String(s ?? '').replace(/[\\*_`~|>]/g, '\\$&');
 const titleOf = (rate: number) => { let t = TITLES[0][1]; for (const [at, n] of TITLES) if (rate >= at) t = n; return t; };
+const VERIFY_ERRORS: Record<string, string> = {
+  CODE: 'コードが違うか、期限(15分)が切れています。プロフィールの「Discordで認証」でもう一度コードを出してください',
+  DISCORD_USED: 'この Discord アカウントは、もう別のゲームアカウントとつながっています(1人1回です)',
+  ACCOUNT_USED: 'そのゲームアカウントは、もう認証済みです',
+};
 const reply = (data: Record<string, unknown>) => Response.json({ type: 4, data: { allowed_mentions: { parse: [] }, ...data } });
 const ephemeral = (content: string) => reply({ content, flags: 64 });
 
@@ -100,19 +107,31 @@ async function command(it: any) {
       embeds: [{
         title: 'MUSIC LiDAR bot', color: COLOR, url: SITE,
         description: [
-          '`/me` 自分の記録(ゲームのプロフィールの「Discordで認証」をした人)',
+          '`/verify コード` ゲームのアカウントとつなぐ(◎500 と「認証済み」ロール)',
+          '`/me` 自分の記録(認証した人)',
           '`/profile 名前` プレイヤーの記録',
           '`/ranking 曲 難易度` 曲のランキング(上位10人)',
           '`/song ジャンル` おすすめの曲をランダムに1曲',
           '',
-          '認証は「✅｜認証」チャンネルにコードを貼ってください。ブラウザで遊べる無料の4キー音ゲー → ' + SITE,
+          'ブラウザで遊べる無料の4キー音ゲー → ' + SITE,
         ].join('\n'),
       }],
     });
   }
+  if (name === 'verify') {
+    // 打った本人にだけ見える返事(コードを人に見せない)
+    const code = String(opt('code') || '').normalize('NFKC').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (code.length !== 6) return ephemeral('6文字のコードを入れてください(ゲームのプロフィールの「Discordで認証」に出ます)');
+    const u = it.member?.user || it.user;
+    const { data: res, error } = await db.rpc('mlidar_discord_redeem', { p_code: code, p_discord_id: uid, p_name: u?.global_name || u?.username });
+    if (error) { console.error(error); return ephemeral('うまく処理できませんでした。少しあとでもう一度試してください'); }
+    if (!res?.ok) return ephemeral(VERIFY_ERRORS[res?.error] || 'うまく処理できませんでした');
+    if (it.guild_id === GUILD) await dc('PUT', `/guilds/${GUILD}/members/${uid}/roles/${ROLE}`);
+    return ephemeral(`✅ 認証できました! **${md(res.account)}** さんのアカウントに **◎500** を送りました。ゲームの画面を読み直すと反映されます`);
+  }
   if (name === 'me') {
     const { data: link } = await db.from('mlidar_discord_links').select('account_id').eq('discord_id', uid).maybeSingle();
-    if (!link) return ephemeral('まだゲームのアカウントとつながっていません。ゲームのプロフィールの「Discordで認証」でコードを出し、「✅｜認証」チャンネルに貼ってください');
+    if (!link) return ephemeral('まだゲームのアカウントとつながっていません。ゲームのプロフィールの「Discordで認証」でコードを出し、`/verify コード` と打ってください');
     const { data: a } = await db.from('mlidar_accounts').select('name').eq('id', link.account_id).maybeSingle();
     const e = a && await profileEmbed(a.name);
     return e ? reply({ embeds: [e] }) : ephemeral('記録が見つかりませんでした');

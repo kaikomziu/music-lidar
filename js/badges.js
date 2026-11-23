@@ -14,6 +14,10 @@ export const BADGES = [
   { id: 'ap10', icon: '💠', name: '精密機械', desc: '10譜面で ALL PERFECT', n: (c) => c.apCharts, goal: 10 },
   { id: 's30', icon: '🏆', name: 'S ハンター', desc: '30譜面でランク S 以上', n: (c) => c.sCharts, goal: 30 },
   { id: 'lv13s', icon: '😈', name: '鬼畜を超えて', desc: 'Lv13 以上の HARD でランク S 以上', n: (c) => c.hardS, goal: 1 },
+  { id: 'fc_extra10', icon: '🔮', name: 'EXTRA 制圧', desc: 'EXTRA で10譜面フルコンボ', n: (c) => c.fcExtra, goal: 10 },
+  { id: 'inf_play', icon: '🔥', name: 'INFERNO 挑戦者', desc: 'INFERNO で記録を残す', n: (c) => c.infPlay, goal: 1 },
+  { id: 'inf_fc', icon: '🌋', name: '業火を越えて', desc: 'INFERNO でフルコンボ', n: (c) => c.infFc, goal: 1 },
+  { id: 'inf_s5', icon: '👹', name: '灼熱の覇者', desc: 'INFERNO の5譜面でランク S 以上', n: (c) => c.infS, goal: 5 },
   { id: 'combo1000', icon: '💥', name: '1000 コンボ', desc: '1曲で1000コンボ', n: (c) => c.maxCombo, goal: 1000 },
   { id: 'genre10', icon: '🎼', name: 'ジャンル旅行', desc: '10ジャンルの曲で記録を残す', n: (c) => c.genres, goal: 10 },
   { id: 'allsongs', icon: '👑', name: '全曲制覇', desc: 'いつでも遊べる曲をすべてプレイ', n: (c) => c.songs, goal: (c) => c.songTotal },
@@ -40,20 +44,22 @@ export const BADGES = [
 export function ctx(src, entries) {
   const best = src.best || {}, st = src.stats || {}, m = src.meta || src;
   const songs = new Set(), genres = new Set();
-  let fcHard = 0, apCharts = 0, sCharts = 0, hardS = 0;
+  let fcHard = 0, apCharts = 0, sCharts = 0, hardS = 0, fcExtra = 0, infPlay = 0, infFc = 0, infS = 0;
   for (const [k, b] of Object.entries(best)) {
     const [id, d] = k.split('/');
     const e = entries.find((x) => x.id === id && !x.local);
     if (!e) continue;
     songs.add(id); genres.add(e.genre);
     if (b.fc && d === 'hard') fcHard++;
+    if (b.fc && d === 'extra') fcExtra++;
+    if (d === 'inferno') { infPlay++; if (b.fc) infFc++; if (b.score >= 950000) infS++; }
     if (b.ap) apCharts++;
     if (b.score >= 950000) { sCharts++; if (d === 'hard' && (e.levels?.hard || 0) >= 13) hardS++; }
   }
   const pool = entries.filter((e) => !e.local && !e.event && e.urlId);
   return {
     plays: st.plays || 0, fc: st.fc || 0, ap: st.ap || 0, maxCombo: st.max_combo || 0, dan: st.dan || 0,
-    fcHard, apCharts, sCharts, hardS, genres: genres.size,
+    fcHard, apCharts, sCharts, hardS, fcExtra, infPlay, infFc, infS, genres: genres.size,
     songs: pool.filter((e) => songs.has(e.id)).length, songTotal: pool.length,
     invited: (m.invited_by || src.invited) ? 1 : 0,
     events: (m.events || []).length,

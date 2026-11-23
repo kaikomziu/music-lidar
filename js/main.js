@@ -2,7 +2,7 @@ import { langPref, setLang } from './i18n.js'; // 多言語表示(いちばん�
 import SONGS from './songs/index.js';
 import { composeSong, candidatesFromEvents, generateChart, shapeHolds, chartStats, DIFFS, ALL_DIFFS, hashStr, extraParam, infernoParam } from './composer.js';
 import EXTRA_LEVELS, { BOOST as EXTRA_BOOST } from './songs/extra-levels.js'; // 内蔵曲の EXTRA のレベルと、1.85.0 で足した曲の EXTRA の追加の値(tools/extra-levels.mjs で作る)
-import INFERNO_LEVELS from './songs/inferno-levels.js'; // 内蔵曲の INFERNO のレベル(tools/extra-levels.mjs で作る)
+import INFERNO_LEVELS, { BOOST as INFERNO_BOOST } from './songs/inferno-levels.js'; // 内蔵曲の INFERNO のレベル(tools/extra-levels.mjs で作る)
 import { getCtx, setVolumes, playPreview, stopPreview, bgmOutFor, setHiddenAudioPolicy } from './audio.js';
 import { loadSongAudio } from './audio-cache.js';
 import { loadExternalAudio } from './external-audio.js';
@@ -149,7 +149,7 @@ function builtinEntry(def) {
       stats.extra = chartStats(charts.extra);
     }
     if (levels.inferno) { // INFERNO: EXTRA の値から、さらに細かく・多くした譜面
-      charts.inferno = dropNotesInStops(holds(generateChart(cands, 'inferno', duration, hashStr(def.id), infernoParam(def.chart?.hard, def.chart?.extra, def.chart?.inferno)), 'inferno', def), scroll.stops);
+      charts.inferno = dropNotesInStops(holds(generateChart(cands, 'inferno', duration, hashStr(def.id), infernoParam(def.chart?.hard, { ...(EXTRA_BOOST[def.id] || {}), ...(def.chart?.extra || {}) }, { ...(INFERNO_BOOST[def.id] || {}), ...(def.chart?.inferno || {}) })), 'inferno', def), scroll.stops);
       stats.inferno = chartStats(charts.inferno);
     }
     return (built = { events, duration, onsets, charts, stats });
@@ -1716,7 +1716,7 @@ setInterval(pingNow, 60000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) pingSoon(); });
 initLive({
   entries, show: (n) => { stopPreview(); show(n); }, toast, back: () => goHome(true), current: () => state, esc, jacketURL, openAccount,
-  diffColor: DIFF_COLOR, selected: () => entries[sel], diff: () => diff, isFav, toggleFav, bestOf,
+  diffColor: DIFF_COLOR, selected: () => entries[sel], diff: () => diff, isFav, toggleFav, bestOf, diffsOf, diffFor,
   startLive: (entry, d, hooks) => startGame(entry, d, null, hooks),
   onMatchResult: (win) => reportMatch(win),
 });
@@ -1754,20 +1754,38 @@ const accReady = acc.init();
 
 // リザルト: 叩いたタイミングのずれ(中央値)が大きければ、判定タイミングの調整をすすめる
 // ずれ d は今の判定タイミングを差し引いたあとの値なので、新しい値 = 今の値 + 中央値
+// リザルトの「叩いたずれ」: 早い・遅いの分布(10ms ごとの棒グラフ)と、ずれの中央値が 12ms 以上なら判定タイミングを直すボタン
+// r.log の3つ目 = 叩いたずれ(秒。今の判定タイミングを引いたあと。+ が遅い)。MISS と、ずれのない記録(ロングの終わりなど)は数えない
 function offsetHint(r) {
   const box = $('r-offset');
   box.hidden = true;
   const ds = (r.log || []).filter((x) => x[2] != null && x[1] !== 'MISS').map((x) => x[2]).sort((a, b) => a - b);
-  if (ds.length < 40) return;
+  if (ds.length < 20 || playing?.custom?.kind === 'replay') return; // 少なすぎるときと、リプレイ・オートプレイでは出さない
   const med = Math.round(ds[Math.floor(ds.length / 2)] * 1000);
-  if (Math.abs(med) < 12) return;
-  const next = Math.max(-150, Math.min(150, (settings.offset || 0) + med));
-  if (next === (settings.offset || 0)) return;
+  const fast = ds.filter((d) => d < -0.045).length, slow = ds.filter((d) => d > 0.045).length;
+  // 棒グラフ: -135〜+135ms を 10ms ごと。棒の色は判定の幅(PERFECT ±45 / GREAT ±90 / GOOD ±135)
+  const BW = 10, N = 27, bins = new Array(N).fill(0);
+  for (const d of ds) bins[Math.max(0, Math.min(N - 1, Math.floor((d * 1000 + 135) / BW)))]++;
+  const top = Math.max(...bins), W = 270, H = 54;
+  const col = (ms) => (Math.abs(ms) <= 45 ? '#5ef2ff' : Math.abs(ms) <= 90 ? '#6dffb0' : '#ffd25e');
+  const bars = bins.map((n, i) => {
+    const h = n ? Math.max(2, (n / top) * (H - 6)) : 0, ms = -135 + i * BW + BW / 2;
+    return h ? `<rect x="${i * BW + 1}" y="${H - h}" width="${BW - 2}" height="${h}" rx="1.5" fill="${col(ms)}"/>` : '';
+  }).join('');
+  const mx = Math.max(0, Math.min(W, med + 135));
+  const svg = `<svg class="ofs-svg" viewBox="0 0 ${W} ${H + 14}" role="img" aria-label="叩いたずれの分布。早め ${fast}・遅め ${slow}・中央値 ${med}ms">
+    <line x1="135" y1="0" x2="135" y2="${H}" stroke="rgba(255,255,255,0.35)" stroke-dasharray="2 3"/>${bars}
+    <line x1="${mx}" y1="0" x2="${mx}" y2="${H}" stroke="#ff4fd8" stroke-width="2"/>
+    <text x="2" y="${H + 12}" fill="#9fb3e8" font-size="10">← 早い</text><text x="135" y="${H + 12}" fill="#9fb3e8" font-size="10" text-anchor="middle">0</text><text x="${W - 2}" y="${H + 12}" fill="#9fb3e8" font-size="10" text-anchor="end">遅い →</text></svg>`;
+  const cap = `<div class="ofs-cap"><span class="ofs-fast">FAST ${fast}</span><span>中央 <b>${med > 0 ? '+' : ''}${med}ms</b></span><span class="ofs-slow">SLOW ${slow}</span></div>`;
   box.hidden = false;
-  box.innerHTML = `<span>⏱ このプレイでは、平均して <b>${Math.abs(med)}ms ${med > 0 ? '遅め' : '早め'}</b> に叩いていました</span><button class="btn-line small" id="btn-roff">判定タイミングを ${next > 0 ? '+' : ''}${next}ms にする</button>`;
+  box.innerHTML = `<div class="ofs-graph">${svg}${cap}</div><div class="ofs-hint" id="r-ofs-hint"></div>`;
+  const next = Math.max(-150, Math.min(150, (settings.offset || 0) + med));
+  if (ds.length < 40 || Math.abs(med) < 12 || next === (settings.offset || 0)) return;
+  $('r-ofs-hint').innerHTML = `<span>⏱ このプレイでは、平均して <b>${Math.abs(med)}ms ${med > 0 ? '遅め' : '早め'}</b> に叩いていました</span><button class="btn-line small" id="btn-roff">判定タイミングを ${next > 0 ? '+' : ''}${next}ms にする</button>`;
   $('btn-roff').addEventListener('click', () => {
     settings.offset = next; setSettings(settings); syncSettingsUI();
-    box.innerHTML = `<span>判定タイミングを ${next > 0 ? '+' : ''}${next}ms にしました(設定でいつでも戻せます)</span>`;
+    $('r-ofs-hint').innerHTML = `<span>判定タイミングを ${next > 0 ? '+' : ''}${next}ms にしました(設定でいつでも戻せます)</span>`;
   });
 }
 

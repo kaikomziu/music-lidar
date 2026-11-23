@@ -1706,7 +1706,15 @@ body.playing .season-fx { display: none; }
 .poll-mini div::before { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--w, 0%); background: rgba(94, 242, 255, 0.25); transition: width 0.5s; }
 .poll-mini span, .poll-mini em { position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: normal; }
 .poll-mini em { font-family: var(--font-d); font-weight: 700; }
-.r-offset { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin: 6px 0; font-size: 13px; color: #cfe0ff; }
+.r-offset { flex-direction: column; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin: 6px 0; font-size: 13px; color: #cfe0ff; }
+/* リザルトの叩いたずれの分布(早い・遅い) */
+.ofs-graph { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.ofs-svg { width: 270px; max-width: 100%; height: auto; display: block; }
+.ofs-cap { display: flex; gap: 14px; font-size: 12px; color: #cfe0ff; }
+.ofs-fast { color: #6fb6ff; font-weight: 700; }
+.ofs-slow { color: #ff8a6b; font-weight: 700; }
+.ofs-hint { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
+.ofs-hint:empty { display: none; }
 .btn-quick[hidden], .r-offset[hidden], .r-video[hidden], .r-next[hidden], .poll-mini[hidden], .tb[hidden], .chip[hidden], .ed-lyr[hidden] { display: none; }
 /* 譜面メーカー: 歌詞の時刻(管理者) */
 .tb.on { border-color: #ffd25e; color: #ffd25e; }

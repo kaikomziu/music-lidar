@@ -4,7 +4,7 @@
 
 - **書いていないことが必要になったら、コードを読んでこのファイルに追記する。** 仕組みを変えたら、同じコミットでここも直す
 - コードと食い違っていたら、コードが正しい。気づいたらここを直す
-- 最終更新: 2026-11-23(1.85.1 時点)
+- 最終更新: 2026-11-23(1.86.0 時点)
 
 ---
 
@@ -261,6 +261,7 @@ export default {
 - 別のタブに移ったり窓から離れたりすると、ゲームは自動で一時停止する(みんなでライブ中は止めない。音は `audio.js` が消す)
 - 演出の強さは `settings.fx`(0 オフ / 1 控えめ / 2 派手)
 - 見やすさの設定: `settings.noteSize`(small / normal / large。ノーツの厚みと横の余白、`NOTE_SIZE`)、`settings.palette`(skin / cvd。cvd は外側を青・内側をオレンジにした色覚に配慮した配色 `CVD_COLORS` で、着せ替えより優先。ノーツの色は `game.colors()` から取る)、`settings.bgDim`(0〜80%。MV・点群の上に黒を重ねる)
+- **叩いたずれの分布(1.86.0〜)**: リザルトの `#r-offset` に、そのプレイの叩いたずれ(`r.log` の3つ目。MISS は数えない)を -135〜+135ms・10ms ごとの棒グラフで出す(棒の色は PERFECT・GREAT・GOOD の幅、ピンクの線が中央値)。下に FAST(45ms より早い)・中央値・SLOW(45ms より遅い)の数。20回以上叩いたときだけ。リプレイ・オートプレイでは出さない(`offsetHint`)
 - **判定タイミングのおすすめ**: リザルトで、そのプレイの叩いたずれ(`r.log` の3つ目、今の判定タイミングを引いたあとの値)の中央値が 12ms 以上なら「判定タイミングを ±Nms にする」ボタンを出す(40 回以上叩いたときだけ。`offsetHint`)。音に合わせて叩いて測る画面(設定の「タイミング調整」`extras.js`)も前からある
 - **練習モード**(選曲画面の「🎯 練習モード」): 区間(はじめ・おわり)・速さ(×0.5〜1.0)・くり返しを選ぶ。`custom.kind = 'practice'`、記録・ランキング・ゴースト・録画なし。遅くするときは、区間の前後を WAV にして `<audio>`(`preservesPitch`)で鳴らし、ゲームの時計をその再生位置に合わせる(`Game.startMedia`、`this.rate`。`songTime` は rate 倍で進む)。くり返すときは終わるたびに同じ条件でもう一度始める(やめるときは Esc →「選曲へ」)。選んだ条件は `mlidar:practice:<曲id>`
 - **オートプレイ**(選曲画面の「🤖 オートプレイ」、`main.js` の `playAuto`): 譜面から全部ぴったりに押す入力を `autoInputs` で作り、リプレイと同じ `custom.kind = 'replay'` で流す(だから記録・ランキング・ゴースト・コインには残らない)。離すのはノーツの 0.06 秒後(ロングノーツは終わりの 0.02 秒後)、同じレーンの次のノーツより前。スマホでは練習モードと同じく「記録・ランキング」のシートの中に出る
@@ -270,9 +271,10 @@ export default {
   - GHOST 2曲の EXTRA は varied.py で、HARD の1.12倍の密度(GHOST 14・VIP 15)。そのぶん INFERNO を1つ上げた(15・16)
 - **INFERNO**(5つ目の難易度・EXTRA の上。1.84.0〜。色はオレンジ #ff7a45): `levels.inferno` がある曲だけ。選べる難易度は `composer.js` の `ALL_DIFFS` から、その曲にある譜面だけ(`main.js` の `diffsOf`)。その曲に無い難易度を選んでいるときは1つ下を見せる(INFERNO → EXTRA → HARD。`diffFor`)
   - **音源曲(16曲全部)**: `fixedCharts.inferno`(`*.data.js` の `inferno`)と曲ファイルの `levels.inferno`。譜面は varied.py の `inferno`(16分まで・同じレーン 0.15 秒・同時押し多め・3つまで)で、目標の密度は EXTRA の1.3倍(EXTRA のない GHOST 2曲は HARD の1.25倍)。速い曲は8分まで。実際は EXTRA より16〜31%多い
-  - **内蔵曲**: `tools/extra-levels.mjs` の `INFERNO_SONGS`(今は LiDAR Rush・Hyperpop Glitch・Chip Dungeon)だけ。`composer.js` の `infernoParam`(EXTRA の値から最小間隔×0.82・上限×1.3・点数の下限×0.55・同時押し+0.1、さらに `chordAnyP: 0.3` で拍の頭でない音・1種類の音も同時押しにする)で作る。EXTRA の時点で曲の音から拾えるノーツをほぼ使い切っているので、INFERNO の増え方は主に同時押し(EXTRA より26〜30%多い)。`chordAnyP` が無い難易度は乱数の引き方も今までどおり
+  - **内蔵曲**: `tools/extra-levels.mjs` の `INFERNO_SONGS`(LiDAR Rush・Hyperpop Glitch・Chip Dungeon と、1.86.0 から HARD が Lv13 以上の22曲)だけ。`composer.js` の `infernoParam`(EXTRA の値から最小間隔×0.82・上限×1.3・点数の下限×0.55・同時押し+0.1、さらに `chordAnyP: 0.3` で拍の頭でない音・1種類の音も同時押しにする)で作る。EXTRA の時点で曲の音から拾えるノーツをほぼ使い切っているので、INFERNO の増え方は主に同時押し(EXTRA より26〜30%多い)。`chordAnyP` が無い難易度は乱数の引き方も今までどおり
+  - 1.86.0 で足した22曲は、EXTRA の値に `extra-levels.js` の `BOOST` を足したものから作り、さらに `inferno-levels.js` の `BOOST`(INFERNO の chordAnyP 0.5〜0.7、足りない曲は最小間隔・同じレーンも EXTRA の0.9倍)を `infernoParam` の3つ目に足して、EXTRA より20〜31%多くした。レベルは EXTRA+1 以上・**INFERNO だけ最大17**(EXTRA が16の曲があるため)。前からある3曲は変えていない(表にある曲は作り直さない)。`main.js` は `infernoParam(hard, { ...EXTRA_BOOST[id], ...chart.extra }, { ...INFERNO_BOOST[id], ...chart.inferno })`
   - レベル: `node tools/extra-levels.mjs` が、全曲の密度とレベルの対応(INFERNO 用には音源曲の EXTRA も見本に入れる)から推定する。内蔵曲は `js/songs/inferno-levels.js` に書く(EXTRA+1 以上・最大16)。音源曲は推定値を表示するだけなので、曲ファイルの `levels.inferno` に手で書く。**このツールは `extra-levels.js` も書き直す**(今は EXTRA の対象曲・レベルが少し変わる。EXTRA を変えたくないときは実行後に `git checkout -- js/songs/extra-levels.js`)
-  - ひとりでライブだけ(みんなでライブ・週替わり・段位・ランダムマッチは3つのまま)。レート(`growth.js`)は今までどおり EASY〜HARD だけで計算する
+  - ひとりでライブと、1.86.0 からみんなでライブ(週替わり・段位・ランダムマッチは3つのまま)。レート(`growth.js`)は今までどおり EASY〜HARD だけで計算する
   - サーバー: `mlidar_scores.diff` の制約と `mlidar_play_result_core` が `inferno` を受け付ける(コインは EXTRA +30 より多い +40)。Discord の記録のお知らせ(`mlidar_scores_feed`)は INFERNO の初フルコンボも出す
   - 曲ページの収録曲一覧は「/ INF 14」のように出す(`build-pages.mjs`)。共有画像(`tools/og.html`)も5つ並べられるが、今ある画像は作り直していない
 
@@ -348,6 +350,7 @@ export default {
 ### みんなでライブ(`live.js`)
 - 通信は WebRTC。部屋を作った人(ホスト)のブラウザが部屋の状態を持ち、参加者はホストとだけつながる。最初のつなぎ(シグナリング)だけ PeerJS の公開サーバーを使う
 - サーバー(`mlidar_live_lobby`)に載せるのは「公開中の部屋一覧」だけ。ホストが20秒ごとに更新し、来なくなれば消える
+- 難易度は人ごとに5つ(`LIVE_DIFFS`。1.86.0 から EXTRA・INFERNO も)。その曲に無い難易度を選んでいる人は、`ui.diffFor` で1つ下(INFERNO → EXTRA → HARD)を遊び、ボタン・メンバーの札もその難易度で出す。古い版の人には EXTRA・INFERNO が NORMAL に見える(遊ぶのは本人の端末なので結果は正しい)
 - 最大8人。コンボは0.5秒ごとに送り、5秒ごとに生存確認、16秒届かなければ切れたとみなす
 - Daily.co の SFU に切り替える仕組み(Edge Function `mlidar-daily`)があるが、今は使っていない
 - `mlidar_live_rooms` / `mlidar_live_members` などのテーブルは昔の方式のもの。消さずに残す
@@ -394,7 +397,7 @@ export default {
 - 入口: ホームの「フレンド」(届いた申請の数のバッジつき)、プロフィールの「＋ フレンド申請」、選曲画面のランキングの「みんな / フレンド」
 
 ### 実績バッジ(`badges.js`)
-- `BADGES` に27種類。サーバーの記録(`best` / `stats` / `meta`)から、その場で計算する。自分の state(`acc.getState()`)でも、他人のプロフィール(`mlidar_profile`)でも同じ関数で計算できる
+- `BADGES` に31種類(1.86.0 で EXTRA 制圧・INFERNO 挑戦者・業火を越えて・灼熱の覇者を追加)。サーバーの記録(`best` / `stats` / `meta`)から、その場で計算する。自分の state(`acc.getState()`)でも、他人のプロフィール(`mlidar_profile`)でも同じ関数で計算できる
 - プロフィールでは、自分のときはまだのバッジも薄く(進み具合のバーつき)、他人のときは持っているものだけ出す
 - ホームを出すたびに、前に覚えた一覧(`mlidar:badges:<ID>`)と比べ、増えていればお知らせを出す
 - バッジを足すときは `BADGES` に `{ id, icon, name, desc, n: (c) => 数, goal }` を足す。必要な数は `ctx()` に足す

@@ -162,8 +162,10 @@ function send(msg) {
 }
 
 // --- ホスト側 ---
+// 選べる難易度(1.86.0 から EXTRA・INFERNO も)。曲に無い難易度を選んでいる人は、その曲では ui.diffFor で1つ下(INFERNO → EXTRA → HARD)を遊ぶ
+const LIVE_DIFFS = ['easy', 'normal', 'hard', 'extra', 'inferno'];
 const newMember = (id, name, diff) => ({
-  id, name: String(name || 'ゲスト').slice(0, 16), diff: ['easy', 'normal', 'hard'].includes(diff) ? diff : 'normal',
+  id, name: String(name || 'ゲスト').slice(0, 16), diff: LIVE_DIFFS.includes(diff) ? diff : 'normal',
   ready: false, in: false, done: false, combo: 0, score: null, raw: null, max_combo: null, fc: false, ap: false,
 });
 
@@ -234,7 +236,7 @@ function hostHandle(id, msg, conn = null) {
     case 'diff':
       if (room.match) return; // 1対1は同じ難易度で勝負
       if (room.status === 'play' && m.in && !m.done) return; // プレイ中は変えられない
-      if (['easy', 'normal', 'hard'].includes(msg.d)) m.diff = msg.d;
+      if (LIVE_DIFFS.includes(msg.d)) m.diff = msg.d;
       break;
     case 'combo': m.combo = Math.max(0, msg.v | 0); castCombos(); return;
     case 'finish':
@@ -604,8 +606,9 @@ function renderRoom() {
   renderPick();
   const my = me();
   const lockDiff = room.match || room.status === 'play' && my?.in && !my.done;
-  $('live-diffs').innerHTML = ['easy', 'normal', 'hard'].map((d) =>
-    `<button class="diff-btn ${d}${my?.diff === d ? ' sel' : ''}" data-diff="${d}" ${lockDiff ? 'disabled' : ''}><div class="dn">${d.toUpperCase()}</div><div class="dl">${e ? e.levels[d] : '-'}</div><div class="dc">${e ? e.stats[d].notes + ' notes' : ''}</div></button>`).join('');
+  const myD = e && my ? ui.diffFor(e, my.diff) : my?.diff;
+  $('live-diffs').innerHTML = (e ? ui.diffsOf(e) : ['easy', 'normal', 'hard']).map((d) =>
+    `<button class="diff-btn ${d}${myD === d ? ' sel' : ''}" data-diff="${d}" ${lockDiff ? 'disabled' : ''}><div class="dn">${d.toUpperCase()}</div><div class="dl">${e ? e.levels[d] : '-'}</div><div class="dc">${e?.stats?.[d] ? e.stats[d].notes + ' notes' : ''}</div></button>`).join('');
   // メンバー
   const playing = room.status === 'play';
   $('live-members').innerHTML = room.members.map((m) => {
@@ -639,18 +642,18 @@ function pickSongs(d) {
   const list = ui.entries.filter((e) => {
     if (e.local) return false;
     if (q && !`${e.title} ${e.genre} ${e.artist} ${Math.round(e.bpm)}`.toLowerCase().includes(q)) return false;
-    const lv = e.levels[d];
+    const lv = e.levels[ui.diffFor(e, d)];
     if (pick.lv === '1-4' && lv > 4) return false;
     if (pick.lv === '5-9' && (lv < 5 || lv > 9)) return false;
     if (pick.lv === '10-' && lv < 10) return false;
-    const b = ui.bestOf(e.id, d);
+    const b = ui.bestOf(e.id, ui.diffFor(e, d));
     if (pick.status === 'fav' && !ui.isFav(e)) return false;
     if (pick.status === 'new' && b) return false;
     if (pick.status === 'nofc' && b?.fc) return false;
     return true;
   });
   const by = {
-    level: (a, b) => a.levels[d] - b.levels[d], 'level-desc': (a, b) => b.levels[d] - a.levels[d],
+    level: (a, b) => a.levels[ui.diffFor(a, d)] - b.levels[ui.diffFor(b, d)], 'level-desc': (a, b) => b.levels[ui.diffFor(b, d)] - a.levels[ui.diffFor(a, d)],
     bpm: (a, b) => a.bpm - b.bpm, 'bpm-desc': (a, b) => b.bpm - a.bpm, name: (a, b) => a.title.localeCompare(b.title, 'ja'),
   }[pick.sort];
   return by ? list.sort(by) : list;
@@ -670,7 +673,7 @@ function renderPick(force = false) {
   const locked = room.status === 'play';
   $('live-list').classList.toggle('locked', locked);
   $('live-list').innerHTML = list.length ? list.map((e) => {
-    const lv = ['easy', 'normal', 'hard'].map((x) => {
+    const lv = ui.diffsOf(e).map((x) => {
       const b = ui.bestOf(e.id, x);
       const mark = b?.ap ? 'AP' : b?.fc ? 'FC' : '';
       return `<span class="lv ${x}">${e.levels[x]}${mark ? `<span class="mark">${mark}</span>` : ''}</span>`;
@@ -683,7 +686,10 @@ function renderPick(force = false) {
   if (songChanged) $('live-list').querySelector('.song-card.sel')?.scrollIntoView({ block: 'nearest' });
 }
 
-const diffTag = (d) => `<i class="lm-diff" style="--dc:${ui.diffColor[d] || '#fff'}">${String(d || '').toUpperCase()}${entryOf(room?.song) ? ' ' + entryOf(room.song).levels[d] : ''}</i>`;
+const diffTag = (d0) => {
+  const e = entryOf(room?.song), d = e ? ui.diffFor(e, d0) : d0;
+  return `<i class="lm-diff" style="--dc:${ui.diffColor[d] || '#fff'}">${String(d || '').toUpperCase()}${e ? ' ' + e.levels[d] : ''}</i>`;
+};
 
 // 1対1: 2人そろって準備ができたら、少し待って自動でスタート(最初の1曲だけ。2曲目からはホストが押す)
 let autoTimer = 0;
@@ -728,7 +734,7 @@ function checkStart() {
   playedRound = room.round;
   const e = entryOf(room.song);
   if (!e) return;
-  const diff = m.diff || room.diff, round = room.round;
+  const diff = ui.diffFor(e, m.diff || room.diff), round = room.round;
   mode = 'game';
   liveGame = { round, entry: e, diff, getCombo: () => 0 };
   liveHooks.syncAt = performance.now() + (room.start_at + LEAD_MS - hostNow());

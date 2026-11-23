@@ -1,5 +1,5 @@
 // 内蔵曲の EXTRA のレベル表(js/songs/extra-levels.js)と INFERNO のレベル表(js/songs/inferno-levels.js)を作る
-// INFERNO は INFERNO_SONGS の曲だけ(EXTRA より1以上上)。音源曲の INFERNO のレベルは推定値を表示するだけ(曲ファイルの levels.inferno に手で書く)
+// INFERNO は INFERNO_SONGS の曲だけ(はじめの3曲と HARD Lv13 以上。EXTRA より1以上上・最大17)。音源曲の INFERNO のレベルは推定値を表示するだけ(曲ファイルの levels.inferno に手で書く)
 // 使い方: node tools/extra-levels.mjs
 // - 各曲の HARD と EXTRA の譜面を作り、EXTRA が HARD よりノーツが15%以上多い曲だけ EXTRA を出す
 // - レベルは、今ある全曲・全難易度の「平均の密度」と「多い所の密度(1秒あたり・上位10%)」から、近いレベルを選ぶ(HARD より1以上上、最大15)
@@ -77,22 +77,42 @@ for (const def of SONGS) {
   out[def.id] = Math.min(16, Math.max(def.levels.hard + 1, estimate(dens(ex, dur))));
   console.log('extra+', def.id, 'HARD', hard.length, 'EXTRA', ex.length, `(${((ex.length / hard.length - 1) * 100).toFixed(0)}%)`, JSON.stringify(ovOf(p)), 'Lv', def.levels.hard, '→', out[def.id]);
 }
-// 3) 内蔵曲の INFERNO(5つ目の難易度)。選んだ曲だけ
-const INFERNO_SONGS = ['lidar-rush', 'hyperpop-glitch', 'chip-dungeon'];
-const inferno = {};
+// 3) 内蔵曲の INFERNO(5つ目の難易度)
+// - 対象: はじめの3曲(LiDAR Rush・Hyperpop Glitch・Chip Dungeon)と、HARD が Lv13 以上の曲(1.86.0〜)
+// - すでに表にある曲は、レベルも譜面も変えない
+// - 譜面は EXTRA の値(BOOST 込み)から作る。EXTRA より20%以上多くならなければ、INFERNO の chordAnyP を 0.3 → 0.4 → 0.5 → 0.6 → 0.7 と上げ、
+//   それでも足りなければ最小間隔・同じレーンの間隔も EXTRA の値の0.9倍にして、20%以上多くなる最小の組み合わせを INFERNO の BOOST に書く
+// - レベルは EXTRA+1 以上・最大17(EXTRA が16の曲もあるため、INFERNO だけ17まで)
+const { default: OLD_INF, BOOST: OLD_INF_BOOST = {} } = await import(root + 'js/songs/inferno-levels.js?' + Date.now());
+const INFERNO_SONGS = [...new Set(['lidar-rush', 'hyperpop-glitch', 'chip-dungeon', ...SONGS.filter((d) => !d.audio && d.levels.hard >= 13).map((d) => d.id)])];
+const inferno = {}, infBoost = { ...OLD_INF_BOOST };
 for (const id of INFERNO_SONGS) {
+  if (OLD_INF[id]) { inferno[id] = OLD_INF[id]; continue; }
   const def = SONGS.find((x) => x.id === id);
   const { cands, dur } = built.get(id);
-  const inf = holds(C.generateChart(cands, 'inferno', dur, C.hashStr(id), C.infernoParam(def.chart?.hard, def.chart?.extra, def.chart?.inferno)), 'inferno', def);
+  const xo = { ...(boost[id] || {}), ...(def.chart?.extra || {}) };
+  const exP = C.extraParam(def.chart?.hard, xo);
+  const exN = holds(C.generateChart(cands, 'extra', dur, C.hashStr(id), exP), 'extra', def).length;
+  const tries = [];
+  for (const p of [0.3, 0.4, 0.5, 0.6, 0.7]) tries.push({ ...(p !== 0.3 ? { chordAnyP: p } : {}) });
+  for (const p of [0.5, 0.7]) tries.push({ chordAnyP: p, minGap: +(exP.minGap * 0.9).toFixed(3), sameGap: +(exP.sameGap * 0.9).toFixed(3) });
+  let ov = {}, inf = null;
+  for (const t of tries) {
+    ov = t;
+    inf = holds(C.generateChart(cands, 'inferno', dur, C.hashStr(id), C.infernoParam(def.chart?.hard, xo, { ...t, ...(def.chart?.inferno || {}) })), 'inferno', def);
+    if (inf.length >= exN * 1.2) break;
+  }
+  if (Object.keys(ov).length) infBoost[id] = ov;
   const ex = out[id] || def.levels.hard + 1;
   const est = estimate(dens(inf, dur), medHi);
-  const exN = holds(C.generateChart(cands, 'extra', dur, C.hashStr(id), C.extraParam(def.chart?.hard, def.chart?.extra)), 'extra', def).length;
-  inferno[id] = Math.min(16, Math.max(ex + 1, est));
-  console.log('inferno', id, inf.length, 'notes(EXTRA', exN, ')', dens(inf, dur).map((v) => v.toFixed(2)).join('/'), 'EXTRA', ex, '推定', est, '→', inferno[id]);
+  inferno[id] = Math.min(17, Math.max(ex + 1, est));
+  console.log('inferno+', id, inf.length, 'notes(EXTRA', exN, `${((inf.length / exN - 1) * 100).toFixed(0)}%)`, JSON.stringify(ov), 'EXTRA', ex, '推定', est, '→', inferno[id]);
 }
 writeFileSync('js/songs/inferno-levels.js',
   '// 内蔵曲の INFERNO のレベル(tools/extra-levels.mjs で作る。手で直さない)。ここにある曲だけ INFERNO を出す\n' +
-  'export default ' + JSON.stringify(inferno) + ';\n');
+  'export default ' + JSON.stringify(inferno) + ';\n' +
+  '// INFERNO を作るときに infernoParam の3つ目に足す値(EXTRA より20%以上多くするため。chordAnyP・minGap・sameGap)\n' +
+  'export const BOOST = ' + JSON.stringify(infBoost) + ';\n');
 // 4) 音源曲の INFERNO のレベルの推定(表示だけ)
 for (const def of SONGS) {
   if (!def.audio || !def.fixedCharts.inferno) continue;

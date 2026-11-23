@@ -192,6 +192,8 @@ export function extraParam(hardOverride = null, extraOverride = null) {
   };
 }
 
+// HARD の値(曲ごとの調整込み)。EXTRA を新しく足すときに、HARD より粗くならないか比べるのに使う
+export const hardParam = (override = null) => ({ ...PARAM.hard, ...(override || {}) });
 // INFERNO(5つ目の難易度・EXTRA の上): EXTRA の値から、さらに細かく・多く・同時押しを多めにした値。曲ファイルの chart.inferno で上書きできる
 export function infernoParam(hardOverride = null, extraOverride = null, infernoOverride = null) {
   const x = extraParam(hardOverride, extraOverride);

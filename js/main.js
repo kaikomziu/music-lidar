@@ -1,7 +1,7 @@
 import { langPref, setLang } from './i18n.js'; // 多言語表示(いちばん先に読んで、画面の文字を置き換える)
 import SONGS from './songs/index.js';
 import { composeSong, candidatesFromEvents, generateChart, shapeHolds, chartStats, DIFFS, ALL_DIFFS, hashStr, extraParam, infernoParam } from './composer.js';
-import EXTRA_LEVELS from './songs/extra-levels.js'; // 内蔵曲の EXTRA のレベル(tools/extra-levels.mjs で作る)
+import EXTRA_LEVELS, { BOOST as EXTRA_BOOST } from './songs/extra-levels.js'; // 内蔵曲の EXTRA のレベルと、1.85.0 で足した曲の EXTRA の追加の値(tools/extra-levels.mjs で作る)
 import INFERNO_LEVELS from './songs/inferno-levels.js'; // 内蔵曲の INFERNO のレベル(tools/extra-levels.mjs で作る)
 import { getCtx, setVolumes, playPreview, stopPreview, bgmOutFor, setHiddenAudioPolicy } from './audio.js';
 import { loadSongAudio } from './audio-cache.js';
@@ -145,7 +145,7 @@ function builtinEntry(def) {
       stats[d] = chartStats(charts[d]);
     }
     if (levels.extra) { // EXTRA: HARD の値から細かく・多くした譜面
-      charts.extra = dropNotesInStops(holds(generateChart(cands, 'extra', duration, hashStr(def.id), extraParam(def.chart?.hard, def.chart?.extra)), 'extra', def), scroll.stops);
+      charts.extra = dropNotesInStops(holds(generateChart(cands, 'extra', duration, hashStr(def.id), extraParam(def.chart?.hard, { ...(EXTRA_BOOST[def.id] || {}), ...(def.chart?.extra || {}) })), 'extra', def), scroll.stops);
       stats.extra = chartStats(charts.extra);
     }
     if (levels.inferno) { // INFERNO: EXTRA の値から、さらに細かく・多くした譜面

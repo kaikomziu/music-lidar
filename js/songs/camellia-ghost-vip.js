@@ -19,7 +19,7 @@ export default {
   audio: 'audio/camellia-ghost-vip.bin',
   audioKey: 'aes:dXTX9FhlNu9b36X//ao4LrR9kvyhfhM4ht5E2PvUwf8=',
   fixedCharts: data.charts,
-  levels: { easy: 3, normal: 9, hard: 14, inferno: 15 },
+  levels: { easy: 3, normal: 9, hard: 14, extra: 15, inferno: 16 },
   previewAt: 86, // 秒
   credit: '音楽:かめりあ(Camellia)「GHOST (2020 Halloween+++++++++ VIP)」',
 };

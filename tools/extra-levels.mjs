@@ -53,16 +53,29 @@ const estimate = ([avg, p90], table = med) => {
   return best;
 };
 
-// 2) 内蔵曲の EXTRA
-const out = {};
-let skipped = 0;
+// 2) 内蔵曲の EXTRA(1.85.0 から全曲)
+// - すでに表にある曲は、レベルも譜面も変えない(遊んだ記録があるため)
+// - 新しく足す曲: ふつうの EXTRA が HARD より15%以上多ければそのまま。足りなければ、拍の頭でない音・1種類の音も
+//   同時押しにする確率(chordAnyP)を 0.15 → 0.25 → 0.35 → 0.5 と上げて、15%以上多くなる最小の値を BOOST に書く
+const { default: OLD, BOOST: OLD_BOOST = {} } = await import(root + 'js/songs/extra-levels.js?' + Date.now());
+const out = {}, boost = { ...OLD_BOOST };
+let kept = 0, plain = 0, boosted = 0;
 for (const def of SONGS) {
   if (def.audio) continue;
+  if (OLD[def.id]) { out[def.id] = OLD[def.id]; kept++; continue; }
   const { cands, dur } = built.get(def.id);
   const hard = holds(C.generateChart(cands, 'hard', dur, C.hashStr(def.id), def.chart?.hard), 'hard', def);
-  const ex = holds(C.generateChart(cands, 'extra', dur, C.hashStr(def.id), C.extraParam(def.chart?.hard, def.chart?.extra)), 'extra', def);
-  if (ex.length < hard.length * 1.15) { skipped++; continue; }
-  out[def.id] = Math.min(15, Math.max(def.levels.hard + 1, estimate(dens(ex, dur))));
+  // EXTRA の下限(最小間隔 0.07 秒・同じレーン 0.09 秒)が HARD の値より粗いときは、HARD の値にそろえる
+  const h = C.hardParam(def.chart?.hard), x0 = C.extraParam(def.chart?.hard, def.chart?.extra), fix = {};
+  if (x0.minGap > h.minGap) fix.minGap = h.minGap;
+  if (x0.sameGap > h.sameGap) fix.sameGap = h.sameGap;
+  const ovOf = (p) => ({ ...fix, ...(p ? { chordAnyP: p } : {}) });
+  const exOf = (p) => holds(C.generateChart(cands, 'extra', dur, C.hashStr(def.id), C.extraParam(def.chart?.hard, { ...ovOf(p), ...(def.chart?.extra || {}) })), 'extra', def);
+  let p = 0, ex = exOf(0);
+  for (const q of [0.15, 0.25, 0.35, 0.5]) { if (ex.length >= hard.length * 1.15) break; p = q; ex = exOf(q); }
+  if (Object.keys(ovOf(p)).length) { boost[def.id] = ovOf(p); boosted++; } else plain++;
+  out[def.id] = Math.min(16, Math.max(def.levels.hard + 1, estimate(dens(ex, dur))));
+  console.log('extra+', def.id, 'HARD', hard.length, 'EXTRA', ex.length, `(${((ex.length / hard.length - 1) * 100).toFixed(0)}%)`, JSON.stringify(ovOf(p)), 'Lv', def.levels.hard, '→', out[def.id]);
 }
 // 3) 内蔵曲の INFERNO(5つ目の難易度)。選んだ曲だけ
 const INFERNO_SONGS = ['lidar-rush', 'hyperpop-glitch', 'chip-dungeon'];
@@ -88,9 +101,11 @@ for (const def of SONGS) {
   console.log('audio-inferno', def.id, ch.length, 'notes', dens(ch, def.duration).map((v) => v.toFixed(2)).join('/'), 'EXTRA', ex, '推定', est, '→', Math.min(16, Math.max(ex + 1, est)));
 }
 writeFileSync('js/songs/extra-levels.js',
-  '// 内蔵曲の EXTRA のレベル(tools/extra-levels.mjs で作る。手で直さない)。ここにある曲だけ EXTRA を出す\n' +
-  'export default ' + JSON.stringify(out) + ';\n');
-console.log('extra', Object.keys(out).length, 'songs / skipped', skipped);
+  '// 内蔵曲の EXTRA のレベル(tools/extra-levels.mjs で作る。手で直さない)。1.85.0 から全曲\n' +
+  'export default ' + JSON.stringify(out) + ';\n' +
+  '// ふつうの作り方では HARD とノーツ数がほぼ同じになる曲: EXTRA を作るときの chordAnyP(拍の頭でない音・1種類の音も同時押しにする確率)\n' +
+  'export const BOOST = ' + JSON.stringify(boost) + ';\n');
+console.log('extra', Object.keys(out).length, 'songs / kept', kept, 'plain', plain, 'boosted', boosted);
 const hist = {};
 for (const v of Object.values(out)) hist[v] = (hist[v] || 0) + 1;
 console.log('levels', JSON.stringify(hist));

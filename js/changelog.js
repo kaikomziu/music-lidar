@@ -2,6 +2,13 @@
 // 大きな機能追加 = 2つ目の数字を上げる / 不具合修正や小さな改善 = 3つ目の数字を上げる
 export const CHANGELOG = [
   {
+    version: '1.85.0', date: '2026-11-23',
+    notes: [
+      'すべての曲に EXTRA を追加しました。これまで EXTRA がなかったオリジナル曲85曲と、GHOST・GHOST (2020 Halloween+++++++++ VIP) で遊べます。前から EXTRA があった曲の譜面とレベルは変わりません',
+      '新しい EXTRA は HARD より15%以上ノーツが多く、同時押しが増えます。GHOST 2曲は EXTRA が入ったぶん、INFERNO のレベルを1つ上げました(GHOST 15・VIP 16)',
+    ],
+  },
+  {
     version: '1.84.0', date: '2026-11-23',
     notes: [
       'EXTRA の上の難易度「INFERNO」を追加しました。音源を使っている全16曲と、オリジナル曲の LiDAR Rush(Lv14)・Hyperpop Glitch(Lv14)・Chip Dungeon(Lv15)で遊べます',

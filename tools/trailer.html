@@ -31,7 +31,7 @@ import { createMV, analyzeSections, prepareMV } from '../js/mv.js';
 import { buildScroll, dropNotesInStops } from '../js/gimmick.js';
 import { jacketURL } from '../js/jacket.js';
 import SONGS from '../js/songs/index.js';
-import EXTRA_LEVELS from '../js/songs/extra-levels.js';
+import EXTRA_LEVELS, { BOOST as EXTRA_BOOST } from '../js/songs/extra-levels.js';
 
 const $ = (id) => document.getElementById(id);
 const W = 1920, H = 1080, FPS = 30, WORKERS = 4, BATCH = 12;
@@ -119,7 +119,7 @@ function chartsOf(def, events, duration) {
   const levels = EXTRA_LEVELS[def.id] ? { ...def.levels, extra: EXTRA_LEVELS[def.id] } : { ...def.levels };
   const charts = {};
   for (const d of ['easy', 'normal', 'hard']) charts[d] = dropNotesInStops(holds(generateChart(cands, d, duration, seed, def.chart?.[d]), d), scroll.stops);
-  if (levels.extra) charts.extra = dropNotesInStops(holds(generateChart(cands, 'extra', duration, seed, extraParam(def.chart?.hard, def.chart?.extra)), 'extra'), scroll.stops);
+  if (levels.extra) charts.extra = dropNotesInStops(holds(generateChart(cands, 'extra', duration, seed, extraParam(def.chart?.hard, { ...(EXTRA_BOOST[def.id] || {}), ...(def.chart?.extra || {}) })), 'extra'), scroll.stops);
   return { charts, levels };
 }
 function densest(notes, len, duration, bar) {

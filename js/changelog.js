@@ -2,6 +2,12 @@
 // 大きな機能追加 = 2つ目の数字を上げる / 不具合修正や小さな改善 = 3つ目の数字を上げる
 export const CHANGELOG = [
   {
+    version: '1.88.3', date: '2026-11-24',
+    notes: [
+      'ナツメダ ユキさんの「スノウスカイライン」(BPM 120・2 / 5 / 6 / EX 9 / INF 11)を追加しました。歌のない off vocal 版も、同じ譜面で別の曲として遊べます',
+    ],
+  },
+  {
     version: '1.88.2', date: '2026-11-24',
     notes: [
       'Patençial公式の「Crown Of The Spire」(BGM・BPM 72・1 / 3 / 5 / EX 7 / INF 9)を追加しました',

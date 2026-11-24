@@ -53,6 +53,7 @@ python -m http.server 8765
 - 「動きだす他人」 音楽: [ナツメダ ユキ](https://piapro.jp/YukiNatsumeda)(歌: 音街ウナ)。音源は AES-GCM 暗号化した `audio/ugokidasu-tanin.bin`。歌詞はまだなし。「きくだけ」モードには入れない
 - 「標めいた、」 音楽: [ナツメダ ユキ](https://piapro.jp/YukiNatsumeda)(歌: 音街ウナ)。音源は AES-GCM 暗号化した `audio/shirube-meita.bin`。歌詞はまだなし。「きくだけ」モードには入れない
 - 「うつせみ」 音楽: [ナツメダ ユキ](https://piapro.jp/YukiNatsumeda)(歌: 音街ウナ)。音源は AES-GCM 暗号化した `audio/utsusemi.bin`。歌詞はまだなし。「きくだけ」モードには入れない
+- 「雷と蜃気楼」 音楽: [ナツメダ ユキ](https://piapro.jp/YukiNatsumeda)(歌: 音街ウナ)。音源は AES-GCM 暗号化した `audio/kaminari-to-shinkirou.bin`。歌詞はまだなし。「きくだけ」モードには入れない
 - 「僕たちの旅とエピローグ。」 音楽: ああああ(Long ver.。アルバム「セーブデータとほうき星」)。作者さんのガイドライン(ゲームでの非商用利用は許諾なしで可)。音源は MP3 192kbps を AES-GCM 暗号化した `audio/bokutachi-epilogue.bin`。収益化のときは作者さんへ連絡が必要。「きくだけ」モードには入れない
 - 「A new world with form」 音楽: Patençial公式。作者さんの許可を得て使用し、ゲーム実況・配信の収益化もクレジット必須でOKです。元の MP3 は AES-GCM 暗号化した `audio/a-new-world-with-form.bin` として保存(平文の音源は置かない)。配信条件は [`streaming.html`](streaming.html#songs)
 - 「しう」「ホワイトハッピー」「ニャン」 音楽: [MARETU](https://www.youtube.com/@MARETUch)。作者さんの許可を得て使用し、ゲーム実況・配信の収益化もクレジット(「音楽：MARETU」)必須でOKです。m4a を mp3 にしてから AES-GCM 暗号化した `audio/maretu-*.bin` として保存(平文の音源は置かない)。「きくだけ」モードには入れない

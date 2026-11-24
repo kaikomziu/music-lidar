@@ -24,8 +24,7 @@ import camelliaGhost from './camellia-ghost.js';
 import camelliaGhostVip from './camellia-ghost-vip.js';
 import cryingRed from './crying-red.js';
 import blueRain from './blue-rain.js';
-import blueFire1 from './blue-fire-1.js';
-import blueFire2 from './blue-fire-2.js';
+import blueFire from './blue-fire.js';
 import myslee from './myslee.js';
 import noHand from './no-hand.js';
 import antiNatalism from './anti-natalism.js';
@@ -183,7 +182,7 @@ export default [
   progAscent, dragonGate, cloudPoint, pixelQuest, pulseGrid, swingCircuit, lowOrbit, ironPulse, garageShuffle, neonBoulevard, gamelanMoon, thunderRoad, swingKid,
   // むずかしめ
   sakuraLattice, lastHorizon, celticRun, bigRoomBlast, glitchGarden, salsaFuego, blueNoteLane, glitterIdol, liquidSky, stellarGate, skyPrism, synthRacer, riddimRiot,
-  kawaiiBubble, lidarRush, shiningStar, inmuKing, mizuNoTsuioku, hydrangea, ao, summerTriangle, camelliaGhost, camelliaGhostVip, cryingRed, blueRain, blueFire1, blueFire2, myslee, noHand, antiNatalism, specialLife, hand, lastNarration, curtainCall, kurashiOyogu, hikouHakusho, jikanRyokou, hibiNoEiga, ugokidasuTanin, shirubeMeita, utsusemi, kaminariToShinkirou, snowSkyline, bokutachiEpilogue, aNewWorldWithForm, crownOfTheSpire, maretuShiu, maretuWhiteHappy, maretuNyan, wubFracture, offbeatSkater, nightDrift, psyForest, neonSamurai, braveHorizon, shamisenStorm, crystalFortress, hyperSakura, jungleLights,
+  kawaiiBubble, lidarRush, shiningStar, inmuKing, mizuNoTsuioku, hydrangea, ao, summerTriangle, camelliaGhost, camelliaGhostVip, cryingRed, blueRain, blueFire, myslee, noHand, antiNatalism, specialLife, hand, lastNarration, curtainCall, kurashiOyogu, hikouHakusho, jikanRyokou, hibiNoEiga, ugokidasuTanin, shirubeMeita, utsusemi, kaminariToShinkirou, snowSkyline, bokutachiEpilogue, aNewWorldWithForm, crownOfTheSpire, maretuShiu, maretuWhiteHappy, maretuNyan, wubFracture, offbeatSkater, nightDrift, psyForest, neonSamurai, braveHorizon, shamisenStorm, crystalFortress, hyperSakura, jungleLights,
   phonkGarage, overdriveRiot, hardReflector, darkShinobi, bluegrassRush, crimsonRumba,
   // 期間限定(クリスマス)
   jingleCircuit, snowlightCarol, sweetRibbon,

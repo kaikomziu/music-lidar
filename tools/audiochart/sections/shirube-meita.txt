@@ -1,0 +1,14 @@
+# 標めいた、 (BPM 90・1小節 2.67秒)
+# 秒 区切り名(intro/A/B/chorus/interlude/break/outro)。小節ごとの音量・左右の広がり・低音の変わり目から決めた(耳では確かめていない)
+0.0 intro
+10.7 A
+26.7 B
+37.3 chorus   # 少し大きい
+64.0 interlude   # 左右が狭い
+74.7 A   # 左右が広い
+96.0 B
+122.7 chorus
+149.3 interlude
+160.0 break   # 低音が抜ける
+168.0 chorus
+181.3 outro

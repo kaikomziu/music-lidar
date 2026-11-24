@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<base href="../../">
+<meta name="song-id" content="jikan-ryokou">
+<meta name="app-version" content="20261124162257">
+<script>
+// 旧アドレス(kaikomziu.github.io/music-lidar)からの引っ越し: 前のアドレスで遊んでいた人のログイン・記録・設定を1回だけ受け取る
+// (ブラウザの保存領域はアドレスごとに別なので、旧アドレス側のページ game-links/mlidar-move.html に読みに行き、#mlmove=… で受け取る)
+(function () {
+  try {
+    var h = location.hash, ls = localStorage;
+    if (h.indexOf('#mlmove=') === 0) {
+      var b = h.slice(8);
+      if (b && b !== '0') {
+        var data = JSON.parse(decodeURIComponent(escape(atob(b.replace(/-/g, '+').replace(/_/g, '/')))));
+        for (var k in data) if ((k.indexOf('mlidar:') === 0 || k === 'ka_session') && ls.getItem(k) == null) ls.setItem(k, data[k]);
+      }
+      ls.setItem('mlidar:moved', '1');
+      history.replaceState(null, '', location.pathname + location.search);
+      return;
+    }
+    if (!/(^|\.)music-lidar\.com$/.test(location.hostname) || ls.getItem('mlidar:moved')) return;
+    var q = new URLSearchParams(location.search);
+    if (q.get('embed') || window.top !== window || /bot|crawl|spider|slurp|lighthouse|headless/i.test(navigator.userAgent)) return;
+    if (sessionStorage.getItem('mlidar:moveTry')) { ls.setItem('mlidar:moved', '1'); return; } // 戻ってこられなかったときは二度目は行かない
+    sessionStorage.setItem('mlidar:moveTry', '1');
+    window.__mlMoving = true;
+    location.replace('https://kaikomziu.github.io/game-links/mlidar-move.html?ret=' + encodeURIComponent(location.origin + location.pathname + location.search));
+  } catch (e) { /* 保存できない環境では何もしない */ }
+})();
+</script>
+<script>
+// HTMLがキャッシュで古いまま新しいJSと混ざらないよう、最新バージョンと違えば読み直す
+(function () {
+  var cur = document.querySelector('meta[name="app-version"]').content;
+  if (cur === 'dev' || window.__mlMoving) return;
+  fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) {
+    var q = new URLSearchParams(location.search);
+    if (j.v && j.v !== cur && q.get('v') !== j.v) { q.set('v', j.v); location.replace(location.pathname + '?' + q.toString() + location.hash); }
+  }).catch(function () {});
+})();
+</script>
+<!--IMPORTMAP--><script type="importmap">{"imports": {"./js/account.js": "./js/account.js?v=20261124162257", "./js/admin.js": "./js/admin.js?v=20261124162257", "./js/analyzer.js": "./js/analyzer.js?v=20261124162257", "./js/audio-cache.js": "./js/audio-cache.js?v=20261124162257", "./js/audio.js": "./js/audio.js?v=20261124162257", "./js/badges.js": "./js/badges.js?v=20261124162257", "./js/changelog.js": "./js/changelog.js?v=20261124162257", "./js/composer.js": "./js/composer.js?v=20261124162257", "./js/custom-audio.js": "./js/custom-audio.js?v=20261124162257", "./js/dan.js": "./js/dan.js?v=20261124162257", "./js/event.js": "./js/event.js?v=20261124162257", "./js/external-audio.js": "./js/external-audio.js?v=20261124162257", "./js/extras.js": "./js/extras.js?v=20261124162257", "./js/friends.js": "./js/friends.js?v=20261124162257", "./js/game.js": "./js/game.js?v=20261124162257", "./js/gimmick.js": "./js/gimmick.js?v=20261124162257", "./js/growth.js": "./js/growth.js?v=20261124162257", "./js/i18n-ko.js": "./js/i18n-ko.js?v=20261124162257", "./js/i18n-zh-hans.js": "./js/i18n-zh-hans.js?v=20261124162257", "./js/i18n-zh-hant.js": "./js/i18n-zh-hant.js?v=20261124162257", "./js/i18n.js": "./js/i18n.js?v=20261124162257", "./js/install.js": "./js/install.js?v=20261124162257", "./js/jacket.js": "./js/jacket.js?v=20261124162257", "./js/keyconfig.js": "./js/keyconfig.js?v=20261124162257", "./js/live.js": "./js/live.js?v=20261124162257", "./js/loading.js": "./js/loading.js?v=20261124162257", "./js/lyrics.js": "./js/lyrics.js?v=20261124162257", "./js/main.js": "./js/main.js?v=20261124162257", "./js/maker-api.js": "./js/maker-api.js?v=20261124162257", "./js/maker.js": "./js/maker.js?v=20261124162257", "./js/match.js": "./js/match.js?v=20261124162257", "./js/meta.js": "./js/meta.js?v=20261124162257", "./js/motion.js": "./js/motion.js?v=20261124162257", "./js/mv.js": "./js/mv.js?v=20261124162257", "./js/mv/s01-gentle.js": "./js/mv/s01-gentle.js?v=20261124162257", "./js/mv/s02-chill.js": "./js/mv/s02-chill.js?v=20261124162257", "./js/mv/s03-soul.js": "./js/mv/s03-soul.js?v=20261124162257", "./js/mv/s04-dance.js": "./js/mv/s04-dance.js?v=20261124162257", "./js/mv/s05-electro.js": "./js/mv/s05-electro.js?v=20261124162257", "./js/mv/s06-band.js": "./js/mv/s06-band.js?v=20261124162257", "./js/mv/s07-rave.js": "./js/mv/s07-rave.js?v=20261124162257", "./js/mv/s08-hard.js": "./js/mv/s08-hard.js?v=20261124162257", "./js/mv/s09-vocal.js": "./js/mv/s09-vocal.js?v=20261124162257", "./js/mv/s10-core.js": "./js/mv/s10-core.js?v=20261124162257", "./js/mv/s11-extreme.js": "./js/mv/s11-extreme.js?v=20261124162257", "./js/player.js": "./js/player.js?v=20261124162257", "./js/poll.js": "./js/poll.js?v=20261124162257", "./js/ranking.js": "./js/ranking.js?v=20261124162257", "./js/recorder.js": "./js/recorder.js?v=20261124162257", "./js/replay.js": "./js/replay.js?v=20261124162257", "./js/request.js": "./js/request.js?v=20261124162257", "./js/season.js": "./js/season.js?v=20261124162257", "./js/skins.js": "./js/skins.js?v=20261124162257", "./js/social.js": "./js/social.js?v=20261124162257", "./js/songs/a-new-world-with-form.data.js": "./js/songs/a-new-world-with-form.data.js?v=20261124162257", "./js/songs/a-new-world-with-form.js": "./js/songs/a-new-world-with-form.js?v=20261124162257", "./js/songs/abyss-gate.js": "./js/songs/abyss-gate.js?v=20261124162257", "./js/songs/afro-sunrise.js": "./js/songs/afro-sunrise.js?v=20261124162257", "./js/songs/ao.data.js": "./js/songs/ao.data.js?v=20261124162257", "./js/songs/ao.js": "./js/songs/ao.js?v=20261124162257", "./js/songs/big-room-blast.js": "./js/songs/big-room-blast.js?v=20261124162257", "./js/songs/blue-note-lane.js": "./js/songs/blue-note-lane.js?v=20261124162257", "./js/songs/bluegrass-rush.js": "./js/songs/bluegrass-rush.js?v=20261124162257", "./js/songs/blues-highway.js": "./js/songs/blues-highway.js?v=20261124162257", "./js/songs/bokutachi-epilogue.data.js": "./js/songs/bokutachi-epilogue.data.js?v=20261124162257", "./js/songs/bokutachi-epilogue.js": "./js/songs/bokutachi-epilogue.js?v=20261124162257", "./js/songs/bollywood-beat.js": "./js/songs/bollywood-beat.js?v=20261124162257", "./js/songs/boom-bap-days.js": "./js/songs/boom-bap-days.js?v=20261124162257", "./js/songs/brave-horizon.js": "./js/songs/brave-horizon.js?v=20261124162257", "./js/songs/breakcore-collapse.js": "./js/songs/breakcore-collapse.js?v=20261124162257", "./js/songs/bubble-bath.js": "./js/songs/bubble-bath.js?v=20261124162257", "./js/songs/bullet-hell-404.js": "./js/songs/bullet-hell-404.js?v=20261124162257", "./js/songs/camellia-ghost-vip.data.js": "./js/songs/camellia-ghost-vip.data.js?v=20261124162257", "./js/songs/camellia-ghost-vip.js": "./js/songs/camellia-ghost-vip.js?v=20261124162257", "./js/songs/camellia-ghost.data.js": "./js/songs/camellia-ghost.data.js?v=20261124162257", "./js/songs/camellia-ghost.js": "./js/songs/camellia-ghost.js?v=20261124162257", "./js/songs/celtic-run.js": "./js/songs/celtic-run.js?v=20261124162257", "./js/songs/cherry-picnic.js": "./js/songs/cherry-picnic.js?v=20261124162257", "./js/songs/chip-dungeon.js": "./js/songs/chip-dungeon.js?v=20261124162257", "./js/songs/circuit-breaker.js": "./js/songs/circuit-breaker.js?v=20261124162257", "./js/songs/clockwork-chaos.js": "./js/songs/clockwork-chaos.js?v=20261124162257", "./js/songs/cloud-point.js": "./js/songs/cloud-point.js?v=20261124162257", "./js/songs/cotton-candy.js": "./js/songs/cotton-candy.js?v=20261124162257", "./js/songs/crimson-rumba.js": "./js/songs/crimson-rumba.js?v=20261124162257", "./js/songs/crying-red.data.js": "./js/songs/crying-red.data.js?v=20261124162257", "./js/songs/crying-red.js": "./js/songs/crying-red.js?v=20261124162257", "./js/songs/crystal-fortress.js": "./js/songs/crystal-fortress.js?v=20261124162257", "./js/songs/dark-shinobi.js": "./js/songs/dark-shinobi.js?v=20261124162257", "./js/songs/deep-blue-current.js": "./js/songs/deep-blue-current.js?v=20261124162257", "./js/songs/dembow-lights.js": "./js/songs/dembow-lights.js?v=20261124162257", "./js/songs/desert-wind.js": "./js/songs/desert-wind.js?v=20261124162257", "./js/songs/disco-mirrorball.js": "./js/songs/disco-mirrorball.js?v=20261124162257", "./js/songs/dragon-gate.js": "./js/songs/dragon-gate.js?v=20261124162257", "./js/songs/drift-lane.js": "./js/songs/drift-lane.js?v=20261124162257", "./js/songs/dub-station.js": "./js/songs/dub-station.js?v=20261124162257", "./js/songs/event-horizon.js": "./js/songs/event-horizon.js?v=20261124162257", "./js/songs/extra-levels.js": "./js/songs/extra-levels.js?v=20261124162257", "./js/songs/final-protocol.js": "./js/songs/final-protocol.js?v=20261124162257", "./js/songs/firefly-path.js": "./js/songs/firefly-path.js?v=20261124162257", "./js/songs/first-light.js": "./js/songs/first-light.js?v=20261124162257", "./js/songs/fractal-storm.js": "./js/songs/fractal-storm.js?v=20261124162257", "./js/songs/freeze-frame.js": "./js/songs/freeze-frame.js?v=20261124162257", "./js/songs/funky-station.js": "./js/songs/funky-station.js?v=20261124162257", "./js/songs/gabber-storm.js": "./js/songs/gabber-storm.js?v=20261124162257", "./js/songs/gamelan-moon.js": "./js/songs/gamelan-moon.js?v=20261124162257", "./js/songs/garage-shuffle.js": "./js/songs/garage-shuffle.js?v=20261124162257", "./js/songs/glitch-garden.js": "./js/songs/glitch-garden.js?v=20261124162257", "./js/songs/glitter-idol.js": "./js/songs/glitter-idol.js?v=20261124162257", "./js/songs/gospel-light.js": "./js/songs/gospel-light.js?v=20261124162257", "./js/songs/gravity-flip.js": "./js/songs/gravity-flip.js?v=20261124162257", "./js/songs/hard-reflector.js": "./js/songs/hard-reflector.js?v=20261124162257", "./js/songs/harvest-moon.js": "./js/songs/harvest-moon.js?v=20261124162257", "./js/songs/hello-lane.js": "./js/songs/hello-lane.js?v=20261124162257", "./js/songs/hibi-no-eiga.data.js": "./js/songs/hibi-no-eiga.data.js?v=20261124162257", "./js/songs/hibi-no-eiga.js": "./js/songs/hibi-no-eiga.js?v=20261124162257", "./js/songs/hikou-hakusho.data.js": "./js/songs/hikou-hakusho.data.js?v=20261124162257", "./js/songs/hikou-hakusho.js": "./js/songs/hikou-hakusho.js?v=20261124162257", "./js/songs/hydrangea.data.js": "./js/songs/hydrangea.data.js?v=20261124162257", "./js/songs/hydrangea.js": "./js/songs/hydrangea.js?v=20261124162257", "./js/songs/hyper-sakura.js": "./js/songs/hyper-sakura.js?v=20261124162257", "./js/songs/hyper-scan-breaker.js": "./js/songs/hyper-scan-breaker.js?v=20261124162257", "./js/songs/hyperpop-glitch.js": "./js/songs/hyperpop-glitch.js?v=20261124162257", "./js/songs/index.js": "./js/songs/index.js?v=20261124162257", "./js/songs/inferno-levels.js": "./js/songs/inferno-levels.js?v=20261124162257", "./js/songs/infinity-breaker.js": "./js/songs/infinity-breaker.js?v=20261124162257", "./js/songs/inmu-king.data.js": "./js/songs/inmu-king.data.js?v=20261124162257", "./js/songs/inmu-king.js": "./js/songs/inmu-king.js?v=20261124162257", "./js/songs/iron-pulse.js": "./js/songs/iron-pulse.js?v=20261124162257", "./js/songs/island-signal.js": "./js/songs/island-signal.js?v=20261124162257", "./js/songs/jackhammer-jazz.js": "./js/songs/jackhammer-jazz.js?v=20261124162257", "./js/songs/jazz-cafe.js": "./js/songs/jazz-cafe.js?v=20261124162257", "./js/songs/jikan-ryokou.data.js": "./js/songs/jikan-ryokou.data.js?v=20261124162257", "./js/songs/jikan-ryokou.js": "./js/songs/jikan-ryokou.js?v=20261124162257", "./js/songs/jingle-circuit.js": "./js/songs/jingle-circuit.js?v=20261124162257", "./js/songs/jungle-lights.js": "./js/songs/jungle-lights.js?v=20261124162257", "./js/songs/kawaii-bubble.js": "./js/songs/kawaii-bubble.js?v=20261124162257", "./js/songs/kick-machinegun.js": "./js/songs/kick-machinegun.js?v=20261124162257", "./js/songs/kit.js": "./js/songs/kit.js?v=20261124162257", "./js/songs/koi-pond.js": "./js/songs/koi-pond.js?v=20261124162257", "./js/songs/kurashi-oyogu.data.js": "./js/songs/kurashi-oyogu.data.js?v=20261124162257", "./js/songs/kurashi-oyogu.js": "./js/songs/kurashi-oyogu.js?v=20261124162257", "./js/songs/last-horizon.js": "./js/songs/last-horizon.js?v=20261124162257", "./js/songs/lemon-soda.js": "./js/songs/lemon-soda.js?v=20261124162257", "./js/songs/lidar-rush.js": "./js/songs/lidar-rush.js?v=20261124162257", "./js/songs/lightspeed-flash.js": "./js/songs/lightspeed-flash.js?v=20261124162257", "./js/songs/liquid-sky.js": "./js/songs/liquid-sky.js?v=20261124162257", "./js/songs/lofi-library.js": "./js/songs/lofi-library.js?v=20261124162257", "./js/songs/low-orbit.js": "./js/songs/low-orbit.js?v=20261124162257", "./js/songs/maretu-nyan.data.js": "./js/songs/maretu-nyan.data.js?v=20261124162257", "./js/songs/maretu-nyan.js": "./js/songs/maretu-nyan.js?v=20261124162257", "./js/songs/maretu-shiu.data.js": "./js/songs/maretu-shiu.data.js?v=20261124162257", "./js/songs/maretu-shiu.js": "./js/songs/maretu-shiu.js?v=20261124162257", "./js/songs/maretu-white-happy.data.js": "./js/songs/maretu-white-happy.data.js?v=20261124162257", "./js/songs/maretu-white-happy.js": "./js/songs/maretu-white-happy.js?v=20261124162257", "./js/songs/mariachi-sun.js": "./js/songs/mariachi-sun.js?v=20261124162257", "./js/songs/metalcore-fury.js": "./js/songs/metalcore-fury.js?v=20261124162257", "./js/songs/midnight-avenue.js": "./js/songs/midnight-avenue.js?v=20261124162257", "./js/songs/mirage-shift.js": "./js/songs/mirage-shift.js?v=20261124162257", "./js/songs/mizu-no-tsuioku.data.js": "./js/songs/mizu-no-tsuioku.data.js?v=20261124162257", "./js/songs/mizu-no-tsuioku.js": "./js/songs/mizu-no-tsuioku.js?v=20261124162257", "./js/songs/moombah-heat.js": "./js/songs/moombah-heat.js?v=20261124162257", "./js/songs/morning-coffee.js": "./js/songs/morning-coffee.js?v=20261124162257", "./js/songs/neon-boulevard.js": "./js/songs/neon-boulevard.js?v=20261124162257", "./js/songs/neon-highway.js": "./js/songs/neon-highway.js?v=20261124162257", "./js/songs/neon-samurai.js": "./js/songs/neon-samurai.js?v=20261124162257", "./js/songs/neutron-overdrive.js": "./js/songs/neutron-overdrive.js?v=20261124162257", "./js/songs/night-drift.js": "./js/songs/night-drift.js?v=20261124162257", "./js/songs/ocean-drive.js": "./js/songs/ocean-drive.js?v=20261124162257", "./js/songs/offbeat-skater.js": "./js/songs/offbeat-skater.js?v=20261124162257", "./js/songs/omega-requiem.js": "./js/songs/omega-requiem.js?v=20261124162257", "./js/songs/overclock-omega.js": "./js/songs/overclock-omega.js?v=20261124162257", "./js/songs/overdrive-riot.js": "./js/songs/overdrive-riot.js?v=20261124162257", "./js/songs/paper-planes.js": "./js/songs/paper-planes.js?v=20261124162257", "./js/songs/phonk-garage.js": "./js/songs/phonk-garage.js?v=20261124162257", "./js/songs/piano-rain.js": "./js/songs/piano-rain.js?v=20261124162257", "./js/songs/pixel-quest.js": "./js/songs/pixel-quest.js?v=20261124162257", "./js/songs/plaza-1995.js": "./js/songs/plaza-1995.js?v=20261124162257", "./js/songs/polar-night.js": "./js/songs/polar-night.js?v=20261124162257", "./js/songs/polka-party.js": "./js/songs/polka-party.js?v=20261124162257", "./js/songs/prog-ascent.js": "./js/songs/prog-ascent.js?v=20261124162257", "./js/songs/psy-forest.js": "./js/songs/psy-forest.js?v=20261124162257", "./js/songs/puddle-jump.js": "./js/songs/puddle-jump.js?v=20261124162257", "./js/songs/pulse-grid.js": "./js/songs/pulse-grid.js?v=20261124162257", "./js/songs/quantum-leap.js": "./js/songs/quantum-leap.js?v=20261124162257", "./js/songs/rainy-window.js": "./js/songs/rainy-window.js?v=20261124162257", "./js/songs/retro-arcade.js": "./js/songs/retro-arcade.js?v=20261124162257", "./js/songs/riddim-riot.js": "./js/songs/riddim-riot.js?v=20261124162257", "./js/songs/sakura-blizzard.js": "./js/songs/sakura-blizzard.js?v=20261124162257", "./js/songs/sakura-lattice.js": "./js/songs/sakura-lattice.js?v=20261124162257", "./js/songs/salsa-fuego.js": "./js/songs/salsa-fuego.js?v=20261124162257", "./js/songs/samba-carnival.js": "./js/songs/samba-carnival.js?v=20261124162257", "./js/songs/seoul-signal.js": "./js/songs/seoul-signal.js?v=20261124162257", "./js/songs/shamisen-storm.js": "./js/songs/shamisen-storm.js?v=20261124162257", "./js/songs/shining-star.data.js": "./js/songs/shining-star.data.js?v=20261124162257", "./js/songs/shining-star.js": "./js/songs/shining-star.js?v=20261124162257", "./js/songs/shirube-meita.data.js": "./js/songs/shirube-meita.data.js?v=20261124162257", "./js/songs/shirube-meita.js": "./js/songs/shirube-meita.js?v=20261124162257", "./js/songs/sky-prism.js": "./js/songs/sky-prism.js?v=20261124162257", "./js/songs/snow-globe.js": "./js/songs/snow-globe.js?v=20261124162257", "./js/songs/snowlight-carol.js": "./js/songs/snowlight-carol.js?v=20261124162257", "./js/songs/space-waltz.js": "./js/songs/space-waltz.js?v=20261124162257", "./js/songs/spin-cycle.js": "./js/songs/spin-cycle.js?v=20261124162257", "./js/songs/star-lullaby.js": "./js/songs/star-lullaby.js?v=20261124162257", "./js/songs/starlit-camp.js": "./js/songs/starlit-camp.js?v=20261124162257", "./js/songs/stellar-gate.js": "./js/songs/stellar-gate.js?v=20261124162257", "./js/songs/strobe-storm.js": "./js/songs/strobe-storm.js?v=20261124162257", "./js/songs/sugar-rush.js": "./js/songs/sugar-rush.js?v=20261124162257", "./js/songs/summer-triangle.data.js": "./js/songs/summer-triangle.data.js?v=20261124162257", "./js/songs/summer-triangle.js": "./js/songs/summer-triangle.js?v=20261124162257", "./js/songs/sunflower-road.js": "./js/songs/sunflower-road.js?v=20261124162257", "./js/songs/sunny-parade.js": "./js/songs/sunny-parade.js?v=20261124162257", "./js/songs/sunset-bossa.js": "./js/songs/sunset-bossa.js?v=20261124162257", "./js/songs/sweet-ribbon.js": "./js/songs/sweet-ribbon.js?v=20261124162257", "./js/songs/swing-circuit.js": "./js/songs/swing-circuit.js?v=20261124162257", "./js/songs/swing-kid.js": "./js/songs/swing-kid.js?v=20261124162257", "./js/songs/synth-racer.js": "./js/songs/synth-racer.js?v=20261124162257", "./js/songs/tango-noir.js": "./js/songs/tango-noir.js?v=20261124162257", "./js/songs/terminal-velocity.js": "./js/songs/terminal-velocity.js?v=20261124162257", "./js/songs/thunder-requiem.js": "./js/songs/thunder-requiem.js?v=20261124162257", "./js/songs/thunder-road.js": "./js/songs/thunder-road.js?v=20261124162257", "./js/songs/time-twister.js": "./js/songs/time-twister.js?v=20261124162257", "./js/songs/toy-box-march.js": "./js/songs/toy-box-march.js?v=20261124162257", "./js/songs/tropical-mango.js": "./js/songs/tropical-mango.js?v=20261124162257", "./js/songs/ugokidasu-tanin.data.js": "./js/songs/ugokidasu-tanin.data.js?v=20261124162257", "./js/songs/ugokidasu-tanin.js": "./js/songs/ugokidasu-tanin.js?v=20261124162257", "./js/songs/ultra-spiral.js": "./js/songs/ultra-spiral.js?v=20261124162257", "./js/songs/utsusemi.data.js": "./js/songs/utsusemi.data.js?v=20261124162257", "./js/songs/utsusemi.js": "./js/songs/utsusemi.js?v=20261124162257", "./js/songs/velocity-zero.js": "./js/songs/velocity-zero.js?v=20261124162257", "./js/songs/velvet-lounge.js": "./js/songs/velvet-lounge.js?v=20261124162257", "./js/songs/velvet-rnb.js": "./js/songs/velvet-rnb.js?v=20261124162257", "./js/songs/vertigo-scan.js": "./js/songs/vertigo-scan.js?v=20261124162257", "./js/songs/wub-fracture.js": "./js/songs/wub-fracture.js?v=20261124162257", "./js/specials.js": "./js/specials.js?v=20261124162257", "./js/storage.js": "./js/storage.js?v=20261124162257", "./js/tanabata.js": "./js/tanabata.js?v=20261124162257", "./js/traffic.js": "./js/traffic.js?v=20261124162257", "./js/tutorial.js": "./js/tutorial.js?v=20261124162257", "./js/units.js": "./js/units.js?v=20261124162257"}}</script><!--/IMPORTMAP-->
+<!--PRELOAD--><link rel="modulepreload" href="js/account.js?v=20261124162257"><link rel="modulepreload" href="js/admin.js?v=20261124162257"><link rel="modulepreload" href="js/analyzer.js?v=20261124162257"><link rel="modulepreload" href="js/audio-cache.js?v=20261124162257"><link rel="modulepreload" href="js/audio.js?v=20261124162257"><link rel="modulepreload" href="js/badges.js?v=20261124162257"><link rel="modulepreload" href="js/changelog.js?v=20261124162257"><link rel="modulepreload" href="js/composer.js?v=20261124162257"><link rel="modulepreload" href="js/custom-audio.js?v=20261124162257"><link rel="modulepreload" href="js/dan.js?v=20261124162257"><link rel="modulepreload" href="js/event.js?v=20261124162257"><link rel="modulepreload" href="js/external-audio.js?v=20261124162257"><link rel="modulepreload" href="js/extras.js?v=20261124162257"><link rel="modulepreload" href="js/friends.js?v=20261124162257"><link rel="modulepreload" href="js/game.js?v=20261124162257"><link rel="modulepreload" href="js/gimmick.js?v=20261124162257"><link rel="modulepreload" href="js/growth.js?v=20261124162257"><link rel="modulepreload" href="js/i18n.js?v=20261124162257"><link rel="modulepreload" href="js/install.js?v=20261124162257"><link rel="modulepreload" href="js/jacket.js?v=20261124162257"><link rel="modulepreload" href="js/keyconfig.js?v=20261124162257"><link rel="modulepreload" href="js/live.js?v=20261124162257"><link rel="modulepreload" href="js/loading.js?v=20261124162257"><link rel="modulepreload" href="js/lyrics.js?v=20261124162257"><link rel="modulepreload" href="js/maker-api.js?v=20261124162257"><link rel="modulepreload" href="js/maker.js?v=20261124162257"><link rel="modulepreload" href="js/match.js?v=20261124162257"><link rel="modulepreload" href="js/meta.js?v=20261124162257"><link rel="modulepreload" href="js/motion.js?v=20261124162257"><link rel="modulepreload" href="js/mv.js?v=20261124162257"><link rel="modulepreload" href="js/player.js?v=20261124162257"><link rel="modulepreload" href="js/poll.js?v=20261124162257"><link rel="modulepreload" href="js/ranking.js?v=20261124162257"><link rel="modulepreload" href="js/recorder.js?v=20261124162257"><link rel="modulepreload" href="js/replay.js?v=20261124162257"><link rel="modulepreload" href="js/request.js?v=20261124162257"><link rel="modulepreload" href="js/season.js?v=20261124162257"><link rel="modulepreload" href="js/skins.js?v=20261124162257"><link rel="modulepreload" href="js/social.js?v=20261124162257"><link rel="modulepreload" href="js/songs/a-new-world-with-form.data.js?v=20261124162257"><link rel="modulepreload" href="js/songs/a-new-world-with-form.js?v=20261124162257"><link rel="modulepreload" href="js/songs/abyss-gate.js?v=20261124162257"><link rel="modulepreload" href="js/songs/afro-sunrise.js?v=20261124162257"><link rel="modulepreload" href="js/songs/ao.data.js?v=20261124162257"><link rel="modulepreload" href="js/songs/ao.js?v=20261124162257"><link rel="modulepreload" href="js/songs/big-room-blast.js?v=20261124162257"><link rel="modulepreload" href="js/songs/blue-note-lane.js?v=20261124162257"><link rel="modulepreload" href="js/songs/bluegrass-rush.js?v=20261124162257"><link rel="modulepreload" href="js/songs/blues-highway.js?v=20261124162257"><link rel="modulepreload" href="js/songs/bokutachi-epilogue.data.js?v=20261124162257"><link rel="modulepreload" href="js/songs/bokutachi-epilogue.js?v=20261124162257"><link rel="modulepreload" href="js/songs/bollywood-beat.js?v=20261124162257"><link rel="modulepreload" href="js/songs/boom-bap-days.js?v=20261124162257"><link rel="modulepreload" href="js/songs/brave-horizon.js?v=20261124162257"><link rel="modulepreload" href="js/songs/breakcore-collapse.js?v=20261124162257"><link rel="modulepreload" href="js/songs/bubble-bath.js?v=20261124162257"><link rel="modulepreload" href="js/songs/bullet-hell-404.js?v=20261124162257"><link rel="modulepreload" href="js/songs/camellia-ghost-vip.data.js?v=20261124162257"><link rel="modulepreload" href="js/songs/camellia-ghost-vip.js?v=20261124162257"><link rel="modulepreload" href="js/songs/camellia-ghost.data.js?v=20261124162257"><link rel="modulepreload" href="js/songs/camellia-ghost.js?v=20261124162257"><link rel="modulepreload" href="js/songs/celtic-run.js?v=20261124162257"><link rel="modulepreload" href="js/songs/cherry-picnic.js?v=20261124162257"><link rel="modulepreload" href="js/songs/chip-dungeon.js?v=20261124162257"><link rel="modulepreload" href="js/songs/circuit-breaker.js?v=20261124162257"><link rel="modulepreload" href="js/songs/clockwork-chaos.js?v=20261124162257"><link rel="modulepreload" href="js/songs/cloud-point.js?v=20261124162257"><link rel="modulepreload" href="js/songs/cotton-candy.js?v=20261124162257"><link rel="modulepreload" href="js/songs/crimson-rumba.js?v=20261124162257"><link rel="modulepreload" href="js/songs/crying-red.data.js?v=20261124162257"><link rel="modulepreload" href="js/songs/crying-red.js?v=20261124162257"><link rel="modulepreload" href="js/songs/crystal-fortress.js?v=20261124162257"><link rel="modulepreload" href="js/songs/dark-shinobi.js?v=20261124162257"><link rel="modulepreload" href="js/songs/deep-blue-current.js?v=20261124162257"><link rel="modulepreload" href="js/songs/dembow-lights.js?v=20261124162257"><link rel="modulepreload" href="js/songs/desert-wind.js?v=20261124162257"><link rel="modulepreload" href="js/songs/disco-mirrorball.js?v=20261124162257"><link rel="modulepreload" href="js/songs/dragon-gate.js?v=20261124162257"><link rel="modulepreload" href="js/songs/drift-lane.js?v=20261124162257"><link rel="modulepreload" href="js/songs/dub-station.js?v=20261124162257"><link rel="modulepreload" href="js/songs/event-horizon.js?v=20261124162257"><link rel="modulepreload" href="js/songs/extra-levels.js?v=20261124162257"><link rel="modulepreload" href="js/songs/final-protocol.js?v=20261124162257"><link rel="modulepreload" href="js/songs/firefly-path.js?v=20261124162257"><link rel="modulepreload" href="js/songs/first-light.js?v=20261124162257"><link rel="modulepreload" href="js/songs/fractal-storm.js?v=20261124162257"><link rel="modulepreload" href="js/songs/freeze-frame.js?v=20261124162257"><link rel="modulepreload" href="js/songs/funky-station.js?v=20261124162257"><link rel="modulepreload" href="js/songs/gabber-storm.js?v=20261124162257"><link rel="modulepreload" href="js/songs/gamelan-moon.js?v=20261124162257"><link rel="modulepreload" href="js/songs/garage-shuffle.js?v=20261124162257"><link rel="modulepreload" href="js/songs/glitch-garden.js?v=20261124162257"><link rel="modulepreload" href="js/songs/glitter-idol.js?v=20261124162257"><link rel="modulepreload" href="js/songs/gospel-light.js?v=20261124162257"><link rel="modulepreload" href="js/songs/gravity-flip.js?v=20261124162257"><link rel="modulepreload" href="js/songs/hard-reflector.js?v=20261124162257"><link rel="modulepreload" href="js/songs/harvest-moon.js?v=20261124162257"><link rel="modulepreload" href="js/songs/hello-lane.js?v=20261124162257"><link rel="modulepreload" href="js/songs/hibi-no-eiga.data.js?v=20261124162257"><link rel="modulepreload" href="js/songs/hibi-no-eiga.js?v=20261124162257"><link rel="modulepreload" href="js/songs/hikou-hakusho.data.js?v=20261124162257"><link rel="modulepreload" href="js/songs/hikou-hakusho.js?v=20261124162257"><link rel="modulepreload" href="js/songs/hydrangea.data.js?v=20261124162257"><link rel="modulepreload" href="js/songs/hydrangea.js?v=20261124162257"><link rel="modulepreload" href="js/songs/hyper-sakura.js?v=20261124162257"><link rel="modulepreload" href="js/songs/hyper-scan-breaker.js?v=20261124162257"><link rel="modulepreload" href="js/songs/hyperpop-glitch.js?v=20261124162257"><link rel="modulepreload" href="js/songs/index.js?v=20261124162257"><link rel="modulepreload" href="js/songs/inferno-levels.js?v=20261124162257"><link rel="modulepreload" href="js/songs/infinity-breaker.js?v=20261124162257"><link rel="modulepreload" href="js/songs/inmu-king.data.js?v=20261124162257"><link rel="modulepreload" href="js/songs/inmu-king.js?v=20261124162257"><link rel="modulepreload" href="js/songs/iron-pulse.js?v=20261124162257"><link rel="modulepreload" href="js/songs/island-signal.js?v=20261124162257"><link rel="modulepreload" href="js/songs/jackhammer-jazz.js?v=20261124162257"><link rel="modulepreload" href="js/songs/jazz-cafe.js?v=20261124162257"><link rel="modulepreload" href="js/songs/jikan-ryokou.data.js?v=20261124162257"><link rel="modulepreload" href="js/songs/jikan-ryokou.js?v=20261124162257"><link rel="modulepreload" href="js/songs/jingle-circuit.js?v=20261124162257"><link rel="modulepreload" href="js/songs/jungle-lights.js?v=20261124162257"><link rel="modulepreload" href="js/songs/kawaii-bubble.js?v=20261124162257"><link rel="modulepreload" href="js/songs/kick-machinegun.js?v=20261124162257"><link rel="modulepreload" href="js/songs/kit.js?v=20261124162257"><link rel="modulepreload" href="js/songs/koi-pond.js?v=20261124162257"><link rel="modulepreload" href="js/songs/kurashi-oyogu.data.js?v=20261124162257"><link rel="modulepreload" href="js/songs/kurashi-oyogu.js?v=20261124162257"><link rel="modulepreload" href="js/songs/last-horizon.js?v=20261124162257"><link rel="modulepreload" href="js/songs/lemon-soda.js?v=20261124162257"><link rel="modulepreload" href="js/songs/lidar-rush.js?v=20261124162257"><link rel="modulepreload" href="js/songs/lightspeed-flash.js?v=20261124162257"><link rel="modulepreload" href="js/songs/liquid-sky.js?v=20261124162257"><link rel="modulepreload" href="js/songs/lofi-library.js?v=20261124162257"><link rel="modulepreload" href="js/songs/low-orbit.js?v=20261124162257"><link rel="modulepreload" href="js/songs/maretu-nyan.data.js?v=20261124162257"><link rel="modulepreload" href="js/songs/maretu-nyan.js?v=20261124162257"><link rel="modulepreload" href="js/songs/maretu-shiu.data.js?v=20261124162257"><link rel="modulepreload" href="js/songs/maretu-shiu.js?v=20261124162257"><link rel="modulepreload" href="js/songs/maretu-white-happy.data.js?v=20261124162257"><link rel="modulepreload" href="js/songs/maretu-white-happy.js?v=20261124162257"><link rel="modulepreload" href="js/songs/mariachi-sun.js?v=20261124162257"><link rel="modulepreload" href="js/songs/metalcore-fury.js?v=20261124162257"><link rel="modulepreload" href="js/songs/midnight-avenue.js?v=20261124162257"><link rel="modulepreload" href="js/songs/mirage-shift.js?v=20261124162257"><link rel="modulepreload" href="js/songs/mizu-no-tsuioku.data.js?v=20261124162257"><link rel="modulepreload" href="js/songs/mizu-no-tsuioku.js?v=20261124162257"><link rel="modulepreload" href="js/songs/moombah-heat.js?v=20261124162257"><link rel="modulepreload" href="js/songs/morning-coffee.js?v=20261124162257"><link rel="modulepreload" href="js/songs/neon-boulevard.js?v=20261124162257"><link rel="modulepreload" href="js/songs/neon-highway.js?v=20261124162257"><link rel="modulepreload" href="js/songs/neon-samurai.js?v=20261124162257"><link rel="modulepreload" href="js/songs/neutron-overdrive.js?v=20261124162257"><link rel="modulepreload" href="js/songs/night-drift.js?v=20261124162257"><link rel="modulepreload" href="js/songs/ocean-drive.js?v=20261124162257"><link rel="modulepreload" href="js/songs/offbeat-skater.js?v=20261124162257"><link rel="modulepreload" href="js/songs/omega-requiem.js?v=20261124162257"><link rel="modulepreload" href="js/songs/overclock-omega.js?v=20261124162257"><link rel="modulepreload" href="js/songs/overdrive-riot.js?v=20261124162257"><link rel="modulepreload" href="js/songs/paper-planes.js?v=20261124162257"><link rel="modulepreload" href="js/songs/phonk-garage.js?v=20261124162257"><link rel="modulepreload" href="js/songs/piano-rain.js?v=20261124162257"><link rel="modulepreload" href="js/songs/pixel-quest.js?v=20261124162257"><link rel="modulepreload" href="js/songs/plaza-1995.js?v=20261124162257"><link rel="modulepreload" href="js/songs/polar-night.js?v=20261124162257"><link rel="modulepreload" href="js/songs/polka-party.js?v=20261124162257"><link rel="modulepreload" href="js/songs/prog-ascent.js?v=20261124162257"><link rel="modulepreload" href="js/songs/psy-forest.js?v=20261124162257"><link rel="modulepreload" href="js/songs/puddle-jump.js?v=20261124162257"><link rel="modulepreload" href="js/songs/pulse-grid.js?v=20261124162257"><link rel="modulepreload" href="js/songs/quantum-leap.js?v=20261124162257"><link rel="modulepreload" href="js/songs/rainy-window.js?v=20261124162257"><link rel="modulepreload" href="js/songs/retro-arcade.js?v=20261124162257"><link rel="modulepreload" href="js/songs/riddim-riot.js?v=20261124162257"><link rel="modulepreload" href="js/songs/sakura-blizzard.js?v=20261124162257"><link rel="modulepreload" href="js/songs/sakura-lattice.js?v=20261124162257"><link rel="modulepreload" href="js/songs/salsa-fuego.js?v=20261124162257"><link rel="modulepreload" href="js/songs/samba-carnival.js?v=20261124162257"><link rel="modulepreload" href="js/songs/seoul-signal.js?v=20261124162257"><link rel="modulepreload" href="js/songs/shamisen-storm.js?v=20261124162257"><link rel="modulepreload" href="js/songs/shining-star.data.js?v=20261124162257"><link rel="modulepreload" href="js/songs/shining-star.js?v=20261124162257"><link rel="modulepreload" href="js/songs/shirube-meita.data.js?v=20261124162257"><link rel="modulepreload" href="js/songs/shirube-meita.js?v=20261124162257"><link rel="modulepreload" href="js/songs/sky-prism.js?v=20261124162257"><link rel="modulepreload" href="js/songs/snow-globe.js?v=20261124162257"><link rel="modulepreload" href="js/songs/snowlight-carol.js?v=20261124162257"><link rel="modulepreload" href="js/songs/space-waltz.js?v=20261124162257"><link rel="modulepreload" href="js/songs/spin-cycle.js?v=20261124162257"><link rel="modulepreload" href="js/songs/star-lullaby.js?v=20261124162257"><link rel="modulepreload" href="js/songs/starlit-camp.js?v=20261124162257"><link rel="modulepreload" href="js/songs/stellar-gate.js?v=20261124162257"><link rel="modulepreload" href="js/songs/strobe-storm.js?v=20261124162257"><link rel="modulepreload" href="js/songs/sugar-rush.js?v=20261124162257"><link rel="modulepreload" href="js/songs/summer-triangle.data.js?v=20261124162257"><link rel="modulepreload" href="js/songs/summer-triangle.js?v=20261124162257"><link rel="modulepreload" href="js/songs/sunflower-road.js?v=20261124162257"><link rel="modulepreload" href="js/songs/sunny-parade.js?v=20261124162257"><link rel="modulepreload" href="js/songs/sunset-bossa.js?v=20261124162257"><link rel="modulepreload" href="js/songs/sweet-ribbon.js?v=20261124162257"><link rel="modulepreload" href="js/songs/swing-circuit.js?v=20261124162257"><link rel="modulepreload" href="js/songs/swing-kid.js?v=20261124162257"><link rel="modulepreload" href="js/songs/synth-racer.js?v=20261124162257"><link rel="modulepreload" href="js/songs/tango-noir.js?v=20261124162257"><link rel="modulepreload" href="js/songs/terminal-velocity.js?v=20261124162257"><link rel="modulepreload" href="js/songs/thunder-requiem.js?v=20261124162257"><link rel="modulepreload" href="js/songs/thunder-road.js?v=20261124162257"><link rel="modulepreload" href="js/songs/time-twister.js?v=20261124162257"><link rel="modulepreload" href="js/songs/toy-box-march.js?v=20261124162257"><link rel="modulepreload" href="js/songs/tropical-mango.js?v=20261124162257"><link rel="modulepreload" href="js/songs/ugokidasu-tanin.data.js?v=20261124162257"><link rel="modulepreload" href="js/songs/ugokidasu-tanin.js?v=20261124162257"><link rel="modulepreload" href="js/songs/ultra-spiral.js?v=20261124162257"><link rel="modulepreload" href="js/songs/utsusemi.data.js?v=20261124162257"><link rel="modulepreload" href="js/songs/utsusemi.js?v=20261124162257"><link rel="modulepreload" href="js/songs/velocity-zero.js?v=20261124162257"><link rel="modulepreload" href="js/songs/velvet-lounge.js?v=20261124162257"><link rel="modulepreload" href="js/songs/velvet-rnb.js?v=20261124162257"><link rel="modulepreload" href="js/songs/vertigo-scan.js?v=20261124162257"><link rel="modulepreload" href="js/songs/wub-fracture.js?v=20261124162257"><link rel="modulepreload" href="js/specials.js?v=20261124162257"><link rel="modulepreload" href="js/storage.js?v=20261124162257"><link rel="modulepreload" href="js/traffic.js?v=20261124162257"><link rel="modulepreload" href="js/tutorial.js?v=20261124162257"><link rel="modulepreload" href="js/units.js?v=20261124162257"><!--/PRELOAD-->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>時間旅行(VOCAL POP / BPM 120)｜MUSIC LiDAR 無料ブラウザ音ゲー</title>
+<meta name="description" content="「時間旅行」(ナツメダ ユキ)はVOCAL POPの音ゲー曲。ブラウザで今すぐプレイ。EASY Lv2 / NORMAL Lv5 / HARD Lv6。MUSIC LiDAR はインストール不要・無料の4キー音ゲー(リズムゲーム)。PC・スマホ対応。 音楽:ナツメダ ユキ「時間旅行」(歌:音街ウナ)">
+<link rel="canonical" href="https://music-lidar.com/music/laci35k21/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="MUSIC LiDAR">
+<meta property="og:title" content="時間旅行(VOCAL POP / BPM 120)｜MUSIC LiDAR 無料ブラウザ音ゲー">
+<meta property="og:description" content="「時間旅行」(ナツメダ ユキ)はVOCAL POPの音ゲー曲。ブラウザで今すぐプレイ。EASY Lv2 / NORMAL Lv5 / HARD Lv6。MUSIC LiDAR はインストール不要・無料の4キー音ゲー(リズムゲーム)。PC・スマホ対応。 音楽:ナツメダ ユキ「時間旅行」(歌:音街ウナ)">
+<meta property="og:url" content="https://music-lidar.com/music/laci35k21/">
+<meta property="og:image" content="https://music-lidar.com/music/laci35k21/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ja_JP">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="時間旅行(VOCAL POP / BPM 120)｜MUSIC LiDAR 無料ブラウザ音ゲー">
+<meta name="twitter:description" content="「時間旅行」(ナツメダ ユキ)はVOCAL POPの音ゲー曲。ブラウザで今すぐプレイ。EASY Lv2 / NORMAL Lv5 / HARD Lv6。MUSIC LiDAR はインストール不要・無料の4キー音ゲー(リズムゲーム)。PC・スマホ対応。 音楽:ナツメダ ユキ「時間旅行」(歌:音街ウナ)">
+<meta name="twitter:image" content="https://music-lidar.com/music/laci35k21/og.jpg">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "VideoGame", "name": "MUSIC LiDAR", "url": "https://music-lidar.com/", "description": "MUSIC LiDARはインストール不要・無料でブラウザから遊べる4キー音ゲー(リズムゲーム)。ジャズ・ロック・トランス・ダブステップ・J-POP・シティポップ・和風・ユーロビート・タンゴ・オーケストラなど初心者向けから鬼畜曲まで全151曲、ロングノーツ・同時押し・譜面停止などのギミック、オンラインランキング、キャラガチャと編成、自作譜面を投稿できる譜面メーカーも。PC・スマホ対応。", "image": "https://music-lidar.com/og.png", "inLanguage": "ja", "genre": ["リズムゲーム", "音楽ゲーム", "音ゲー"], "gamePlatform": ["Webブラウザ", "PC", "スマートフォン"], "applicationCategory": "Game", "operatingSystem": "Windows, macOS, iOS, Android", "playMode": "SinglePlayer", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "JPY"}, "author": {"@type": "Person", "name": "かるわか", "url": "https://kaikomziu.github.io/game-links/"}}</script>
+<meta name="theme-color" content="#02030a">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2302030a'/%3E%3Cpath d='M14 50 26 14h4L20 50zM34 50l10-36h4L38 50z' fill='%235ef2ff'/%3E%3Ccircle cx='32' cy='32' r='3' fill='%23ff4fd8'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=Noto+Sans+JP:wght@400;500;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet"></noscript>
+<link rel="stylesheet" href="css/style.css?v=20261124162257">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"MusicRecording","name":"時間旅行","url":"https://music-lidar.com/music/laci35k21/","genre":"VOCAL POP","inLanguage":"ja","byArtist":{"@type":"MusicGroup","name":"ナツメダ ユキ"},"isPartOf":{"@type":"VideoGame","name":"MUSIC LiDAR","url":"https://music-lidar.com/"},"description":"ブラウザ音ゲー MUSIC LiDAR の収録曲「時間旅行」(VOCAL POP / BPM 120)。EASY Lv2・NORMAL Lv5・HARD Lv6。"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"MUSIC LiDAR","item":"https://music-lidar.com/"},{"@type":"ListItem","position":2,"name":"時間旅行","item":"https://music-lidar.com/music/laci35k21/"}]}</script>
+</head>
+<body>
+<!-- 起動時のロード画面(CSS・JSより先に出すので、見た目もここに直接書く。main.js の最後で閉じる) -->
+<style>
+#boot{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;background:radial-gradient(circle at 50% 42%,#0b1236 0%,#02030a 68%);color:#5ef2ff;font:700 12px/1.4 "Orbitron","Noto Sans JP",system-ui,sans-serif;letter-spacing:.32em;transition:opacity .55s cubic-bezier(.4,0,.2,1),transform .55s cubic-bezier(.4,0,.2,1),filter .55s;overflow:hidden}
+#boot.done{opacity:0;transform:scale(1.06);filter:blur(6px);pointer-events:none}
+#boot .bt-logo{display:flex;gap:.06em;font-size:clamp(34px,8vw,72px);letter-spacing:.08em;font-weight:900;color:#e8ffff;text-shadow:0 0 18px #5ef2ff,0 0 44px rgba(94,242,255,.5)}
+#boot .bt-logo span{display:inline-block;opacity:0;transform:translateY(18px) scale(.9);filter:blur(4px);animation:btIn .5s cubic-bezier(.2,.9,.25,1.15) forwards;animation-delay:calc(var(--i)*35ms + .05s)}
+#boot .bt-logo .sp{width:.35em}
+#boot .bt-sub{opacity:0;animation:btFade .5s ease-out .5s forwards;color:#8fa6d8;font-size:11px}
+#boot .bt-bar{position:relative;width:min(320px,70vw);height:3px;background:rgba(94,242,255,.14);border-radius:3px;overflow:hidden}
+#boot .bt-bar i{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,#5ef2ff,#ff4fd8);box-shadow:0 0 12px #5ef2ff;border-radius:3px;transition:width .25s cubic-bezier(.2,.8,.2,1)}
+#boot .bt-row{display:flex;justify-content:space-between;width:min(320px,70vw);color:#6f86b8;font-size:10px;letter-spacing:.24em}
+#boot .bt-scan{position:absolute;left:0;right:0;height:2px;top:0;background:linear-gradient(90deg,transparent,rgba(94,242,255,.55),transparent);animation:btScan 2.4s cubic-bezier(.6,0,.4,1) infinite}
+#boot .bt-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(94,242,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(94,242,255,.05) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(circle at 50% 45%,#000 0%,transparent 70%);-webkit-mask-image:radial-gradient(circle at 50% 45%,#000 0%,transparent 70%);animation:btGrid 8s linear infinite}
+@keyframes btIn{to{opacity:1;transform:none;filter:none}}
+@keyframes btFade{to{opacity:1}}
+@keyframes btScan{0%{top:-2%}100%{top:102%}}
+@keyframes btGrid{to{background-position:0 44px,44px 0}}
+@media (prefers-reduced-motion:reduce){#boot *{animation-duration:.01s!important;animation-delay:0s!important}}
+</style>
+<div id="boot" role="status" aria-label="読み込み中">
+  <div class="bt-grid"></div><div class="bt-scan"></div>
+  <div class="bt-logo" aria-hidden="true"><span style="--i:0">M</span><span style="--i:1">U</span><span style="--i:2">S</span><span style="--i:3">I</span><span style="--i:4">C</span><span class="sp"></span><span style="--i:5">L</span><span style="--i:6">i</span><span style="--i:7">D</span><span style="--i:8">A</span><span style="--i:9">R</span></div>
+  <div class="bt-sub">4KEY RHYTHM SCANNER</div>
+  <div class="bt-bar"><i id="bt-fill"></i></div>
+  <div class="bt-row"><span id="bt-step">LOADING MODULES</span><span id="bt-pct">0%</span></div>
+</div>
+<script>
+// エイプリルフール(日本時間の4月1日)だけ、名前を「Booing LiDAR」(ブーイング ライダー)にする
+// 起動画面・タイトルのロゴ・左上の表示・タブの題名を入れ替える。ほかの日に確かめたいときは URL に ?event=aprilfool(戻すときは ?event=off)
+(function () {
+  var q = new URLSearchParams(location.search).get('event'), pv = '';
+  try { pv = q || localStorage.getItem('mlidar:eventPreview') || ''; } catch (e) { pv = q || ''; }
+  var d = new Date(Date.now() + 9 * 3600e3);
+  if (!(pv === 'aprilfool' || (pv !== 'off' && d.getUTCMonth() === 3 && d.getUTCDate() === 1))) return;
+  window.APRIL_FOOL = true;
+  var logo = document.querySelector('#boot .bt-logo');
+  if (logo) { // 起動画面: 1文字ずつ出るロゴの MUSIC を BOOING に
+    var old = [].slice.call(logo.querySelectorAll('span')).filter(function (x) { return x.textContent.length === 1; }).slice(0, 5);
+    if (old.length === 5) { var html = ''; 'BOOING'.split('').forEach(function (c, i) { html += '<span style="--i:' + i + '">' + c + '</span>'; }); old[0].insertAdjacentHTML('beforebegin', html); old.forEach(function (x) { x.remove(); }); }
+  }
+  var fixTitle = function () { if (document.title.indexOf('MUSIC LiDAR') >= 0) document.title = document.title.replace(/MUSIC LiDAR/g, 'Booing LiDAR'); };
+  fixTitle();
+  document.addEventListener('DOMContentLoaded', function () {
+    var big = document.querySelector('.logo-big span'); if (big) big.textContent = 'BOOING';
+    var sm = document.querySelector('.logo-small'); if (sm && sm.firstChild) sm.firstChild.textContent = 'Booing ';
+    var rule = document.querySelector('.logo-rule em'); if (rule) rule.textContent = 'ブーイング ライダー ・ 4月1日だけ';
+    var tl = document.querySelector('.tele.tl'); if (tl && tl.firstChild) tl.firstChild.textContent = 'SYS // BOOING-LIDAR';
+    var t = document.querySelector('title'); if (t) new MutationObserver(fixTitle).observe(t, { childList: true, characterData: true, subtree: true });
+    fixTitle();
+  });
+})();
+</script>
+<script>
+// 読み込んだJSの数で進み具合を出す(全体の数は importmap から)。曲の準備に入ったら残りをゆっくり進める
+(function () {
+  document.body.classList.add('booting');
+  var map = document.querySelector('script[type="importmap"]'), total = 160;
+  try { total = Object.keys(JSON.parse(map.textContent).imports).length || total; } catch (e) {}
+  var fill = document.getElementById('bt-fill'), pct = document.getElementById('bt-pct'), step = document.getElementById('bt-step');
+  var loaded = 0, shown = 0, extra = 0, phase = 0, t0 = performance.now(), done = false;
+  try {
+    new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { if (/\/js\/.*\.js/.test(e.name)) loaded++; }); }).observe({ type: 'resource', buffered: true });
+  } catch (e) {}
+  function target() {
+    var mods = Math.min(1, loaded / total) * 0.82; // モジュールで82%まで
+    if (phase) extra = Math.min(0.15, extra + 0.004); // 曲の準備中はゆっくり
+    return Math.min(0.97, Math.max(mods, (performance.now() - t0) / 9000 * 0.5) + extra);
+  }
+  (function tick() {
+    if (done) return;
+    shown += (target() - shown) * 0.12;
+    fill.style.width = (shown * 100).toFixed(1) + '%';
+    pct.textContent = Math.round(shown * 100) + '%';
+    requestAnimationFrame(tick);
+  })();
+  window.__bootStep = function (label) { phase = 1; step.textContent = label; };
+  window.__bootDone = function () {
+    if (done) return; done = true;
+    fill.style.width = '100%'; pct.textContent = '100%'; step.textContent = 'READY';
+    var b = document.getElementById('boot');
+    // ロゴの文字が出そろうまで(約0.9秒)は見せる
+    setTimeout(function () {
+      b.classList.add('done');
+      document.body.classList.remove('booting');
+      // 裏で終わってしまったタイトルの登場アニメを、ロード画面が消えるのに合わせて最初から流し直す
+      // (一瞬だけ非表示にして戻すと、中のCSSアニメーションはすべて最初からになる)
+      document.querySelectorAll('.screen.active').forEach(function (el) { el.style.display = 'none'; void el.offsetWidth; el.style.display = ''; });
+      setTimeout(function () { b.remove(); }, 650);
+    }, Math.max(200, 900 - performance.now()));
+  };
+  setTimeout(function () { window.__bootDone(); }, 20000); // 何かで止まっても画面は出す
+})();
+</script>
+<canvas id="stage"></canvas>
+
+<!-- タイトル -->
+<section id="title" class="screen active">
+  <div class="title-frame hud" aria-hidden="true"></div>
+  <div class="title-sweep" aria-hidden="true"></div>
+  <div class="tele tl" aria-hidden="true">SYS // MUSIC-LIDAR<br><span id="tt-ver">BUILD -</span></div>
+  <div class="tele tr" aria-hidden="true">SCAN RATE 240 HZ<br>LANES 04 // D F J K</div>
+  <div class="tele bl" id="tt-boot" aria-hidden="true"></div>
+  <div class="tele br">LAT 35.68 N / LON 139.76 E</div>
+  <div class="title-inner">
+    <div class="logo-big"><span>MUSIC</span><b data-text="LiDAR">LiDAR</b></div>
+    <div class="logo-rule"><i></i><em>4KEY RHYTHM SCANNER</em><i></i></div>
+    <p class="title-song" id="title-song" hidden></p>
+    <button id="btn-start" class="btn-start">PRESS ENTER</button>
+    <button id="btn-quick" class="btn-quick" hidden>▶ いますぐ1曲遊ぶ <small>説明なしで、やさしい曲から</small></button>
+    <p class="keys-hint"><kbd>D</kbd><kbd>F</kbd><kbd>J</kbd><kbd>K</kbd></p>
+    <p class="title-discord"><a class="btn-discord" href="https://discord.gg/aMnvqcHzNG" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.74 19.74 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.009c.12.1.246.198.373.292a.077.077 0 0 1-.006.127 12.3 12.3 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg><span><b>公式Discordに参加</b><small>認証で ◎500 プレゼント・新曲のお知らせ・仲間さがし</small></span></a></p>
+    <h1 class="title-lead">「時間旅行」をプレイ ― 無料・インストール不要のブラウザ音ゲー</h1>
+    <p class="title-related">VOCAL POP ・ BPM 120 ・ EASY 2 / NORMAL 5 / HARD 6<br>似た曲: <a href="music/gczx1kw7p/">暮らし泳ぐ</a> ・ <a href="music/p7kamy0sp/">飛行白書</a> ・ <a href="music/vbtcjbs73/">うつせみ</a> ・ <a href="music/pea9dj2sb/">日々の映画</a></p>
+    <p class="title-links"><a href="guide.html">遊び方・収録曲</a> ・ <a href="collections/">曲のまとめ</a> ・ <a href="streaming.html">実況・配信ガイドライン</a> ・ <a href="submit-music.html">楽曲募集</a> ・ <a href="https://discord.gg/aMnvqcHzNG" target="_blank" rel="noopener">Discord</a> ・ <a href="credits.html">クレジット</a> ・ <a href="changelog/" id="title-changelog">更新履歴</a> <span class="title-ver" id="title-ver"></span></p>
+  </div>
+  <noscript><p class="title-noscript">MUSIC LiDAR は JavaScript を有効にすると遊べる無料のブラウザ4キー音ゲーです。<a href="guide.html">遊び方・収録曲はこちら</a>。</p></noscript>
+</section>
+
+<!-- ホーム(モード選択) -->
+<section id="home" class="screen meta home">
+  <header class="topbar">
+    <div class="logo-small">MUSIC <b>LiDAR</b></div>
+    <div class="spacer"></div>
+    <nav class="nav">
+      <span class="chip coin-chip" title="コイン"><span class="coin-ico">◎</span><span class="coin-val">-</span></span>
+      <button id="btn-name" class="chip" title="アカウント"><span class="ico">◉</span><span id="name-label">GUEST</span></button>
+      <button class="chip" data-settings title="設定"><span class="ico">⚙</span>設定</button>
+      <button class="chip" data-tutorial title="遊び方を練習"><span class="ico">?</span>チュートリアル</button>
+      <button class="chip" data-request title="追加してほしい機能・曲・不具合などを送る"><span class="ico">✉</span>リクエスト</button>
+      <button class="chip adm-chip" id="btn-admin" hidden title="管理者ページ"><span class="ico">★</span>管理</button>
+      <button id="btn-version" class="chip ver-chip" title="更新履歴"><span id="ver-label">v-</span><span class="ver-new" id="ver-new" hidden>NEW</span></button>
+    </nav>
+  </header>
+  <div class="home-body">
+    <div class="h-player" id="h-player"></div>
+    <div class="install-bar" id="install-bar" hidden></div>
+    <div class="home-main" id="home-main">
+      <button class="h-tile h-live" id="h-live">
+        <div class="h-jackets" id="h-jackets" aria-hidden="true"></div>
+        <div class="h-label"><small>PLAY</small><b>LIVE</b><span>ライブ</span></div>
+        <p>ひとりでライブ ・ みんなでライブ</p>
+        <em class="h-go">ENTER ▶</em>
+      </button>
+      <button class="h-tile need-login" data-nav="team"><div class="h-label"><small>UNIT</small><b>TEAM</b><span>編成</span></div><p id="h-team">キャラ5人でスキルを組み合わせる</p></button>
+      <button class="h-tile need-login" data-nav="gacha"><div class="h-label"><small>SCAN</small><b>GACHA</b><span>ガチャ</span></div><p id="h-gacha">コインで★1〜★4のキャラを集める</p></button>
+      <button class="h-tile need-login" data-nav="quest"><div class="h-label"><small>MISSION</small><b>QUEST</b><span>クエスト</span></div><p>デイリーと実績でコインをもらう</p><span class="q-badge h-badge" hidden></span></button>
+      <button class="h-tile need-login" id="btn-pass"><div class="h-label"><small>SEASON</small><b>PASS</b><span>シーズン・着せ替え</span></div><p id="h-pass">遊んでXPをためて報酬をもらう</p></button>
+      <button class="h-tile" id="btn-charts"><div class="h-label"><small>COMMUNITY</small><b>CHARTS</b><span>みんなの譜面</span></div><p id="home-charts-sub">投稿された譜面を遊ぶ</p></button>
+      <button class="h-tile" id="btn-maker"><div class="h-label"><small>EDITOR</small><b>MAKER</b><span>譜面メーカー</span></div><p>自分で譜面を作って投稿</p></button>
+      <button class="h-tile h-music" id="btn-player"><div class="h-label"><small>LISTEN</small><b>MUSIC</b><span>きくだけ</span></div><p>オリジナル曲を音楽プレーヤーで聴く</p></button>
+      <a class="h-tile h-discord" href="https://discord.gg/aMnvqcHzNG" target="_blank" rel="noopener"><span class="h-dc-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.74 19.74 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.009c.12.1.246.198.373.292a.077.077 0 0 1-.006.127 12.3 12.3 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></span><div class="h-label"><small>COMMUNITY</small><b>DISCORD</b><span>公式Discord</span></div><p>認証で ◎500 プレゼント・新曲のお知らせ・仲間さがし</p></a>
+    </div>
+    <div class="home-live" id="home-live" hidden>
+      <div class="hl-head"><button class="chip" id="h-live-back">← 戻る</button><h2 class="meta-title">LIVE</h2><div class="spacer"></div><button class="chip" data-tutorial>はじめての人は チュートリアル ▶</button></div>
+      <div class="hl-cards">
+        <button class="hl-card solo" id="btn-solo">
+          <span class="hl-ico" aria-hidden="true"><i></i></span>
+          <small>SOLO LIVE</small><b>ひとりでライブ</b>
+          <p>好きな曲と難易度を選んでプレイ。自己ベストとオンラインランキングに挑戦</p>
+          <em class="h-go">1 / ENTER ▶</em>
+        </button>
+        <button class="hl-card multi need-login" id="btn-live">
+          <span class="hl-ico" aria-hidden="true"><i></i><i></i><i></i></span>
+          <small>MULTI LIVE</small><b>みんなでライブ</b>
+          <p>最大8人で同じ曲を同時にプレイ。みんなのコンボを見ながら、編成込みのスコアで勝負</p>
+          <em class="h-go">2 ▶</em>
+        </button>
+        <button class="hl-card dan" id="btn-dan">
+          <span class="hl-ico" aria-hidden="true"><i></i></span>
+          <small>DAN COURSE</small><b>段位道場</b>
+          <p>4曲を続けてプレイ。体力が0にならずに最後まで行けたら合格。初段〜十段、皆伝まで</p>
+          <em class="h-go">3 ▶</em>
+        </button>
+        <button class="hl-card daily" id="btn-daily">
+          <span class="hl-ico" aria-hidden="true"><i></i></span>
+          <small>DAILY CHALLENGE</small><b>今日の1曲</b>
+          <div class="daily-info" id="daily-info"></div>
+          <em class="h-go">4 ▶</em>
+        </button>
+        <button class="hl-card course" id="btn-course">
+          <span class="hl-ico" aria-hidden="true"><i></i><i></i></span>
+          <small>COURSE</small><b>コースモード</b>
+          <p>好きな曲を2〜6曲選んで、体力つきで続けてプレイ。リンクで友だちとコースを共有</p>
+          <em class="h-go">5 ▶</em>
+        </button>
+        <button class="hl-card diag" id="btn-diag">
+          <span class="hl-ico" aria-hidden="true"><i></i></span>
+          <small>LEVEL CHECK</small><b>レベル診断</b>
+          <p>約1分、だんだん難しくなる譜面を叩くだけ。あなたにちょうどいいレベルと曲がわかります</p>
+          <em class="h-go">▶</em>
+        </button>
+        <div class="hl-card weekly" id="weekly-card">
+          <span class="hl-ico" aria-hidden="true"><i></i></span>
+          <small>WEEKLY SCORE ATTACK</small><b>今週のスコアアタック</b>
+          <div class="daily-info" id="weekly-info"></div>
+          <div class="wk-diffs" id="weekly-diffs"></div>
+          <button type="button" class="link-btn small wk-hall" id="btn-weekly-hall">🏆 殿堂を見る</button>
+        </div>
+        <button class="hl-card match need-login" id="btn-match">
+          <span class="hl-ico" aria-hidden="true"><i></i><i></i></span>
+          <small>RANDOM MATCH</small><b>ランダムマッチ</b>
+          <p>ルームコードなしで、レートの近い相手とすぐ1対1。曲は2人の実力に合わせて自動で決まります。勝つと80コイン</p>
+          <em class="h-go">6 ▶</em>
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- シーズンパス・着せ替え -->
+<section id="pass" class="screen meta">
+  <header class="topbar"><button class="chip" data-back>← 戻る</button><h2 class="meta-title">PASS</h2>
+    <div class="q-tabs pass-tabs" id="pass-tabs"><button class="q-tab sel" data-tab="season">シーズンパス</button><button class="q-tab" data-tab="skins">着せ替え</button></div>
+    <div class="spacer"></div><span class="chip coin-chip"><span class="coin-ico">◎</span><span class="coin-val">-</span></span></header>
+  <div class="meta-body" id="pass-body"></div>
+</section>
+
+<!-- きくだけ(音楽プレーヤー) -->
+<section id="player" class="screen meta">
+  <header class="topbar"><button class="chip" id="pl-back">← ホーム</button><h2 class="meta-title">MUSIC</h2><span class="muted small" id="pl-count"></span><div class="spacer"></div>
+    <input type="search" id="pl-search" placeholder="曲名・ジャンルで検索" aria-label="曲を検索" autocomplete="off"></header>
+  <div class="pl-body">
+    <div class="pl-now hud">
+      <div class="panel-label"><span>NOW PLAYING</span><span id="pl-status"></span></div>
+      <div class="pl-art"><canvas id="pl-vis"></canvas><img id="pl-jacket" alt=""></div>
+      <div class="pl-info"><div class="d-genre" id="pl-genre"></div><h1 id="pl-title"></h1><div class="pl-artist">MUSIC LiDAR オリジナル</div></div>
+      <div class="pl-seekrow"><span id="pl-time">0:00</span><input type="range" id="pl-seek" min="0" max="1000" value="0" aria-label="再生位置"><span id="pl-dur">0:00</span></div>
+      <div class="pl-ctrl">
+        <button class="pl-btn small" id="pl-shuffle" title="シャッフル">🔀</button>
+        <button class="pl-btn" id="pl-prev" title="前の曲">⏮</button>
+        <button class="pl-btn big" id="pl-play" title="再生">▶</button>
+        <button class="pl-btn" id="pl-next" title="次の曲">⏭</button>
+        <button class="pl-btn small" id="pl-repeat" title="くり返し">🔁</button>
+      </div>
+      <p class="muted small pl-hint">スペース 再生/停止 ・ ←→ 前/次の曲</p>
+    </div>
+    <ol class="pl-list" id="pl-list"></ol>
+  </div>
+</section>
+
+<!-- 管理者ページ -->
+<section id="admin" class="screen meta">
+  <header class="topbar"><button class="chip" id="adm-back">← ホーム</button><h2 class="meta-title">ADMIN</h2><span class="muted small" id="adm-updated"></span><div class="spacer"></div><button class="chip" id="adm-reload">↻ 更新</button></header>
+  <div class="meta-body adm-body" id="adm-body"></div>
+</section>
+
+<!-- 段位道場 -->
+<section id="dan" class="screen meta">
+  <header class="topbar"><button class="chip" id="dan-back">← 戻る</button><h2 class="meta-title">段位道場</h2><span class="dan-best" id="dan-best"></span></header>
+  <div class="meta-body">
+    <p class="muted small dan-help">4曲を続けてプレイします。体力ゲージは曲をまたいで続き、MISS で減って PERFECT・GREAT で少し回復。0になったらその場で不合格です。編成の効果は使えず、リトライもできません。</p>
+    <ol class="dan-list" id="dan-list"></ol>
+  </div>
+</section>
+<div id="dan-result" class="overlay modal"><div id="dan-result-box" class="modal-box dan-result-box hud"></div></div>
+<!-- コースモード -->
+<div id="course" class="overlay modal"><div id="course-box" class="modal-box course-box hud"></div></div>
+<!-- 判定タイミングの自動調整 -->
+<div id="calib" class="overlay modal"><div class="modal-box calib-box hud">
+  <div class="panel-label"><span>TIMING</span><span>判定タイミングの自動調整</span></div>
+  <p id="calib-msg"></p>
+  <button class="calib-pad" id="calib-pad" type="button">TAP</button>
+  <div class="modal-actions"><button class="btn-line" id="calib-close">閉じる</button><button class="btn-glow" id="calib-start">スタート</button></div>
+</div></div>
+
+<div id="practice" class="overlay modal"><div class="modal-box calib-box hud">
+  <div class="panel-label"><span>PRACTICE</span><span>練習モード</span></div>
+  <p class="muted small" id="pr-song"></p>
+  <label class="row"><span>はじめ</span><input type="range" id="pr-from" min="0" step="0.1"><output id="o-pr-from"></output></label>
+  <label class="row"><span>おわり</span><input type="range" id="pr-to" min="0" step="0.1"><output id="o-pr-to"></output></label>
+  <label class="row"><span>速さ</span><select id="pr-rate"><option value="1">×1.0(そのまま)</option><option value="0.9">×0.9</option><option value="0.8">×0.8</option><option value="0.75">×0.75</option><option value="0.6">×0.6</option><option value="0.5">×0.5</option></select></label>
+  <label class="row check"><span>くり返す</span><input type="checkbox" id="pr-loop" checked></label>
+  <p class="muted small">えらんだ区間だけを遊べます。遅くしても音の高さはそのまま。記録・ランキングには残りません。</p>
+  <div class="modal-actions"><button class="btn-line" id="pr-close">閉じる</button><button class="btn-glow" id="pr-start">スタート</button></div>
+</div></div>
+
+<div id="ps-warn" class="overlay modal"><div class="modal-box calib-box hud ps-box">
+  <div class="panel-label"><span>⚠ CAUTION</span><span>光の点滅・画面の動き</span></div>
+  <p class="ps-lead">この曲には、画面のフラッシュ・点滅・回転・上下反転・揺れがあります。</p>
+  <p class="small">強い光の点滅や画面の動きを見ると、まれに、けいれん・意識がなくなるなどの発作(光過敏性発作)が起きたり、気分が悪くなったりすることがあります。これまでにそうなったことがある人や心配な人は、遊ぶ前に医師に相談してください。</p>
+  <ul class="small ps-list"><li>部屋を明るくして、画面から離れて遊んでください</li><li>疲れているとき・寝不足のときは遊ばないでください</li><li>気分が悪くなったら、すぐにやめて休んでください</li></ul>
+  <label class="small ps-never"><input type="checkbox" id="ps-never"> 次から表示しない(この端末)</label>
+  <div class="modal-actions"><button class="btn-line" id="ps-no">やめる</button><button class="btn-line" id="ps-calm">点滅・揺れを減らして遊ぶ</button><button class="btn-glow" id="ps-go">このまま遊ぶ</button></div>
+</div></div>
+<div id="diag-modal" class="overlay modal"><div class="modal-box calib-box hud" id="diag-box"></div></div>
+<div id="replays" class="overlay modal"><div class="modal-box calib-box hud">
+  <div class="panel-label"><span>REPLAY</span><span>リプレイ</span></div>
+  <p class="muted small" id="rp-song"></p>
+  <ol class="rank-list" id="rp-list"></ol>
+  <p class="muted small">自己ベストを更新すると、そのプレイが残ります(レーンがランダムのプレイは残りません)。</p>
+  <div class="modal-actions"><button class="btn-line" id="rp-close">閉じる</button></div>
+</div></div>
+
+<!-- 選曲 -->
+<section id="select" class="screen">
+  <header class="topbar">
+    <button class="chip" data-home>← ホーム</button>
+    <h2 class="meta-title" id="sel-title">ひとりでライブ</h2>
+    <div class="pick-bar" id="pick-bar" hidden></div>
+    <div class="spacer"></div>
+    <nav class="nav">
+      <span class="chip coin-chip" title="コイン"><span class="coin-ico">◎</span><span class="coin-val">-</span></span>
+      <button class="chip" id="btn-poll" hidden title="配信を見ている人に次の曲を投票してもらう">📊 視聴者投票</button>
+      <button class="chip" data-settings title="設定"><span class="ico">⚙</span>設定</button>
+    </nav>
+  </header>
+  <div class="select-body">
+    <div class="song-col">
+      <div class="list-tools">
+        <input type="search" id="song-search" placeholder="曲名・ジャンルで検索" aria-label="曲を検索" autocomplete="off">
+        <select id="song-sort" aria-label="並び順">
+          <option value="default">標準の順</option>
+          <option value="popular">🔥 人気順(今週)</option>
+          <option value="popular-all">人気順(累計)</option>
+          <option value="level">レベル順(選択中の難易度)</option>
+          <option value="level-desc">レベル高い順</option>
+          <option value="bpm">BPM遅い順</option>
+          <option value="bpm-desc">BPM速い順</option>
+          <option value="name">名前順</option>
+          <option value="score">自己ベスト高い順</option>
+          <option value="score-asc">自己ベスト低い順</option>
+        </select>
+      </div>
+      <div class="filter-chips" id="song-filters"></div>
+      <div class="song-list" id="song-list"></div>
+    </div>
+    <div class="detail hud" id="detail">
+      <button type="button" class="d-more" id="d-more" aria-expanded="false" aria-controls="detail">記録・ランキング<i>▲</i></button>
+      <div class="panel-label"><span>TRACK DATA</span><span id="d-index"></span></div>
+      <div class="d-head">
+        <img class="d-jacket" id="d-jacket" alt="">
+        <div class="d-headtext">
+          <div class="d-genre" id="d-genre"></div>
+          <h1 class="d-title" id="d-title"></h1>
+          <div class="d-meta" id="d-meta"></div>
+          <div class="d-credit" id="d-credit"></div>
+          <button class="d-fav" id="d-fav" aria-pressed="false">☆ お気に入りにする</button>
+        </div>
+      </div>
+      <div class="diffs" id="diffs"></div>
+      <div class="d-density" id="d-density" title="譜面のどこにノーツが多いか(左が曲の始め)"><canvas></canvas><span id="d-density-txt"></span></div>
+      <div class="best" id="best"></div>
+      <div class="d-stats" id="d-stats"></div>
+      <button id="btn-play" class="btn-play"><span>PLAY</span><small id="play-sub">ENTER</small></button>
+      <button id="btn-practice" class="share-btn" title="区間をくり返したり、ゆっくりにしたりして練習できます">🎯 練習モード(区間・ゆっくり)</button>
+      <button id="btn-auto" class="share-btn" title="お手本として全部 PERFECT で自動プレイします。記録・ランキングには残りません">🤖 オートプレイ(お手本を見る)</button>
+      <button id="btn-share" class="share-btn" title="この曲のURLをコピー/共有">🔗 この曲のURLを共有</button>
+      <button id="btn-embed" class="share-btn" title="ブログやサイトに貼れる埋め込みコードをコピー">⧉ 埋め込みコード</button>
+      <div class="team-fx-mini" id="team-fx-mini"></div>
+      <div class="ranking">
+        <div class="rank-head"><h3>ONLINE RANKING</h3><span class="seg rank-tabs" id="rank-tabs"><button type="button" data-rmode="all">みんな</button><button type="button" data-rmode="friend">フレンド</button></span><button id="btn-replays" class="mini" title="上位の人や自分のプレイを見る">▶ リプレイ</button><button id="btn-rank-reload" class="mini" title="更新">↻</button></div>
+        <ol id="rank-list" class="rank-list"></ol>
+      </div>
+    </div>
+  </div>
+  <div class="foot-hint">↑↓ 曲を選ぶ ・ ←→ 難易度 ・ Enter プレイ ・ ゲーム中 Esc で一時停止</div>
+  <input type="file" id="file-input" accept="audio/*,.mp3,.wav,.ogg,.m4a,.flac" hidden>
+  <div id="drop-veil" class="drop-veil">音声ファイルをドロップして譜面を生成</div>
+</section>
+
+<!-- リザルト -->
+<section id="result" class="screen">
+  <div class="result-panel hud">
+    <div class="panel-label"><span>RESULT</span><span id="r-stamp"></span></div>
+    <div class="r-song"><span id="r-title"></span><span id="r-diff" class="r-diff"></span></div>
+    <div class="r-banner" id="r-banner"></div>
+    <div class="r-main">
+      <img class="r-jacket" id="r-jacket" alt="">
+      <div class="r-rank" id="r-rank">S</div>
+      <div class="r-scorebox">
+        <div class="r-new" id="r-new">NEW RECORD</div>
+        <div class="r-score" id="r-score">0000000</div>
+        <div class="r-badges" id="r-badges"></div>
+        <div class="r-acc">ACCURACY <b id="r-acc"></b> ・ MAX COMBO <b id="r-combo"></b></div>
+      </div>
+    </div>
+    <div class="r-team" id="r-team"></div>
+    <div class="r-offset" id="r-offset" hidden></div>
+    <div class="r-counts" id="r-counts"></div>
+    <div class="r-graph-wrap"><canvas class="r-graph" id="r-graph" height="120"></canvas><p class="r-graph-note muted small" id="r-graph-note"></p></div>
+    <div class="r-online r-daily" id="r-daily" hidden></div>
+    <div class="r-online r-daily" id="r-weekly" hidden></div>
+    <div class="r-online r-daily" id="r-season" hidden></div>
+    <div class="r-live" id="r-live" hidden></div>
+    <div class="r-reward" id="r-reward"></div>
+    <div class="r-growth" id="r-growth"></div>
+    <div class="r-video" id="r-video" hidden></div>
+    <div class="r-next" id="r-next" hidden></div>
+    <div class="r-online" id="r-online"></div>
+    <div class="r-buttons">
+      <button id="btn-rx" class="btn-line x-btn" title="結果を X(旧 Twitter)に投稿">𝕏 に投稿</button>
+      <button id="btn-rshare" class="btn-line">画像で共有</button>
+      <button id="btn-rreplay" class="btn-line" title="いまのプレイを見返す">▶ リプレイを見る</button>
+      <button id="btn-rexport" class="btn-line" title="いまのプレイを動画ファイル(mp4)にして保存する。縦か横を選べます" hidden>🎞 動画で保存</button>
+      <button id="btn-rrec" class="btn-line" title="もう一度遊んで、ショート動画向けの縦型動画を録画">🎬 縦動画で録る</button>
+      <button id="btn-retry" class="btn-line">RETRY <small>R</small></button>
+      <button id="btn-back" class="btn-glow">選曲へ <small>ENTER</small></button>
+    </div>
+  </div>
+</section>
+
+<!-- クエスト -->
+<section id="quest" class="screen meta">
+  <header class="topbar"><button class="chip" data-back>← 戻る</button><h2 class="meta-title">QUEST</h2><div class="spacer"></div><span class="chip coin-chip"><span class="coin-ico">◎</span><span class="coin-val">-</span></span></header>
+  <div class="meta-body">
+    <div class="q-tabs"><button class="q-tab sel" data-tab="daily">デイリー<span class="q-badge badge-dot" hidden></span></button><button class="q-tab" data-tab="ach">実績</button></div>
+    <ul class="quest-list" id="quest-list"></ul>
+    <p class="muted small" id="q-reset"></p>
+  </div>
+</section>
+
+<!-- ガチャ -->
+<section id="gacha" class="screen meta">
+  <header class="topbar"><button class="chip" data-back>← 戻る</button><h2 class="meta-title">GACHA</h2><div class="spacer"></div><span class="chip coin-chip"><span class="coin-ico">◎</span><span class="coin-val">-</span></span></header>
+  <div class="meta-body">
+    <div class="gacha-tabs" id="gacha-tabs"></div>
+    <div class="gacha-banner" id="gacha-banner">
+      <div class="gb-deco" aria-hidden="true"></div>
+      <div class="gb-period" id="gacha-period" hidden></div>
+      <div class="gb-title" id="gacha-title">SCAN<b>UNIT</b></div>
+      <div class="gb-sub" id="gacha-sub">点群の奥から新しいユニットを呼び出す</div>
+      <div class="gb-pickup" id="gacha-pickup" hidden></div>
+      <div class="gb-rates" id="gacha-rates">★4 2% ・ ★3 8% ・ ★2 30% ・ ★1 60%<br>10連は★2以上1体確定 ・ 100回で★4確定</div>
+      <div class="gb-pity" id="gacha-pity"></div>
+      <div class="gb-buttons">
+        <button id="btn-gacha-1" class="btn-line">1回 <span class="coin-ico">◎</span>100</button>
+        <button id="btn-gacha-10" class="btn-glow">10連 <span class="coin-ico">◎</span>900</button>
+      </div>
+      <p class="muted small">同じキャラが出るとLvアップ(最大Lv5、以降はコインに変換)</p>
+    </div>
+    <div class="gacha-lineup-head"><h3>ラインナップ</h3><span id="gacha-collect" class="muted"></span></div>
+    <div class="gacha-lineup" id="gacha-lineup"></div>
+  </div>
+  <div id="gacha-result" class="gacha-result"></div>
+</section>
+
+<!-- 編成 -->
+<section id="team" class="screen meta">
+  <header class="topbar"><button class="chip" data-back>← 戻る</button><h2 class="meta-title">TEAM</h2><div class="spacer"></div><span class="chip coin-chip"><span class="coin-ico">◎</span><span class="coin-val">-</span></span></header>
+  <div class="meta-body">
+    <div class="team-guide">
+      <b>使い方</b> 下のキャラを上の枠へ<b>ドラッグ</b>して編成。枠どうしで入れ替え、枠の外へドラッグか <b>×</b> で外せます。
+      <span class="muted">(スマホは長押ししてからドラッグ。タップで「枠を選ぶ → キャラを選ぶ」でもOK)</span>
+    </div>
+    <div class="team-slots" id="team-slots"></div>
+    <p class="team-hint" id="team-hint" hidden></p>
+    <div class="team-fx-grid" id="team-fx-grid"></div>
+    <div class="team-actions">
+      <button id="btn-team-auto" class="btn-line">おまかせ編成</button>
+      <button id="btn-team-clear" class="btn-line">すべて外す</button>
+    </div>
+    <div class="team-units-head"><h3>所持キャラ <span class="muted" id="team-count"></span></h3></div>
+    <div class="list-tools">
+      <input type="search" id="team-search" placeholder="キャラ名で検索" aria-label="キャラを検索" autocomplete="off">
+      <select id="team-sort" aria-label="並び順">
+        <option value="rarity">レア度順</option><option value="power">スキルが強い順</option><option value="lv">Lv順</option>
+        <option value="name">名前順</option><option value="new">図鑑番号順</option>
+      </select>
+    </div>
+    <div class="kind-tabs" id="kind-tabs"></div>
+    <div class="filter-chips" id="team-filters"></div>
+    <div class="team-units" id="team-units"></div>
+    <p class="muted small">ランキングには編成効果なしのスコアが登録されます。編成の効果はリザルトの「編成スコア」とコイン・クエストに反映されます。</p>
+  </div>
+</section>
+
+<!-- 譜面メーカー -->
+<section id="editor" class="screen editor">
+  <header class="topbar ed-top">
+    <button class="chip" id="ed-back">← 戻る</button>
+    <h2 class="meta-title">CHART MAKER</h2>
+    <select id="ed-song" aria-label="曲"></select>
+    <input type="text" id="ed-title" maxlength="40" placeholder="譜面のタイトル" aria-label="譜面のタイトル">
+    <label class="ed-lv">Lv <select id="ed-level" aria-label="レベル"></select><small id="ed-estlv"></small></label>
+    <div class="spacer"></div>
+    <span class="muted small" id="ed-saved"></span>
+    <button class="btn-glow" id="ed-post">投稿</button>
+  </header>
+  <div class="ed-toolbar">
+    <button id="ed-play" class="tb">▶ 再生 <kbd>Space</kbd></button>
+    <button id="ed-rec" class="tb rec">● 録音 <kbd>R</kbd></button>
+    <button id="ed-test" class="tb">▷ テストプレイ <kbd>T</kbd></button>
+    <span class="tb-sep"></span>
+    <div class="tb seg" id="ed-tools"><button data-tool="note" class="sel">ノーツ</button><button data-tool="gimmick">ギミック</button><button data-tool="select" title="ドラッグで範囲を選ぶ (Shift+ドラッグでも)">範囲選択</button></div>
+    <button id="ed-copy" class="tb" title="選んだノーツをコピー (Ctrl+C)">コピー</button>
+    <button id="ed-cut" class="tb" title="選んだノーツを切り取り (Ctrl+X)">切り取り</button>
+    <button id="ed-paste" class="tb" title="判定ラインの位置に貼り付け (Ctrl+V)">貼り付け</button>
+    <button id="ed-seldel" class="tb danger" title="選んだノーツを消す (Delete)">選択を消す</button>
+    <label class="tb">スナップ <select id="ed-snap"><option value="1">4分</option><option value="2">8分</option><option value="3">12分</option><option value="4">16分</option><option value="6">24分</option><option value="8">32分</option></select></label>
+    <label class="tb">ズーム <input type="range" id="ed-zoom" min="80" max="700" value="240"></label>
+    <span class="tb-sep"></span>
+    <label class="tb">自動譜面を読込 <select id="ed-auto"><option value="">選ぶ…</option><option value="easy">EASY</option><option value="normal">NORMAL</option><option value="hard">HARD</option></select></label>
+    <button id="ed-undo" class="tb" title="元に戻す (Ctrl+Z)">↶ 戻す</button>
+    <button id="ed-redo" class="tb" title="やり直す (Ctrl+Y)">↷ やり直す</button>
+    <button id="ed-clear" class="tb danger">全消去</button>
+    <label class="tb" title="録音したノーツの少しのズレを自動で直します">録音の補正 <select id="ed-recfix">
+      <option value="music">曲の音に合わせる</option><option value="grid">拍(スナップ)に合わせる</option><option value="off">補正しない</option></select></label>
+    <span class="tb rec-bias" id="ed-bias" title="あなたの押すタイミングのクセ。録音のたびに学習して自動で差し引きます">クセ ±0ms</span>
+    <button id="ed-bias-reset" class="tb" title="学習したクセをリセット">↺</button>
+    <button id="ed-fixall" class="tb" title="置いてあるノーツ全部を、近くの曲の音か拍に合わせ直します">全体を補正</button>
+    <label class="tb"><input type="checkbox" id="ed-guide" checked> ガイド音</label>
+    <button class="tb" id="ed-lyr-btn" hidden title="歌詞の時刻を合わせる(管理者だけ)">🎤 歌詞</button>
+    <label class="tb" id="ed-songname-wrap" hidden>曲名 <input type="text" id="ed-songname" maxlength="80"> <button type="button" class="chip danger" id="ed-audio-del" title="この音声と、それを使う譜面を削除します">音声を削除</button></label>
+    <label class="tb" id="ed-bpm-wrap" hidden>BPM <input type="number" id="ed-bpm" step="0.01" min="40" max="300"> 1拍目の位置(秒) <input type="number" id="ed-offset" step="0.001"></label>
+  </div>
+  <div class="ed-main">
+    <canvas id="ed-canvas"></canvas>
+    <aside class="ed-side">
+      <div class="ed-info" id="ed-info"></div>
+      <section class="ed-lyr" id="ed-lyr" hidden>
+        <h3>🎤 歌詞(管理者)</h3>
+        <p class="muted small">1行 = 画面に一度に出す1かたまり。再生しながら、次の行の歌い始めで <b>Enter</b> を押すと時刻が入ります。右の列の黄色い線をドラッグしても動かせます。行をクリックすると、次に Enter で入れる行になります。</p>
+        <textarea id="ed-lyr-text" rows="5" placeholder="歌詞を貼り付け(1行に1かたまり)"></textarea>
+        <div class="ed-lyr-btns"><button class="chip" id="ed-lyr-apply">文字を反映</button><button class="chip" id="ed-lyr-test">歌詞つきでテスト</button><button class="btn-glow small" id="ed-lyr-save">保存して公開</button></div>
+        <p class="muted small" id="ed-lyr-status"></p>
+        <ol class="ed-lyr-list" id="ed-lyr-list"></ol>
+      </section>
+      <details class="ed-help" open>
+        <summary>使い方</summary>
+        <ul>
+          <li><b>置く</b>: レーンをクリック/タップ。上へドラッグでロングノーツ</li>
+          <li><b>消す</b>: ノーツをもう一度クリック(右クリックでも)</li>
+          <li><b>キーで置く</b>: 止めた状態で D F J K → 今の位置に置く/消す</li>
+          <li><b>録音</b>: R で再生しながら D F J K を叩くと記録(長押しでロング)。少しのズレは「録音の補正」で自動で直り、押すクセ(早め/遅め)も学習して差し引きます</li>
+          <li><b>範囲選択</b>: 「範囲選択」にしてドラッグ(PCは Shift+ドラッグでも)。Ctrl+C でコピー、Ctrl+X で切り取り、Delete で消す、Ctrl+A で全部選ぶ</li>
+          <li><b>貼り付け</b>: 貼りたい位置を判定ライン(水色の線)に合わせて Ctrl+V。コピーは拍の単位で覚えるので、別の曲にも貼れます</li>
+          <li><b>全体を補正</b>: 置いたノーツをまとめて曲の音・拍に合わせ直す</li>
+          <li><b>移動</b>: ホイール / 左の小節番号をドラッグ / 下のバー / ↑↓ PageUp/Down</li>
+          <li><b>ギミック</b>: 右の紫の列をクリック → 停止・変速・隠し</li>
+          <li><b>テスト</b>: T で今の位置の少し前から試せる</li>
+          <li>作業は自動で下書き保存。内蔵曲の譜面は「投稿」でみんなに公開(ログインが必要)</li>
+        </ul>
+      </details>
+    </aside>
+  </div>
+  <input type="range" id="ed-pos" class="ed-pos" min="0" max="1000" value="0" aria-label="再生位置">
+  <div id="ed-gpop" class="ed-gpop" hidden>
+    <div class="gp-title" id="gp-title"></div>
+    <label class="gp-row">種類 <select id="gp-type"><option value="stop">停止</option><option value="speed">変速</option><option value="cover">隠し</option><option value="hidden">消える</option><option value="sway">揺れる</option><optgroup label="画面が動く(光の点滅の注意が出ます)"><option value="shift">移動</option><option value="judge">判定ライン移動</option><option value="flip">上下反転</option><option value="spin">回転</option><option value="shake">画面揺れ</option><option value="flash">フラッシュ</option><option value="strobe">点滅</option></optgroup></select></label>
+    <label class="gp-row" id="gp-dur-row"><span id="gp-dur-label">長さ(拍)</span> <input type="number" id="gp-dur" min="0" max="64" step="0.25" value="1"></label>
+    <label class="gp-row" id="gp-to-row"><span id="gp-to-label">値</span> <input type="number" id="gp-to" step="0.05" value="0.5"></label>
+    <p class="muted small" id="gp-help"></p>
+    <div class="gp-actions"><button id="gp-del" class="btn-line">削除</button><button id="gp-cancel" class="btn-line">閉じる</button><button id="gp-ok" class="btn-glow">決定</button></div>
+  </div>
+</section>
+
+<!-- みんなの譜面 -->
+<!-- みんなでライブ -->
+<section id="live" class="screen meta">
+  <header class="topbar"><button class="chip" id="live-back">← 戻る</button><h2 class="meta-title">みんなでライブ</h2><div class="spacer"></div></header>
+  <div class="meta-body">
+    <div id="live-lobby">
+      <div class="live-intro hud">
+        <div class="panel-label"><span>MULTI LIVE</span><span>MAX 8</span></div>
+        <h3>みんなで同じ曲を同時にプレイ</h3>
+        <p class="muted small">プレイ中はみんなのコンボがリアルタイムで見えます。最後は<b>編成の効果込みのスコア</b>で順位が決まります。ブラウザどうしで直接つながるので、ルームを作った人がページを閉じると解散します。</p>
+        <div class="live-actions">
+          <button class="btn-glow" id="live-create">＋ ルームを作る <small>(曲はルームの中で選べます)</small></button>
+          <form id="live-join-form" class="live-join"><input type="text" id="live-code" maxlength="5" placeholder="ルームコード" autocomplete="off" aria-label="ルームコード"><button class="btn-line" type="submit">参加</button></form>
+        </div>
+      </div>
+      <h3 class="live-h">公開中のルーム <button class="mini" id="live-reload" title="一覧を更新">↻</button></h3>
+      <ul class="live-rooms" id="live-rooms"><li class="empty">読み込み中…</li></ul>
+      <h3 class="live-h">遊び方</h3>
+      <ul class="live-rooms live-howto">
+        <li class="empty">1. だれか1人が「ルームを作る」→ 出てきた5文字のルームコードを友だちに送る</li>
+        <li class="empty">2. ほかの人は「公開中のルーム」から選ぶか、ルームコードを入れて「参加」</li>
+        <li class="empty">3. ホストが曲を選んで「ライブ スタート!」。全員同時に曲が始まります</li>
+      </ul>
+    </div>
+    <div id="live-roombox" class="live-roombox" hidden>
+      <div class="live-pick song-col" id="live-pick">
+        <div class="list-tools">
+          <input type="search" id="live-search" placeholder="曲名・ジャンルで検索" aria-label="曲を検索" autocomplete="off">
+          <select id="live-sort" aria-label="並び順">
+            <option value="default">標準の順</option>
+            <option value="level">レベル順(自分の難易度)</option>
+            <option value="level-desc">レベル高い順</option>
+            <option value="bpm">BPM遅い順</option>
+            <option value="bpm-desc">BPM速い順</option>
+            <option value="name">名前順</option>
+          </select>
+        </div>
+        <div class="filter-chips" id="live-filters"></div>
+        <div class="song-list" id="live-list"></div>
+      </div>
+      <div class="live-room-main hud">
+        <div class="panel-label"><span>ROOM</span><span>CODE <b id="live-room-code"></b> <button class="mini" id="live-copy" title="コードをコピー">⧉</button> <button class="mini" id="live-link" title="招待リンクをコピー(開くだけで入れる)">🔗 招待リンク</button> <button class="mini" id="live-x" title="X で募集する">𝕏</button></span></div>
+        <div class="lr-song">
+          <img id="live-jacket" alt="">
+          <div><div class="d-genre" id="live-genre"></div><h3 id="live-title"></h3>
+            <p class="lr-pickmsg" id="live-pickmsg"></p></div>
+        </div>
+        <div class="diffs" id="live-diffs"></div>
+        <button class="btn-play" id="live-start" hidden>ライブ スタート!</button>
+        <p class="live-msg" id="live-msg"></p>
+        <button class="btn-line live-leave" id="live-leave">ルームを抜ける</button>
+      </div>
+      <div class="live-room-side hud">
+        <div class="panel-label"><span>MEMBERS</span><span id="live-count"></span></div>
+        <ul class="live-members" id="live-members"></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="charts" class="screen meta">
+  <header class="topbar"><button class="chip" data-back>← 戻る</button><h2 class="meta-title">みんなの譜面</h2><div class="spacer"></div><button class="btn-glow" id="charts-new">＋ 譜面を作る</button></header>
+  <div class="meta-body">
+    <div class="list-tools">
+      <input type="search" id="charts-q" placeholder="タイトル・作者で検索" aria-label="譜面を検索" autocomplete="off">
+      <select id="charts-song" aria-label="曲"></select>
+      <select id="charts-sort" aria-label="並び順"><option value="new">新着順</option><option value="popular">プレイ数順</option><option value="likes">いいね順</option><option value="mine">自分の譜面</option></select>
+    </div>
+    <section class="chart-featured" id="chart-featured" hidden><h3>★ 今週のおすすめ譜面</h3><ul class="chart-list" id="chart-featured-list"></ul></section>
+    <ul class="chart-list" id="chart-list"></ul>
+  </div>
+</section>
+
+<!-- 一時停止 -->
+<div id="pause" class="overlay">
+  <div class="pause-box">
+    <h2>PAUSE</h2>
+    <button id="btn-resume" class="btn-glow">再開 <small>ESC</small></button>
+    <button id="btn-p-retry" class="btn-line">リトライ</button>
+    <button id="btn-p-quit" class="btn-line">選曲へ</button>
+  </div>
+</div>
+
+<!-- 読み込み -->
+<div id="loading" class="overlay loading-screen">
+  <div class="ld-card hud">
+    <div class="panel-label"><span>NOW LOADING</span><span id="ld-pct"></span></div>
+    <div class="ld-body">
+      <img id="ld-jacket" class="ld-jacket" alt="">
+      <div class="ld-info">
+        <div class="ld-genre" id="ld-genre"></div>
+        <div class="ld-title" id="ld-title"></div>
+        <div class="ld-diff" id="ld-diff"></div>
+      </div>
+    </div>
+    <div class="ld-bar" id="ld-bar"><i id="ld-fill"></i></div>
+    <p class="ld-status" id="loading-text">NOW LOADING</p>
+    <div class="ld-tips"><b>TIPS</b><p id="ld-tip"></p></div>
+  </div>
+</div>
+
+<!-- 設定 -->
+<div id="settings" class="overlay modal">
+  <div class="modal-box">
+    <h2>SETTINGS</h2>
+    <label class="row"><span>言語 / Language</span><select id="s-lang"><option value="auto">自動(ブラウザに合わせる)</option><option value="ja">日本語</option><option value="en">English</option><option value="ko">한국어</option><option value="zh-Hans">简体中文</option><option value="zh-Hant">繁體中文</option></select></label>
+    <label class="row"><span>演出の強さ</span><input type="range" id="s-fx" min="0" max="2" step="1"><output id="o-fx"></output></label>
+    <label class="row check"><span>叩いた時に上へ伸びる光</span><input type="checkbox" id="s-beam"><output id="o-beam"></output></label>
+    <label class="row" title="ノーツの厚みと幅を変えます"><span>ノーツの大きさ</span><select id="s-notesize"><option value="small">小さめ</option><option value="normal">ふつう</option><option value="large">大きめ</option></select></label>
+    <label class="row" title="「色覚に配慮」は、外側を青・内側をオレンジにして、赤と緑の見分けに頼らない配色にします(着せ替えより優先)"><span>ノーツの色</span><select id="s-palette"><option value="skin">着せ替えの色</option><option value="cvd">色覚に配慮(青・オレンジ)</option></select></label>
+    <label class="row" title="プレイ中の背景(MV・光の粒)を暗くして、ノーツを見やすくします"><span>背景の暗さ</span><input type="range" id="s-dim" min="0" max="80" step="5"><output id="o-dim"></output></label>
+    <label class="row check" title="歌詞のある曲で、プレイ中の画面の上に歌詞を表示します"><span>歌詞を表示</span><input type="checkbox" id="s-lyrics"></label>
+    <label class="row check" title="プレイ中の背景にMV(曲に合わせた映像)を流します。MVマークの曲は特製MV、ほかの内蔵曲はジャンルに合わせた映像"><span>MV(背景の映像)</span><input type="checkbox" id="s-mv"><output id="o-mv"></output></label>
+    <label class="row check" title="ギミック曲の、画面のフラッシュ・点滅・揺れを出さないようにします(回転や上下反転はそのまま)"><span>光の点滅・画面の揺れを減らす</span><input type="checkbox" id="s-calm"></label>
+    <label class="row check" title="スマホ・タブレットで、2つのレーンの境目を押すと両方のレーンを押したことになります(1本の指で同時押しを取れます)"><span>境目タップで2レーン押す(タッチ)</span><input type="checkbox" id="s-edgetap"></label>
+    <label class="row check" title="スマホ・タブレットで、曲を始めると全画面・横向きにします(リザルトから選曲に戻ると元に戻ります)。横向きに固定できない端末(iPhone など)では、端末を横にすると横画面で遊べます"><span>プレイ中は横画面にする(スマホ)</span><input type="checkbox" id="s-landscape"></label>
+    <label class="row"><span>ハイスピード</span><input type="range" id="s-hs" min="1" max="12" step="0.1"><output id="o-hs"></output></label>
+    <label class="row"><span>BGM 音量</span><input type="range" id="s-bgm" min="0" max="1" step="0.01"><output id="o-bgm"></output></label>
+    <label class="row"><span>タップ音 音量</span><input type="range" id="s-se" min="0" max="1" step="0.01"><output id="o-se"></output></label>
+    <label class="row"><span>レーン幅</span><input type="range" id="s-lane" min="60" max="170" step="1"><output id="o-lane"></output></label>
+    <label class="row"><span>判定ライン位置</span><input type="range" id="s-judge" min="0.66" max="0.94" step="0.01"><output id="o-judge"></output></label>
+    <label class="row"><span>レーン配置</span><select id="s-laneopt"><option value="normal">通常</option><option value="mirror">MIRROR(左右反転)</option><option value="random">RANDOM(毎回入れ替え)</option></select></label>
+    <label class="row"><span>見え方</span><select id="s-vis"><option value="none">通常</option><option value="hidden">HIDDEN(手前で消える)</option><option value="sudden">SUDDEN(奥が隠れる)</option></select></label>
+    <label class="row" title="配信・録画向け: スコアとコンボを大きく、みんなでライブの参加コードを画面に出します。グリーンバックは背景を緑にして配信ソフトで抜けるようにします"><span>配信者モード</span><select id="s-stream"><option value="">オフ</option><option value="on">オン</option><option value="green">オン(グリーンバック)</option></select></label>
+    <label class="row" title="プレイ中に、同じ時点のスコアとの差を表示します。ライバル・1位はランキングに記録した人のプレイと比べます"><span>ゴースト(スコアの差を表示)</span><select id="s-ghost"><option value="self">自己ベスト</option><option value="rival">すぐ上のライバル</option><option value="top">ランキング1位</option><option value="off">なし</option></select></label>
+    <label class="row"><span>判定タイミング</span><input type="range" id="s-offset" min="-150" max="150" step="1"><output id="o-offset"></output></label>
+    <div class="row calib-row"><span class="muted small">叩くのが遅めならプラス。音に合わせて叩くだけで測れます</span><button class="btn-line small" id="btn-calib" type="button">自動で合わせる</button></div>
+    <div class="kc-wrap" id="kc-wrap">
+      <div class="kc-head"><span>キー配置</span><select id="s-keypreset" aria-label="キー配置のプリセット"></select><button type="button" class="btn-line small" id="btn-keys-reset">初期値</button></div>
+      <div class="kc-grid" id="s-keys"></div>
+      <p class="muted small" id="s-keys-help"></p>
+    </div>
+    <p class="muted small pad-help" id="pad-help">ゲームパッド: ←/LB=D ・ ↓↑/LT=F ・ X A/RT=J ・ B Y/RB=K ・ START=一時停止(メニューは十字キーとA/B)</p>
+    <label class="row"><span>ゲスト名</span><input type="text" id="s-name" maxlength="16" placeholder="未ログイン時のランキング名"></label>
+    <div class="preview-wrap"><canvas id="s-preview" width="320" height="180"></canvas></div>
+    <div class="modal-actions"><button id="btn-s-reset" class="btn-line">初期値に戻す</button><button id="btn-s-close" class="btn-glow">閉じる</button></div>
+  </div>
+</div>
+
+<!-- プレイヤーページ・殿堂 -->
+<div id="pf-modal" class="overlay modal"><div class="modal-box pf-box hud" id="pf-box"></div></div>
+<!-- ログインボーナス -->
+<div id="lb-modal" class="overlay modal"><div class="modal-box lb-box hud" id="lb-box"></div></div>
+<!-- ランダムマッチ -->
+<div id="match-modal" class="overlay modal"><div class="modal-box match-box hud">
+  <div class="panel-label"><span>RANDOM MATCH</span><span>1 vs 1</span></div>
+  <div class="match-radar" aria-hidden="true"><i></i><i></i><i></i></div>
+  <h2 id="match-title">対戦相手をさがしています…</h2>
+  <p class="muted small" id="match-sub"></p>
+  <div class="modal-actions"><button type="button" class="btn-line" id="match-cancel">やめる</button></div>
+</div></div>
+
+<!-- チュートリアル -->
+<div id="tut-offer" class="overlay modal">
+  <div class="modal-box tut-box hud">
+    <div class="panel-label"><span>TUTORIAL</span><span>約1分</span></div>
+    <h2>はじめてですか?</h2>
+    <p>ゆっくりの練習曲で、遊び方をひとつずつ覚えられます。</p>
+    <ol class="tut-steps"><li>光る線に重なったら押す</li><li>流れてくる順に押す</li><li>同時押し</li><li>ロングノーツ(押しっぱなし)</li><li>判定とコンボ</li></ol>
+    <div class="modal-actions"><button type="button" id="btn-tut-skip" class="btn-line">あとで</button><button type="button" class="btn-glow" data-tutorial>チュートリアルを始める</button></div>
+    <p class="muted small">ホーム右上の「チュートリアル」からいつでもできます</p>
+  </div>
+</div>
+<div id="tut-done" class="overlay modal">
+  <div class="modal-box tut-box hud">
+    <div class="panel-label"><span>TUTORIAL CLEAR</span><span>✓</span></div>
+    <h2>チュートリアル完了!</h2>
+    <p class="tut-result" id="tut-result"></p>
+    <p>これで準備OK。まずは「ひとりでライブ」で EASY の曲から遊んでみよう。ログインするとコインがもらえて、ガチャや「みんなでライブ」も遊べます。</p>
+    <div class="modal-actions"><button type="button" class="btn-line" data-tutorial>もう一度</button><button type="button" id="btn-tut-home" class="btn-line">ホームへ</button><button type="button" id="btn-tut-play" class="btn-glow">曲を選んで遊ぶ</button></div>
+  </div>
+</div>
+
+<!-- 埋め込みコード -->
+<div id="embed-modal" class="overlay modal">
+  <div class="modal-box embed-box hud">
+    <div class="panel-label"><span>EMBED</span><span>ブログ・サイトに貼る</span></div>
+    <h2>埋め込みコード</h2>
+    <h3>カード(軽い・おすすめ)</h3>
+    <p class="muted small">曲のジャケットとレベルが出る小さなカード。押すとこの曲のページが開きます。記事のじゃまになりません。</p>
+    <iframe id="em-preview" class="em-preview" title="カードの見本" loading="lazy"></iframe>
+    <div class="em-row"><textarea id="em-card" readonly rows="3"></textarea><button class="btn-glow small" data-em="em-card">コピー</button></div>
+    <h3>ゲームまるごと</h3>
+    <p class="muted small">ページの中でそのまま遊べます(重め)。</p>
+    <div class="em-row"><textarea id="em-full" readonly rows="3"></textarea><button class="btn-line small" data-em="em-full">コピー</button></div>
+    <div class="modal-actions"><button class="btn-line" data-em-close>閉じる</button></div>
+  </div>
+</div>
+
+<!-- 視聴者投票 -->
+<div id="poll" class="overlay modal"><div class="modal-box poll-box hud" id="poll-box"></div></div>
+<div class="poll-mini" id="poll-mini" hidden></div>
+
+<!-- 更新履歴 -->
+<div id="changelog" class="overlay modal">
+  <div class="modal-box changelog-box hud">
+    <div class="panel-label"><span>UPDATE LOG</span><span id="cl-current"></span></div>
+    <h2>更新履歴</h2>
+    <ol class="cl-list" id="cl-list"></ol>
+    <div class="modal-actions"><button type="button" id="btn-cl-close" class="btn-glow">閉じる</button></div>
+  </div>
+</div>
+
+<!-- お問い合わせ(リクエスト箱) -->
+<div id="rq-modal" class="overlay modal">
+  <div class="modal-box rq-box hud">
+    <div class="panel-label"><span>REQUEST</span><span>お問い合わせ</span></div>
+    <h2>リクエスト・お問い合わせ</h2>
+    <p class="muted small">追加してほしい機能・曲、改善してほしい所、不具合などを気軽に送ってください。全部読んでいます。返信や対応状況は、この画面の下に出ます。</p>
+    <form id="rq-form">
+      <label class="f-row"><span>種類</span><select id="rq-kind"></select></label>
+      <label class="f-row"><span>内容</span><textarea id="rq-body" rows="5" maxlength="1200"></textarea><small class="rq-count" id="rq-count">0 / 1000</small></label>
+      <label class="f-row" id="rq-name-row"><span>名前(任意)</span><input type="text" id="rq-name" maxlength="16" placeholder="空でもOK"></label>
+      <p class="muted small" id="rq-who"></p>
+      <p class="acc-msg" id="rq-msg"></p>
+      <div class="modal-actions"><button type="button" id="btn-rq-close" class="btn-line">閉じる</button><button type="submit" id="rq-send" class="btn-glow">送信</button></div>
+    </form>
+    <h3 class="rq-h" id="rq-mine-h" hidden>送ったリクエスト</h3>
+    <ul class="rq-list" id="rq-mine"></ul>
+  </div>
+</div>
+
+<!-- アカウント -->
+<div id="account-modal" class="overlay modal">
+  <div class="modal-box narrow">
+    <div id="acc-in">
+      <h2>ACCOUNT</h2>
+      <div class="acc-tabs"><button class="acc-tab sel" data-tab="login">ログイン</button><button class="acc-tab" data-tab="register">新規登録</button></div>
+      <form id="acc-form" autocomplete="on">
+        <label class="f-row"><span>プレイヤー名</span><input type="text" id="acc-name" maxlength="16" autocomplete="username" placeholder="ランキングにも表示されます"></label>
+        <label class="f-row"><span>パスワード</span><input type="password" id="acc-pass" maxlength="72" autocomplete="current-password" placeholder="6文字以上"></label>
+        <label class="f-row" id="acc-pass2-row" hidden><span>パスワード(確認)</span><input type="password" id="acc-pass2" maxlength="72" autocomplete="new-password"></label>
+        <p class="muted" id="acc-note"></p>
+        <p class="acc-msg" id="acc-msg"></p>
+        <div class="modal-actions"><button type="button" id="btn-acc-guest" class="btn-line">ゲストで遊ぶ</button><button type="submit" id="acc-submit" class="btn-glow">ログイン</button></div>
+      </form>
+      <p class="muted small">ログインするとコイン・ガチャ・編成・クエストが使え、データはサーバーに保存されて別の端末からも続きを遊べます。</p>
+    </div>
+    <div id="acc-out" hidden>
+      <h2>ACCOUNT</h2>
+      <p class="acc-who" id="acc-who"></p>
+      <p class="muted" id="acc-stats"></p>
+      <div class="modal-actions"><button type="button" id="btn-acc-logout" class="btn-line">ログアウト</button><button type="button" id="btn-acc-close" class="btn-glow">閉じる</button></div>
+    </div>
+  </div>
+</div>
+
+<button id="btn-pause-game" class="btn-pause-game" aria-label="一時停止">❚❚</button>
+<div class="rec-badge" id="rec-badge" aria-live="polite">● REC 動画を書き出し中<small>このタブを開いたままにしてください ・ Esc で中止</small></div>
+<div id="wipe" class="wipe" aria-hidden="true"></div>
+<div id="toast" class="toast"></div>
+<script type="module" src="js/main.js?v=20261124162257"></script>
+<div class="stream-code" id="stream-code" hidden></div>
+<a class="embed-full" id="embed-full" href="./" target="_blank" rel="noopener">MUSIC LiDAR をフルで遊ぶ ↗</a>
+</body>
+</html>

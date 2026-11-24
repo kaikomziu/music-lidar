@@ -48,6 +48,11 @@ python -m http.server 8765
 - 「Crying Red」 音楽: 御箸ねくらぁ。([YouTube](https://youtu.be/PWKgh4ZqHTg))。ゲームで使ってよい BGM。音源は `tools/encrypt_audio.mjs` で AES-GCM 暗号化した `audio/crying-red.bin` を置き、ゲーム内で復号して再生する。「きくだけ」モードには入れない
 - 「暮らし泳ぐ」 音楽: [ナツメダ ユキ](https://piapro.jp/YukiNatsumeda)(歌: 音街ウナ)。音源は AES-GCM 暗号化した `audio/kurashi-oyogu.bin`。歌詞はサーバー(`mlidar_lyrics`)に置き、管理者が譜面メーカーで時刻を合わせる。「きくだけ」モードには入れない
 - 「飛行白書」 音楽: [ナツメダ ユキ](https://piapro.jp/YukiNatsumeda)(歌: 音街ウナ)。音源は AES-GCM 暗号化した `audio/hikou-hakusho.bin`。歌詞はまだなし。「きくだけ」モードには入れない
+- 「時間旅行」 音楽: [ナツメダ ユキ](https://piapro.jp/YukiNatsumeda)(歌: 音街ウナ)。音源は AES-GCM 暗号化した `audio/jikan-ryokou.bin`。歌詞はまだなし。「きくだけ」モードには入れない
+- 「日々の映画」 音楽: [ナツメダ ユキ](https://piapro.jp/YukiNatsumeda)(歌: 音街ウナ)。音源は AES-GCM 暗号化した `audio/hibi-no-eiga.bin`。歌詞はまだなし。「きくだけ」モードには入れない
+- 「動きだす他人」 音楽: [ナツメダ ユキ](https://piapro.jp/YukiNatsumeda)(歌: 音街ウナ)。音源は AES-GCM 暗号化した `audio/ugokidasu-tanin.bin`。歌詞はまだなし。「きくだけ」モードには入れない
+- 「標めいた、」 音楽: [ナツメダ ユキ](https://piapro.jp/YukiNatsumeda)(歌: 音街ウナ)。音源は AES-GCM 暗号化した `audio/shirube-meita.bin`。歌詞はまだなし。「きくだけ」モードには入れない
+- 「うつせみ」 音楽: [ナツメダ ユキ](https://piapro.jp/YukiNatsumeda)。音源は AES-GCM 暗号化した `audio/utsusemi.bin`。歌詞はまだなし。「きくだけ」モードには入れない
 - 「僕たちの旅とエピローグ。」 音楽: ああああ(Long ver.。アルバム「セーブデータとほうき星」)。作者さんのガイドライン(ゲームでの非商用利用は許諾なしで可)。音源は MP3 192kbps を AES-GCM 暗号化した `audio/bokutachi-epilogue.bin`。収益化のときは作者さんへ連絡が必要。「きくだけ」モードには入れない
 - 「A new world with form」 音楽: Patençial公式。作者さんの許可を得て使用し、ゲーム実況・配信の収益化もクレジット必須でOKです。元の MP3 は AES-GCM 暗号化した `audio/a-new-world-with-form.bin` として保存(平文の音源は置かない)。配信条件は [`streaming.html`](streaming.html#songs)
 - 「しう」「ホワイトハッピー」「ニャン」 音楽: [MARETU](https://www.youtube.com/@MARETUch)。作者さんの許可を得て使用し、ゲーム実況・配信の収益化もクレジット(「音楽：MARETU」)必須でOKです。m4a を mp3 にしてから AES-GCM 暗号化した `audio/maretu-*.bin` として保存(平文の音源は置かない)。「きくだけ」モードには入れない

@@ -1441,6 +1441,8 @@ window.addEventListener('keydown', (ev) => {
       if (ev.repeat) return;
       const set = laneDown[lane];
       if (!game.pressed[lane]) set.clear(); // 一時停止などで離した通知を取りこぼしていても、ここで元に戻す
+      // 押したままになっているのに、押しているキーも指もない(離した通知を取りこぼした)ときは、離してから押し直す
+      else if (!set.size && ![...touchLane.values()].some((ls) => ls.includes(lane))) game.release(lane, ev.timeStamp);
       set.add(ev.code);
       game.press(lane, ev.timeStamp, set.size > 1);
       return;
@@ -1534,7 +1536,11 @@ canvas.addEventListener('touchstart', (ev) => {
   for (const t of ev.changedTouches) {
     const ls = lanesOfTouch(t);
     touchLane.set(t.identifier, ls);
-    for (const l of ls) game.press(l, ev.timeStamp);
+    for (const l of ls) {
+      // 離した通知を取りこぼしてレーンが押したままになっていたら(ほかの指もキーも押していないのに)、ここで離してから押し直す
+      if (game.pressed[l] && !heldByOthers(l, t.identifier) && !laneDown[l].size) game.release(l, ev.timeStamp);
+      game.press(l, ev.timeStamp);
+    }
   }
 }, { passive: false });
 const touchEnd = (ev) => {

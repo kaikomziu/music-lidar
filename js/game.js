@@ -492,7 +492,10 @@ export class Game {
     // 「移動」「揺れる」でレーンが横へずれている間は、4レーンがずれても画面に収まる幅まで細くする
     // (スマホなど画面が狭いと、ずれた端のレーンが画面の外に出てタッチできなくなるため。広い画面では変わらない)
     const sx = this.swayMax || 0;
-    const laneW = Math.min(this.settings.laneW, (W - 24) / (4 + 2 * sx));
+    // スマホ・タブレットは左右の端を 32px ずつあける(画面の端からのスワイプは「戻る」の操作として OS やブラウザに取られ、
+    // 端のレーンが押せない・固まることがあるため。1.88.4〜)。PC は今までどおり 12px ずつ
+    const edge = IS_TOUCH ? 64 : 24;
+    const laneW = Math.min(this.settings.laneW, (W - edge) / (4 + 2 * sx));
     const topY = H * 0.06;
     const r = Z_J / Z_FAR;
     const hz = (topY - J * r) / (1 - r);

@@ -2,6 +2,12 @@
 // 大きな機能追加 = 2つ目の数字を上げる / 不具合修正や小さな改善 = 3つ目の数字を上げる
 export const CHANGELOG = [
   {
+    version: '1.88.2', date: '2026-11-24',
+    notes: [
+      'Patençial公式の「Crown Of The Spire」(BGM・BPM 72・1 / 3 / 5 / EX 7 / INF 9)を追加しました',
+    ],
+  },
+  {
     version: '1.88.1', date: '2026-11-24',
     notes: [
       'ナツメダ ユキさんの「雷と蜃気楼」(BPM 90・2 / 4 / 6 / EX 9 / INF 10)を追加しました',

@@ -2,7 +2,7 @@
 // 音楽: ナツメダ ユキ「スノウスカイライン」(歌: 音街ウナ)。https://piapro.jp/YukiNatsumeda
 // 作者さんの許可を得て使用(2026-11-24)。音源は tools/encrypt_audio.mjs で AES-GCM 暗号化した .bin で置き、ゲーム内(js/external-audio.js)で復号して鳴らす。平文の音源は置かない。
 // 「きくだけ」モードには入れない(player.js はクレジットのある曲を入れない)。歌詞はまだ入れていない。
-// 歌あり(snow-skyline)と off vocal(snow-skyline-off)は長さも時刻も同じなので、譜面は同じ snow-skyline.data.js を使う(歌ありの音から作った)。ランキングは別
+// 譜面の音は、作者さんの off vocal 版(歌ありと長さも時刻も同じ)から取った。off vocal 版の音源は置かない
 // 譜面: chart.py で EASY、varied.py(区切りの表 tools/audiochart/sections/snow-skyline.txt)で NORMAL〜INFERNO
 import data from './snow-skyline.data.js';
 

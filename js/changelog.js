@@ -2,6 +2,12 @@
 // 大きな機能追加 = 2つ目の数字を上げる / 不具合修正や小さな改善 = 3つ目の数字を上げる
 export const CHANGELOG = [
   {
+    version: '1.89.0', date: '2026-11-24',
+    notes: [
+      '御箸ねくらぁ。さんの劇用BGM 10曲(blue rain・blue fire (前半)・blue fire (後半)・myslee・no hand・anti natalism・special life・hand・last narration・curtain call)を追加しました。どれも EASY〜INFERNO の5つの難易度で遊べます',
+    ],
+  },
+  {
     version: '1.88.4', date: '2026-11-24',
     notes: [
       'スマホで、いちばん左のレーンが押せなくなる・押したまま固まることがある不具合を直しました。レーンを画面の左右の端から少し離し(端からのスワイプがスマホの「戻る」操作に取られないように)、押したままになったレーンは次に押したときに元に戻るようにしました',

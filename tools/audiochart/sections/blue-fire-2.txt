@@ -1,0 +1,6 @@
+# blue fire 後半 (BPM 110・1小節 2.18秒)
+# 秒 区切り名(intro/A/B/chorus/interlude/break/outro)。小節ごとの音量・左右の広がり・高音・低音の変わり目から決めた(耳では確かめていない)
+0.0 A   # 前半より大きく左右が広い
+8.8 B
+17.5 chorus
+26.2 outro

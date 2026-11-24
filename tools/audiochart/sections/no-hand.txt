@@ -1,0 +1,7 @@
+# no hand (BPM 75・1小節 3.2秒)
+# 秒 区切り名(intro/A/B/chorus/interlude/break/outro)。小節ごとの音量・左右の広がり・高音・低音の変わり目から決めた(耳では確かめていない)
+0.1 intro   # とても小さい
+19.3 A   # 左右が広がる
+38.5 chorus   # 高音が入る
+57.7 chorus
+76.9 outro

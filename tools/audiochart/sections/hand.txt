@@ -1,0 +1,5 @@
+# hand (BPM 92.3・1小節 2.6秒)
+# 秒 区切り名(intro/A/B/chorus/interlude/break/outro)。小節ごとの音量・左右の広がり・高音・低音の変わり目から決めた(耳では確かめていない)
+0.0 intro
+10.4 chorus   # 低音・高音が増える
+20.8 outro

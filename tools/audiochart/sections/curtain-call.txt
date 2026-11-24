@@ -1,0 +1,12 @@
+# curtain call (BPM 125・1小節 1.92秒)
+# 秒 区切り名(intro/A/B/chorus/interlude/break/outro)。小節ごとの音量・左右の広がり・高音・低音の変わり目から決めた(耳では確かめていない)
+0.0 intro
+15.4 A
+30.8 B
+46.1 chorus
+61.5 A
+76.8 chorus
+92.2 break   # 小さく、真ん中に寄る
+107.6 B
+122.9 chorus
+153.6 outro

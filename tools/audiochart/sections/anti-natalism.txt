@@ -1,0 +1,8 @@
+# anti natalism (BPM 90・1小節 2.67秒)
+# 秒 区切り名(intro/A/B/chorus/interlude/break/outro)。小節ごとの音量・左右の広がり・高音・低音の変わり目から決めた(耳では確かめていない)
+0.0 intro   # とても小さい
+10.7 A
+21.4 B   # 高音が入る
+42.7 chorus   # 大きく、低音が増える
+64.0 chorus
+85.4 outro

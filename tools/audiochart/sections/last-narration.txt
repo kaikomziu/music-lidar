@@ -1,0 +1,7 @@
+# last narration (BPM 92.5・1小節 2.6秒)
+# 秒 区切り名(intro/A/B/chorus/interlude/break/outro)。小節ごとの音量・左右の広がり・高音・低音の変わり目から決めた(耳では確かめていない)
+0.0 intro
+10.4 A
+20.8 break   # 小さくなる
+31.2 chorus   # 低音が増える
+41.5 outro

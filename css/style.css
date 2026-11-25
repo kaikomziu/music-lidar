@@ -1981,3 +1981,6 @@ body.touch .r-buttons small { display: none; } /* スマホではキーの案内
   .title-taskbar .tb-apps a { padding: 0 10px; }
   #title .title-frame { bottom: 54px; }
 }
+/* タイトル: ボタン類はロゴのすぐ下にくっつける(2026-11-25〜) */
+#title .title-inner { margin: 0 auto 0 0; padding-top: 28px; }
+@media (max-width: 760px) { #title .title-inner { padding-top: 22px; } }

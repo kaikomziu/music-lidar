@@ -43,6 +43,7 @@ import { initPoll, syncPollButton } from './poll.js';
 import { initExtras, renderDaily, dailyResult, drawJudgeGraph, setShareResult, courseFromUrl, playDaily } from './extras.js';
 import { initSocial, renderNext, postX, resultText, ghostFor, uploadGhost, SITE } from './social.js';
 import { arm as armRecord, startRecording, stopRecording, saveVideo, recordSupported, mp4Supported } from './recorder.js';
+import { initHomeHero } from './home-hero.js';
 
 const APP_ROOT_URL = new URL('../', import.meta.url);
 
@@ -1745,6 +1746,7 @@ $('btn-tut-home').addEventListener('click', () => overlay('tut-done', false));
 $('btn-tut-play').addEventListener('click', () => { overlay('tut-done', false); goHome(true); goSelect(); });
 for (const b of document.querySelectorAll('[data-home]')) b.addEventListener('click', () => goHome());
 $('h-dock-login').addEventListener('click', () => openAccount());
+initHomeHero({ isHome: () => state === 'home' && !$('home-main').hidden }); // ホームの大きい枠を数秒ごとに切り替える
 initEvent({ songs: SONGS.filter((d) => d.event === 'xmas' && eventActive('xmas')) });
 initSeason({
   entries, esc, toast, jacketURL, rankRows,

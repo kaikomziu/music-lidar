@@ -2076,3 +2076,55 @@ body.intro #title .title-inner, body.intro #title .title-taskbar, body.intro #ti
 }
 @media (min-width: 761px) and (max-width: 1100px) { #title .title-taskbar .tb-apps a { padding: 0 10px; font-size: 13px; } }
 @media (max-width: 760px) { #title .title-discord { margin-top: 14px; } }
+/* タイトル: タスクバーをおしゃれに(2026-11-25〜)
+   画面の下に浮かぶガラスの帯(角を切った HUD 風)・アイコン付きのリンク・下に光る目印・時計と日付 */
+#title .title-taskbar { left: 16px; right: 16px; bottom: calc(12px + env(safe-area-inset-bottom)); height: 56px; padding: 0 10px; gap: 4px; box-sizing: border-box;
+  background: linear-gradient(180deg, rgba(18, 26, 62, 0.72), rgba(6, 10, 28, 0.86)); border: 1px solid rgba(94, 242, 255, 0.22); border-top-color: rgba(94, 242, 255, 0.45);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px); overflow: hidden; }
+/* 上の縁を光が左から右へ流れる */
+#title .title-taskbar::before { content: ''; position: absolute; left: 0; top: 0; width: 30%; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(94, 242, 255, 0.95), rgba(255, 79, 216, 0.8), transparent); animation: tbGlint 6s ease-in-out infinite 1s; }
+@keyframes tbGlint { 0% { transform: translateX(-100%); } 60%, 100% { transform: translateX(440%); } }
+/* 左: ロゴのマーク(4本のレーン) */
+#title .title-taskbar .tb-start { height: 40px; padding: 0 14px 0 8px; gap: 10px; margin-right: 6px; border-radius: 0; border-right: 1px solid rgba(140, 170, 230, 0.18); font-size: 13px; }
+#title .title-taskbar .tb-mark { display: inline-flex; align-items: flex-end; gap: 2px; width: 22px; height: 18px; background: none; border: 0; opacity: 1; }
+#title .title-taskbar .tb-mark b { flex: 1; border-radius: 1px; background: linear-gradient(180deg, #5ef2ff, #ff4fd8); box-shadow: 0 0 6px rgba(94, 242, 255, 0.7); animation: tbEq 1.2s ease-in-out infinite; }
+#title .title-taskbar .tb-mark b:nth-child(1) { height: 55%; animation-delay: -0.2s; }
+#title .title-taskbar .tb-mark b:nth-child(2) { height: 100%; animation-delay: -0.6s; }
+#title .title-taskbar .tb-mark b:nth-child(3) { height: 70%; animation-delay: -0.4s; }
+#title .title-taskbar .tb-mark b:nth-child(4) { height: 85%; animation-delay: -0.9s; }
+@keyframes tbEq { 50% { transform: scaleY(0.45); } }
+#title .title-taskbar .tb-mark b { transform-origin: bottom; }
+/* まん中: アイコン付きのリンク。乗せると明るくなり、下の目印が伸びる */
+#title .title-taskbar .tb-apps { gap: 2px; }
+#title .title-taskbar .tb-apps a { position: relative; gap: 8px; height: 42px; padding: 0 14px; border: 0; border-radius: 0; font-size: 13.5px; color: rgba(214, 226, 255, 0.82);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); transition: background 0.2s, color 0.2s; }
+#title .title-taskbar .tb-apps a svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; color: rgba(94, 242, 255, 0.75); transition: color 0.2s, filter 0.2s, transform 0.2s; }
+#title .title-taskbar .tb-apps a::after { content: ''; position: absolute; left: 50%; bottom: 4px; width: 6px; height: 2px; margin-left: -3px; border-radius: 2px; background: rgba(94, 242, 255, 0.35); transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), margin 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s; }
+#title .title-taskbar .tb-apps a:hover, #title .title-taskbar .tb-apps a:focus-visible { color: #fff; background: linear-gradient(180deg, rgba(94, 242, 255, 0.16), rgba(94, 242, 255, 0.04)); border: 0; outline: none; }
+#title .title-taskbar .tb-apps a:hover svg, #title .title-taskbar .tb-apps a:focus-visible svg { color: #9ffbff; filter: drop-shadow(0 0 6px rgba(94, 242, 255, 0.9)); transform: translateY(-1px); }
+#title .title-taskbar .tb-apps a:hover::after, #title .title-taskbar .tb-apps a:focus-visible::after { width: 24px; margin-left: -12px; background: linear-gradient(90deg, #5ef2ff, #ff4fd8); box-shadow: 0 0 8px rgba(94, 242, 255, 0.8); }
+/* 右: バージョン(小さな札)と時計・日付(2段) */
+#title .title-taskbar .tb-tray { gap: 14px; padding: 0 6px 0 14px; border-left: 1px solid rgba(140, 170, 230, 0.18); }
+#title .title-taskbar .title-ver { padding: 2px 7px; border: 1px solid rgba(140, 170, 230, 0.3); color: rgba(170, 190, 235, 0.75); font-size: 10px; letter-spacing: 0.08em; }
+#title .title-taskbar .tb-clock { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; min-width: 0; }
+#title .title-taskbar .tb-clock b { font-family: var(--font-d); font-size: 15px; font-weight: 700; color: #eef4ff; letter-spacing: 0.06em; }
+#title .title-taskbar .tb-clock small { font-size: 10px; color: rgba(170, 190, 235, 0.7); letter-spacing: 0.04em; }
+/* 浮かせたぶん、下の飾りと角の枠を上げる */
+#title .title-frame { bottom: 80px; }
+#title .tele.br { bottom: 82px; }
+#title .tele.bl { bottom: 112px; }
+@media (min-width: 761px) and (max-width: 1100px) { #title .title-taskbar .tb-apps a { padding: 0 9px; gap: 6px; font-size: 12.5px; } #title .title-taskbar .title-ver { display: none; } }
+@media (max-width: 760px) {
+  #title .title-taskbar { left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); height: 54px; padding: 0 6px; }
+  #title .title-taskbar .tb-apps a { flex-direction: column; justify-content: center; gap: 3px; height: 46px; padding: 0 10px; font-size: 10px; }
+  #title .title-taskbar .tb-apps a svg { width: 18px; height: 18px; }
+  #title .title-taskbar .tb-apps a::after { bottom: 1px; }
+  #title .title-taskbar .tb-tray { padding-left: 8px; }
+  #title .title-taskbar .tb-clock small { display: none; }
+  #title .title-frame { bottom: 70px; }
+}
+@media (prefers-reduced-motion: reduce) { #title .title-taskbar::before, #title .title-taskbar .tb-mark b { animation: none; } }
+@media (min-width: 761px) and (max-width: 1380px) { #title .title-taskbar .tb-start > span { display: none; } #title .title-taskbar .tb-start { padding-right: 10px; } }

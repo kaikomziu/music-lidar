@@ -446,11 +446,12 @@ $('ver-label').textContent = 'v' + VERSION;
 $('title-ver').textContent = 'v' + VERSION;
 // タイトルのタスクバーの時計(PC のタスクバー風)。タイトル画面を出している間だけ更新する
 {
-  const clock = $('title-clock');
+  const clock = $('title-clock'), date = $('title-date');
   const tick = () => {
     if ($('title').classList.contains('active')) {
       const d = new Date();
       clock.textContent = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+      date.textContent = `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
     }
   };
   tick();

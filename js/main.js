@@ -628,6 +628,9 @@ function visibleSongs() {
 }
 
 function renderFilters() {
+  // 「絞り込み」ボタンに、いくつ絞り込んでいるかを出す(グリッドの選曲画面。2026-11-25〜)
+  const n = (songView.lv !== 'all') + (songView.status !== 'all');
+  $('bf-n').textContent = n; $('bf-n').hidden = !n;
   const chip = (group, [v, label]) => `<button class="f-chip ${songView[group] === v ? 'sel' : ''}" data-g="${group}" data-v="${v}">${label}</button>`;
   $('song-filters').innerHTML =
     `<span class="f-label"${diff === 'extra' ? ' title="EXTRA のない曲は HARD のレベルで絞り込み・並べ替えます"' : diff === 'inferno' ? ' title="INFERNO のない曲は EXTRA(なければ HARD)のレベルで絞り込み・並べ替えます"' : ''}>${diff.toUpperCase()}</span>${LV_FILTERS.map((f) => chip('lv', f)).join('')}<span class="f-sep"></span>${STATUS_FILTERS.filter(([v]) => v !== 'local' || entries.some((e) => e.local)).map((f) => chip('status', f)).join('')}`;
@@ -656,7 +659,7 @@ function renderList() {
     const lv = diffsOf(e).map((d) => { // EXTRA は紫・INFERNO はオレンジで後ろに出す
       const best = bestOf(e.id, d);
       const mark = best?.ap ? 'AP' : best?.fc ? 'FC' : '';
-      return `<span class="lv ${d}">${e.levels[d]}${mark ? `<span class="mark">${mark}</span>` : ''}</span>`;
+      return `<span class="lv ${d}${d === dOf(e) ? ' cur' : ''}">${e.levels[d]}${mark ? `<span class="mark">${mark}</span>` : ''}</span>`;
     }).join('');
     b.innerHTML = `${jacketImg(e, 128, 'sc-jacket')}<div class="sc-text"><div class="sc-title">${hotSet.has(e.id) ? '<span class="hot-tag" title="今週の人気曲">🔥</span>' : ''}${e.event ? '<span class="ev-tag">期間限定</span>' : ''}${esc(e.title)}</div><div class="sc-sub">${esc(e.genre)} ・ BPM ${Math.round(e.bpm)}${e.local ? ' ・ LOCAL' : ''}${mvTag(e.id)}</div></div><div class="sc-lv">${lv}</div>`;
     b.querySelector('.sc-text').prepend(favMark(e));
@@ -703,6 +706,12 @@ function setDiff(d) {
 }
 
 $('song-search').addEventListener('input', () => { songView.q = $('song-search').value; renderList(); });
+// 「絞り込み」で絞り込みのボタン(難易度のレベル・お気に入り・未プレイ…)を出し入れする
+$('btn-filter').addEventListener('click', () => {
+  const open = !$('song-filters').classList.contains('open');
+  $('song-filters').classList.toggle('open', open);
+  $('btn-filter').setAttribute('aria-expanded', String(open));
+});
 $('song-sort').value = songView.sort;
 $('song-sort').addEventListener('change', () => { songView.sort = $('song-sort').value; save('songSort', songView.sort); renderList(); });
 $('d-fav').addEventListener('click', () => toggleFav(entries[sel]));

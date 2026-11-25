@@ -2323,3 +2323,69 @@ body.intro #title .title-inner, body.intro #title .title-taskbar, body.intro #ti
   #home .h-dock .h-ico svg { width: 22px; height: 22px; }
   #home .h-dock .h-label span { font-size: 10.5px; }
 }
+
+/* ==========================================================================
+   選曲画面: 案4「ジャケットのグリッド + 右の引き出し」(2026-11-25〜)
+   曲カード(.song-card)の中身はそのままで、見た目だけジャケットのタイルにする。
+   レベルは今の難易度のもの(.lv.cur)だけを角に出す
+   ========================================================================== */
+#select .select-body { grid-template-columns: minmax(0, 1fr) minmax(340px, 420px); gap: 22px; }
+/* 検索・絞り込み・並び順 */
+#select .list-tools { gap: 8px; }
+#select .list-tools input[type=search] { border-radius: 0; clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px); }
+#select .list-tools select { border-radius: 0; }
+#select .btn-filter { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 9px 14px; border: 1px solid var(--panel-line); background: rgba(0, 0, 0, 0.45); color: var(--text); font-size: 13px; }
+#select .btn-filter svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
+#select .btn-filter[aria-expanded="true"], #select .btn-filter:hover { border-color: var(--accent); color: var(--accent); }
+#select .bf-n { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: #05071a; font-size: 11px; line-height: 18px; text-align: center; }
+#select .filter-chips { display: none; padding: 10px 12px; border: 1px solid var(--panel-line); background: rgba(6, 10, 28, 0.9); }
+#select .filter-chips.open { display: flex; animation: fadeUp 0.3s var(--ease-out) both; }
+/* 曲の一覧: ジャケットのタイル */
+#select .song-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); align-content: start; gap: 14px; padding: 6px 10px 24px 4px; }
+#select .song-card { display: block; max-width: none; aspect-ratio: 1; padding: 0; border: 0; border-radius: 0; overflow: hidden; background: #0a0f26; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08); }
+#select .song-card .sc-jacket { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 0; box-shadow: none; transition: transform 0.5s var(--ease-out), filter 0.3s var(--ease-out); }
+#select .song-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 45%, rgba(2, 3, 10, 0.88)); pointer-events: none; }
+#select .song-card .sc-title { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9); }
+#select .song-card .sc-sub { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(200, 215, 255, 0.75); }
+#select .song-card .sc-text { position: static; padding: 0; }
+#select .song-card .sc-title, #select .song-card .sc-sub { position: absolute; left: 10px; right: 10px; z-index: 1; }
+#select .song-card .sc-title { bottom: 22px; } #select .song-card .sc-sub { bottom: 8px; }
+#select .song-card .sc-fav { position: absolute; left: 6px; top: 5px; z-index: 2; float: none; margin: 0; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9); } /* 左上に ☆ */
+#select .song-card .sc-lv { position: absolute; right: 7px; top: 7px; z-index: 1; display: flex; }
+#select .song-card .sc-lv .lv { display: none; width: auto; min-width: 26px; height: 24px; padding: 0 6px; border-radius: 0; background: rgba(2, 3, 10, 0.75); font-size: 12px; }
+#select .song-card .sc-lv .lv.cur { display: grid; }
+#select .song-card .lv .mark { top: auto; bottom: -8px; right: -4px; }
+#select .song-card:hover:not(.sel) { background: #0a0f26; transform: translateY(-3px); box-shadow: 0 0 0 1px rgba(160, 180, 255, 0.4), 0 10px 24px rgba(0, 0, 0, 0.4); }
+#select .song-card:hover .sc-jacket { transform: scale(1.05); }
+#select .song-card.sel { transform: none; background: #0a0f26; box-shadow: 0 0 0 2px var(--c), 0 0 26px color-mix(in srgb, var(--c) 55%, transparent); }
+#select .song-card.sel .sc-jacket { box-shadow: none; }
+#select .song-card.upload { aspect-ratio: 1; display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 14px; border: 1px dashed var(--panel-line); background: rgba(6, 10, 28, 0.6); box-shadow: none; text-align: center; }
+#select .song-card.upload::after { display: none; }
+#select .song-card.upload .sc-title { white-space: normal; font-size: 13px; }
+#select .song-card.upload .sc-sub { white-space: normal; font-size: 10px; }
+#select .list-empty { grid-column: 1 / -1; }
+/* 右の引き出し: 大きいジャケット → 曲名 → 難易度 → PLAY → 小さいボタン */
+@media (min-width: 761px) {
+  #select .detail { border-radius: 0; padding: 22px; background: rgba(6, 10, 28, 0.92); border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+    clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px); }
+  #select .d-head { flex-direction: column; align-items: stretch; gap: 14px; }
+  #select .d-jacket { width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; }
+  #select .d-title { font-size: 26px; }
+}
+@media (max-width: 760px) {
+  #select .song-list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 4px 2px 10px; }
+  #select .song-card .sc-title { font-size: 11.5px; bottom: 18px; left: 6px; right: 6px; }
+  #select .song-card .sc-sub { display: none; }
+  #select .song-card .sc-title { bottom: 6px; }
+  #select .song-card .sc-lv .lv { min-width: 22px; height: 20px; font-size: 10.5px; }
+}
+#select .song-list { grid-auto-rows: max-content; } /* overflow: hidden のタイルは行の高さが 0 になるので、中身の高さで行を作る */
+#select .song-card .sc-fav { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: rgba(2, 3, 10, 0.7); color: rgba(220, 230, 255, 0.85); font-size: 14px; padding: 0; }
+#select .song-card .sc-fav.on { color: #ffd25e; }
+/* 右の引き出しの小さいボタン(練習・オート・共有・埋め込み)は 2×2 */
+#select .d-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 12px; }
+#select .d-tools .share-btn { display: flex; align-items: center; justify-content: center; width: auto; margin: 0; padding: 8px 6px; border-style: solid; border-radius: 0; font-size: 11.5px; line-height: 1.3; }
+@media (max-width: 760px) {
+  #select .detail > .d-tools { display: none; }
+  #select .detail.open > .d-tools { display: grid; }
+}

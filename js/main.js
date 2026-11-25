@@ -1746,6 +1746,7 @@ $('btn-tut-home').addEventListener('click', () => overlay('tut-done', false));
 $('btn-tut-play').addEventListener('click', () => { overlay('tut-done', false); goHome(true); goSelect(); });
 for (const b of document.querySelectorAll('[data-home]')) b.addEventListener('click', () => goHome());
 $('h-dock-login').addEventListener('click', () => openAccount());
+$('h-dock-live').addEventListener('click', () => $('h-live').click()); // ドックの「ライブ」= 大きい LIVE と同じ
 initHomeHero({ isHome: () => state === 'home' && !$('home-main').hidden }); // ホームの大きい枠を数秒ごとに切り替える
 initEvent({ songs: SONGS.filter((d) => d.event === 'xmas' && eventActive('xmas')) });
 initSeason({

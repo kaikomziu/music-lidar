@@ -2313,3 +2313,13 @@ body.intro #title .title-inner, body.intro #title .title-taskbar, body.intro #ti
   :where(.quest-list, .rank-list, .chart-list, .dan-list, .live-rooms, .pl-list, .live-members) > *, #home-live:not([hidden]) .hl-card { animation: none; }
   :where(.hl-card, .song-card, .live-room, .chart-card, .dan-card, .q-item, .gr-card):hover { transform: none; }
 }
+/* ドックの先頭の「ライブ」(2026-11-25〜) */
+#home .h-dock #h-dock-live { order: 0; --tc: #5ef2ff; }
+#home .h-dock #h-dock-live .h-ico svg { fill: color-mix(in srgb, var(--tc) 30%, transparent); }
+.screen.active #h-dock #h-dock-live { animation-delay: 0.12s; }
+@media (max-width: 860px) {
+  #home .h-dock { grid-template-columns: repeat(5, 1fr); }
+  #home .h-dock .h-ico { width: 44px; height: 44px; }
+  #home .h-dock .h-ico svg { width: 22px; height: 22px; }
+  #home .h-dock .h-label span { font-size: 10.5px; }
+}

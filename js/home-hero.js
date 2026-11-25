@@ -19,7 +19,8 @@ const SLIDES = [
 export function initHomeHero({ isHome }) {
   const hero = $('h-hero'), bars = $('h-hero-bars'), dock = $('h-dock');
   if (!hero || !bars || !dock) return;
-  const slides = [{ el: $('h-live'), tile: null }];
+  // LIVE のスライドは、ドックの先頭の「ライブ」(#h-dock-live)を光らせる
+  const slides = [{ el: $('h-live'), tile: $('h-dock-live'), live: true }];
   for (const s of SLIDES) {
     const tile = dock.querySelector(s.sel);
     if (!tile) continue;
@@ -42,7 +43,7 @@ export function initHomeHero({ isHome }) {
 
   let cur = 0, timer = 0, paused = false;
   function fill(s) {
-    if (!s.tile) return;
+    if (!s.tile || s.live) return;
     // 説明文やログインの状態は JS が書き換えるので、見せるたびに写す
     s.el.querySelector('p').textContent = s.tile.querySelector('p')?.textContent || '';
     s.el.classList.toggle('locked', s.tile.classList.contains('locked'));

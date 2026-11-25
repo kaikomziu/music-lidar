@@ -2469,3 +2469,72 @@ body.intro #title .title-inner, body.intro #title .title-taskbar, body.intro #ti
   .r3 #btn-retry, .r3 #btn-back { margin: 0; min-width: 0; min-height: 50px; order: 10; }
   .r3 #btn-back { grid-column: span 4; }
 }
+
+/* ==========================================================================
+   LIVE のモード選択(2026-11-25〜・見本4): 左にメニュー、右に選んでいるモードのカードだけを大きく
+   ========================================================================== */
+#home-live .hl-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(260px, 380px) minmax(0, 1fr); gap: 28px; }
+.hl-menu { display: flex; flex-direction: column; gap: 4px; min-height: 0; overflow-y: auto; }
+.hl-mi { --tc: #5ef2ff; display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 6px 18px 6px 12px; text-align: left; color: rgba(210, 225, 255, 0.62);
+  background: none; border: 0; border-left: 3px solid transparent; border-radius: 0; transition: background 0.3s var(--ease-out), color 0.2s, border-color 0.2s, padding 0.3s var(--ease-out); }
+.hl-mi:hover, .hl-mi:focus-visible { color: var(--text); background: color-mix(in srgb, var(--tc) 7%, transparent); outline: none; }
+.hl-mi.on { color: #fff; border-left-color: var(--tc); padding-left: 18px; background: linear-gradient(90deg, color-mix(in srgb, var(--tc) 22%, transparent), transparent); }
+.hl-mi-t { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.hl-mi-t b { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hl-mi.on .hl-mi-t b { font-size: 18px; }
+.hl-mi-t small { font-size: 11px; color: var(--tc); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hl-mi-t small:empty { display: none; }
+.hl-mi em { font: 700 12px var(--font-d); font-style: normal; color: rgba(200, 215, 255, 0.45); }
+.hl-mi.on em { color: var(--tc); }
+.hl-mi.locked .hl-mi-t b::after { content: ' 🔒'; font-size: 12px; }
+body.touch .hl-mi em { display: none; }
+/* メニューの小さいアイコン: カードのアイコンをそのまま縮める */
+#home-live #hl-menu .hl-mini { all: unset; display: block; position: relative; width: 44px; height: 40px; flex: none; }
+#home-live #hl-menu .hl-mini::before { display: none; }
+#home-live #hl-menu .hl-mini .hl-ico { top: 50%; left: 50%; right: auto; transform: translate(-50%, -50%) scale(0.42); transform-origin: center; }
+/* 右: 選んでいるカードだけを出す */
+#home-live .hl-cards { display: block; min-height: 0; position: relative; }
+#home-live .hl-card { display: none; width: 100%; height: 100%; min-height: 420px; padding: clamp(28px, 4.5vw, 56px); justify-content: flex-start; gap: 14px; border-radius: 0;
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px); background: linear-gradient(160deg, color-mix(in srgb, var(--tc) 13%, transparent), rgba(8, 13, 34, 0.85) 55%); }
+#home-live .hl-card.cur { display: flex; }
+#home-live .hl-card:hover, #home-live .hl-card:focus-visible { transform: none; }
+#home-live .hl-card small { font-size: 12px; }
+#home-live .hl-card > b { font-size: clamp(30px, 3.8vw, 52px); margin-bottom: 4px; max-width: calc(100% - 110px); }
+#home-live .hl-card p { font-size: 16px; line-height: 1.8; max-width: 28em; }
+#home-live .hl-card .hl-ico { top: clamp(28px, 4.5vw, 56px); right: clamp(28px, 4.5vw, 56px); transform: scale(2.2); transform-origin: top right; }
+#home-live .hl-card .h-go { display: flex; align-items: center; justify-content: center; position: absolute; left: clamp(28px, 4.5vw, 56px); right: auto; bottom: clamp(28px, 4.5vw, 56px);
+  width: min(300px, calc(100% - 56px)); height: 62px; font: 800 19px var(--font-d); letter-spacing: 0.3em; color: #fff; opacity: 1; animation: none;
+  border: 1px solid color-mix(in srgb, var(--tc) 80%, transparent); background: linear-gradient(180deg, color-mix(in srgb, var(--tc) 30%, transparent), color-mix(in srgb, var(--tc) 8%, transparent));
+  box-shadow: 0 0 28px color-mix(in srgb, var(--tc) 30%, transparent); transition: box-shadow 0.3s var(--ease-out), background 0.3s; }
+#home-live .hl-card:hover .h-go { box-shadow: 0 0 40px color-mix(in srgb, var(--tc) 55%, transparent); }
+/* 今日の1曲・スコアアタックは曲の情報を大きめに */
+#home-live .daily-info { margin-top: 10px; }
+#home-live .daily-info img { width: 96px; height: 96px; border-radius: 0; }
+#home-live .daily-info b { font-size: 24px !important; }
+#home-live .daily-info small { font-size: 14px !important; }
+#home-live .wk-diffs { gap: 10px; margin-top: 14px; }
+#home-live .wk-d { padding: 12px 20px; font-size: 15px; border-radius: 0; }
+#home-live .wk-d b { font-size: 16px !important; }
+/* スマホ: 上に選んでいるカード、下にメニューを2列で */
+@media (max-width: 760px) {
+  #home-live .hl-body { grid-template-columns: 1fr; gap: 14px; }
+  #home-live .hl-cards { order: -1; }
+  #home-live .hl-card { min-height: 0; height: auto; padding: 22px 22px 96px; }
+  #home-live .hl-card > b { font-size: 28px; max-width: calc(100% - 90px); }
+  #home-live .hl-card p { font-size: 13px; }
+  #home-live .hl-card .hl-ico { top: 22px; right: 22px; transform: scale(1.1); }
+  #home-live .hl-card .h-go { left: 22px; right: 22px; bottom: 22px; width: auto; height: 54px; font-size: 16px; }
+  #home-live .hl-card.weekly { padding-bottom: 22px; }
+  #home-live .daily-info img { width: 64px; height: 64px; }
+  #home-live .daily-info b { font-size: 18px !important; }
+  #home-live .daily-info small { font-size: 12px !important; }
+  .hl-menu { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; overflow: visible; }
+  .hl-mi { min-height: 54px; padding: 4px 8px; gap: 8px; border: 1px solid var(--panel-line); border-left-width: 3px; background: rgba(8, 13, 34, 0.6); }
+  .hl-mi.on { padding-left: 8px; }
+  .hl-mi-t b, .hl-mi.on .hl-mi-t b { font-size: 13px; }
+  #home-live #hl-menu .hl-mini { width: 30px; height: 30px; }
+  #home-live #hl-menu .hl-mini .hl-ico { transform: translate(-50%, -50%) scale(0.3); }
+}
+/* 切り替えたらすぐ、すっと出す(一覧のときの順番の遅れは使わない) */
+#home-live:not([hidden]) .hl-cards .hl-card.cur { animation: fadeUp 0.35s var(--ease-out) both; animation-delay: 0s; }
+@media (prefers-reduced-motion: reduce) { #home-live:not([hidden]) .hl-cards .hl-card.cur { animation: none; } }

@@ -1523,6 +1523,7 @@ window.addEventListener('keydown', (ev) => {
       else if (ev.key === '4') { ev.preventDefault(); $('btn-daily').click(); }
       else if (ev.key === '5') { ev.preventDefault(); $('btn-course').click(); }
       else if (ev.key === '6') { ev.preventDefault(); $('btn-match').click(); }
+      else if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') { ev.preventDefault(); liveMenu.move(ev.key === 'ArrowDown' ? 1 : -1); }
       else if (ev.key === 'Enter' && !onBtn) { ev.preventDefault(); goSelect(); }
     } else if (ev.key === 'Enter' && !onBtn) { ev.preventDefault(); homeLive(true); }
     return;
@@ -1707,10 +1708,64 @@ function homeLive(on) {
   $('home-main').hidden = on;
   $('home-live').hidden = !on;
   $('h-live').classList.toggle('open', on);
-  if (on) { renderDaily(); renderWeekly(); }
-  if (on) setTimeout(() => { if (state === 'home') $('btn-solo').focus({ preventScroll: true }); }, 30);
+  if (on) { renderDaily(); renderWeekly(); liveMenu.sync(); liveMenu.pick(0); }
+  if (on) setTimeout(() => { if (state === 'home') liveMenu.focus(0); }, 30);
 }
 const homeLiveOpen = () => !$('home-live').hidden;
+// LIVE のモード選択(2026-11-25〜): 左のメニューで選ぶと、右に そのモードのカードだけを大きく出す。
+// マウスは乗せると選び、押すと始まる。タッチは1回目で選び、もう一度押す(か右の START)で始まる。キーボードは ↑↓ で選んで Enter
+const liveMenu = (() => {
+  const ITEMS = [
+    { card: 'btn-solo', key: '1' }, { card: 'btn-live', key: '2' }, { card: 'btn-match', key: '6' },
+    { card: 'btn-daily', key: '4', sub: () => $('daily-info')?.querySelector('b')?.textContent || '' },
+    { card: 'weekly-card', sub: () => ($('weekly-info')?.querySelector('small')?.textContent || '').split(' ・ ')[0] },
+    { card: 'btn-dan', key: '3' }, { card: 'btn-course', key: '5' }, { card: 'btn-diag' },
+  ];
+  const menu = $('hl-menu');
+  if (!menu) return { pick() {}, sync() {}, focus() {}, move() {} }; // 古いページ(作り直す前の画面ページ)では何もしない
+  let cur = 0;
+  const els = ITEMS.map((it, i) => {
+    const card = $(it.card);
+    const kind = [...card.classList].find((c) => c !== 'hl-card' && c !== 'need-login') || '';
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'hl-mi';
+    b.style.setProperty('--tc', getComputedStyle(card).getPropertyValue('--tc') || '#5ef2ff');
+    // アイコンはカードのものを小さくして使う(形の CSS は .hl-card.<種類> に書いてあるので、同じクラスの入れ物に入れる)
+    b.innerHTML = `<span class="hl-card ${kind} hl-mini" aria-hidden="true">${card.querySelector('.hl-ico')?.outerHTML || ''}</span>
+      <span class="hl-mi-t"><b>${esc(card.querySelector(':scope > b')?.textContent || '')}</b><small></small></span><em>${it.key || ''}</em>`;
+    let selAtDown = null;
+    b.addEventListener('pointerdown', () => { selAtDown = cur === i; });
+    b.addEventListener('mouseenter', () => pick(i));
+    b.addEventListener('focus', () => { if (selAtDown === null) pick(i); });
+    b.addEventListener('click', () => {
+      const was = selAtDown ?? cur === i;
+      selAtDown = null;
+      if (!was) { pick(i); return; }
+      pick(i);
+      if (it.card === 'weekly-card') card.querySelector('.wk-d')?.focus(); // スコアアタックは難易度を選んで始める
+      else card.click();
+    });
+    menu.appendChild(b);
+    card.querySelector('.h-go') && (card.querySelector('.h-go').textContent = 'START ▶');
+    return { b, card };
+  });
+  function pick(i) {
+    cur = (i + els.length) % els.length;
+    els.forEach((e, k) => { e.b.classList.toggle('on', k === cur); e.b.setAttribute('aria-current', k === cur ? 'true' : 'false'); e.card.classList.toggle('cur', k === cur); });
+  }
+  function sync() {
+    // ログインが要るものの 🔒 と、今日の1曲・スコアアタックの小さい文字を写す
+    els.forEach((e, k) => {
+      e.b.classList.toggle('locked', e.card.classList.contains('locked'));
+      e.b.querySelector('small').textContent = ITEMS[k].sub?.() || '';
+    });
+    setTimeout(() => els.forEach((e, k) => { if (ITEMS[k].sub) e.b.querySelector('small').textContent = ITEMS[k].sub(); }), 50);
+  }
+  const focus = (i) => { pick(i); els[cur].b.focus({ preventScroll: true }); };
+  const move = (d) => focus(cur + d);
+  return { pick, sync, focus, move };
+})();
 function renderHome() {
   homeFeatured().catch(() => {}); // CHARTS の札に今週のおすすめ譜面
   const s = acc.getState();

@@ -2251,3 +2251,65 @@ body.intro #title .title-inner, body.intro #title .title-taskbar, body.intro #ti
 }
 @media (prefers-reduced-motion: reduce) { #home .h-hero > .h-slide { transition: none; } #home .h-slide-feature .hs-art i { animation: none; } }
 #home .h-hero { overflow: hidden; } /* 隠れているスライドの右へのずれで横スクロールが出ないように */
+
+/* ==========================================================================
+   全体のイージング(2026-11-25〜): どこを触っても「すっと動いて、すっと止まる」ように
+   :where() で詳しさを 0 にしているので、個別に決めてある動きがあればそちらが勝つ
+   ========================================================================== */
+/* 押せるもの全部: 色・背景・枠・影・位置・透明度をなめらかに変える */
+:where(button, a, input, select, textarea, label, [role="button"], summary) {
+  transition: color 0.22s var(--ease-out), background-color 0.25s var(--ease-out), border-color 0.25s var(--ease-out), box-shadow 0.3s var(--ease-out),
+    opacity 0.25s var(--ease-out), transform 0.28s var(--ease-out), filter 0.25s var(--ease-out);
+}
+/* 入力欄: 選んだときに枠が光る */
+:where(input:not([type="range"]):not([type="checkbox"]):not([type="radio"]), select, textarea):focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+/* チェック・スライダーもなめらかに */
+:where(input[type="checkbox"], input[type="radio"], input[type="range"]) { transition: filter 0.2s var(--ease-out), transform 0.2s var(--ease-spring); }
+:where(input[type="checkbox"], input[type="radio"]):checked { animation: chipSel 0.32s var(--ease-spring); }
+/* カード類: 乗せると少し浮く(ばねで戻る) */
+:where(.hl-card, .song-card:not(.sel), .live-room, .chart-card, .dan-card, .q-item, .gr-card):hover { transform: translateY(-2px); }
+:where(.hl-card, .live-room, .chart-card, .dan-card, .q-item, .gr-card) { transition: transform 0.35s var(--ease-spring), box-shadow 0.3s var(--ease-out), border-color 0.25s var(--ease-out), background-color 0.25s var(--ease-out); }
+
+/* 画面に入ったとき: 中身が少し下から順に出る(前は ease-out。すっと止まる曲線にそろえた) */
+.screen.active .meta-body > *, .screen.active .select-body > * { animation: screenIn 0.5s var(--ease-out) both; }
+.screen.active .home-body > * { animation: screenIn 0.5s var(--ease-out) both; }
+.screen.active .home-body > :nth-child(2) { animation-delay: 0.04s; }
+.screen.active .home-body > :nth-child(3) { animation-delay: 0.08s; }
+.screen.active .home-body > :nth-child(n+4) { animation-delay: 0.12s; }
+.screen.active .home-main > * { animation: screenIn 0.55s var(--ease-out) both; }
+.screen.active .home-main > :nth-child(2) { animation-delay: 0.1s; }
+.screen.active .home-main > :nth-child(n+3) { animation-delay: 0.16s; }
+/* ドックのアイコンは左から順に */
+.screen.active #h-dock .h-tile { animation: dockIn 0.5s var(--ease-spring) both; }
+.screen.active #h-dock #btn-charts { animation-delay: 0.16s; } .screen.active #h-dock #btn-maker { animation-delay: 0.2s; } .screen.active #h-dock #btn-player { animation-delay: 0.24s; }
+.screen.active #h-dock [data-nav="team"] { animation-delay: 0.28s; } .screen.active #h-dock [data-nav="gacha"] { animation-delay: 0.32s; } .screen.active #h-dock [data-nav="quest"] { animation-delay: 0.36s; }
+.screen.active #h-dock #btn-pass { animation-delay: 0.4s; } .screen.active #h-dock .h-discord { animation-delay: 0.44s; }
+@keyframes dockIn { from { opacity: 0; transform: translateY(14px) scale(0.9); } }
+/* 上の帯(topbar)も少し上からふわっと */
+.screen.active > .topbar { animation: topIn 0.45s var(--ease-out) both; }
+@keyframes topIn { from { opacity: 0; transform: translateY(-8px); } }
+/* 一覧: 1行ずつ順に出る(長い一覧でも 0.3 秒で出そろうように、10行目以降はまとめて) */
+:where(.quest-list, .rank-list, .chart-list, .dan-list, .live-rooms, .pl-list, .live-members) > * { animation: fadeUp 0.4s var(--ease-out) both; }
+:where(.quest-list, .rank-list, .chart-list, .dan-list, .live-rooms, .pl-list, .live-members) > :nth-child(2) { animation-delay: 0.03s; }
+:where(.quest-list, .rank-list, .chart-list, .dan-list, .live-rooms, .pl-list, .live-members) > :nth-child(3) { animation-delay: 0.06s; }
+:where(.quest-list, .rank-list, .chart-list, .dan-list, .live-rooms, .pl-list, .live-members) > :nth-child(4) { animation-delay: 0.09s; }
+:where(.quest-list, .rank-list, .chart-list, .dan-list, .live-rooms, .pl-list, .live-members) > :nth-child(5) { animation-delay: 0.12s; }
+:where(.quest-list, .rank-list, .chart-list, .dan-list, .live-rooms, .pl-list, .live-members) > :nth-child(6) { animation-delay: 0.15s; }
+:where(.quest-list, .rank-list, .chart-list, .dan-list, .live-rooms, .pl-list, .live-members) > :nth-child(7) { animation-delay: 0.18s; }
+:where(.quest-list, .rank-list, .chart-list, .dan-list, .live-rooms, .pl-list, .live-members) > :nth-child(8) { animation-delay: 0.21s; }
+:where(.quest-list, .rank-list, .chart-list, .dan-list, .live-rooms, .pl-list, .live-members) > :nth-child(9) { animation-delay: 0.24s; }
+:where(.quest-list, .rank-list, .chart-list, .dan-list, .live-rooms, .pl-list, .live-members) > :nth-child(n+10) { animation-delay: 0.27s; }
+/* LIVE のモード選択のカードも順に */
+#home-live:not([hidden]) .hl-card { animation: fadeUp 0.45s var(--ease-out) both; }
+#home-live:not([hidden]) .hl-card:nth-child(2) { animation-delay: 0.04s; } #home-live:not([hidden]) .hl-card:nth-child(3) { animation-delay: 0.08s; }
+#home-live:not([hidden]) .hl-card:nth-child(4) { animation-delay: 0.12s; } #home-live:not([hidden]) .hl-card:nth-child(5) { animation-delay: 0.16s; }
+#home-live:not([hidden]) .hl-card:nth-child(n+6) { animation-delay: 0.2s; }
+/* 結果画面の箱も、すっと止まる曲線に */
+.result-panel { animation: rise 0.6s var(--ease-out); }
+/* 動きを減らす設定の人には出さない */
+@media (prefers-reduced-motion: reduce) {
+  :where(button, a, input, select, textarea, label, [role="button"], summary) { transition-duration: 0.01s; }
+  .screen.active .home-body > *, .screen.active .home-main > *, .screen.active #h-dock .h-tile, .screen.active > .topbar,
+  :where(.quest-list, .rank-list, .chart-list, .dan-list, .live-rooms, .pl-list, .live-members) > *, #home-live:not([hidden]) .hl-card { animation: none; }
+  :where(.hl-card, .song-card, .live-room, .chart-card, .dan-card, .q-item, .gr-card):hover { transform: none; }
+}

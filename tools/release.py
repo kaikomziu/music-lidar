@@ -57,6 +57,14 @@ preload = ''.join(f'<link rel="modulepreload" href="{m}?v={v}">' for m in sorted
 html, n5 = re.subn(r'<!--PRELOAD-->.*?<!--/PRELOAD-->', lambda m: f'<!--PRELOAD-->{preload}<!--/PRELOAD-->', html, flags=re.S)
 assert n5 == 1, n5
 html_path.write_text(html, encoding='utf-8', newline='\n')
+# 読みもののページ(遊び方・配信ガイドラインなど)の共通 CSS・JS にもバージョンを付ける(まとめページは guide.html から写す)
+for page in ['guide.html', 'streaming.html', 'submit-music.html', 'credits.html', 'music-guidelines.html']:
+    pp = root / page
+    src = pp.read_text(encoding='utf-8')
+    src, a = re.subn(r'href="css/pages\.css(\?v=[^"]*)?"', f'href="css/pages.css?v={v}"', src)
+    src, b = re.subn(r'src="js/page-nav\.js(\?v=[^"]*)?"', f'src="js/page-nav.js?v={v}"', src)
+    assert (a, b) == (1, 1), (page, a, b)
+    pp.write_text(src, encoding='utf-8', newline='\n')
 (root / 'version.json').write_text(json.dumps({'v': v}) + '\n', encoding='utf-8', newline='\n')
 print('version', v, '/', len(js), 'modules')
 

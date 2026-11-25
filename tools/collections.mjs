@@ -92,6 +92,8 @@ export function writeCollections({ root, SITE, songs, esc, today }) {
 .cols a.on { border-color: var(--cyan); background: rgba(94, 242, 255, 0.12); }
 .count { color: var(--muted); font-size: 14px; }
 </style>`);
+  // 読みもののページ共通の見た目と上のナビ(2026-11-25〜)。guide.html の読み込みをそのまま写すので、バージョンもそろう
+  const pageAssets = (guide.match(/<link rel="stylesheet" href="css\/pages\.css[^"]*">\s*<script src="js\/page-nav\.js[^"]*" defer><\/script>/) || [''])[0];
   const avail = songs.filter((s) => s.urlId && !s.event);
   const nav = (cur) => `<ul class="cols">${COLLECTIONS.map((c) => `<li><a href="collections/${c.slug}/"${c.slug === cur ? ' class="on"' : ''}>${esc(c.short)}</a></li>`).join('')}</ul>`;
   const page = ({ title, desc, url, h1, body, ld }) => `<!doctype html>
@@ -115,6 +117,7 @@ export function writeCollections({ root, SITE, songs, esc, today }) {
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 ${ld}
 ${style}
+${pageAssets}
 </head>
 <body>
 <div class="wrap">

@@ -1984,3 +1984,24 @@ body.touch .r-buttons small { display: none; } /* スマホではキーの案内
 /* タイトル: ボタン類はロゴのすぐ下にくっつける(2026-11-25〜) */
 #title .title-inner { margin: 0 auto 0 0; padding-top: 28px; }
 @media (max-width: 760px) { #title .title-inner { padding-top: 22px; } }
+/* タイトルの登場演出(index.html の intro-dots。2026-11-25〜)
+   body.intro の間: ドットだけ見せる → #title.logo-on でロゴが光って出る → #title.intro-done でボタン類がロゴの下から出る */
+#intro-dots { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 101; pointer-events: none; }
+body.intro #boot .bt-logo, body.intro #boot .bt-sub { display: none; }
+body.intro #boot { justify-content: flex-end; padding-bottom: 12vh; }
+#title .title-logo .logo-big b, #title .title-logo .logo-big span, #title .title-logo .logo-rule { animation: none; }
+body.intro #title:not(.logo-on) .title-logo { opacity: 0; }
+#title.logo-on .title-logo .logo-big { animation: logoFlash 0.55s ease-out both; }
+@keyframes logoFlash { 0% { opacity: 0; filter: brightness(3) blur(3px); } 100% { opacity: 1; filter: none; } }
+body.intro #title .title-inner, body.intro #title .title-taskbar, body.intro #title .title-logo .logo-rule, body.intro #title .title-logo .tele.tl { visibility: hidden; }
+#title.intro-done .title-logo .logo-rule, #title.intro-done .title-logo .tele.tl { animation: fadeUp 0.6s ease-out both; }
+#title.intro-done .title-inner > * { animation: fromLogo 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; transform-origin: left top; }
+#title.intro-done .title-inner > :nth-child(3) { animation-delay: 0.07s; }
+#title.intro-done .title-inner > :nth-child(4) { animation-delay: 0.14s; }
+#title.intro-done .title-inner > :nth-child(5) { animation-delay: 0.21s; }
+#title.intro-done .title-inner > :nth-child(6) { animation-delay: 0.28s; }
+#title.intro-done .title-inner > .btn-start { animation: fromLogo 0.7s cubic-bezier(0.16, 1, 0.3, 1) both, breathe2 2.4s ease-in-out infinite 1.2s; }
+@keyframes fromLogo { from { opacity: 0; transform: translateY(-34px) scale(0.96); filter: blur(4px); } }
+#title.intro-done .title-taskbar { animation: tbUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both 0.3s; }
+@keyframes tbUp { from { transform: translateY(100%); } }
+@media (prefers-reduced-motion: reduce) { #title.intro-done .title-inner > *, #title.intro-done .title-taskbar { animation: none; } }

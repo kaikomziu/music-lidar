@@ -2022,3 +2022,57 @@ body.intro #title .title-inner, body.intro #title .title-taskbar, body.intro #ti
 #title .btn-discord b { font-size: 14px; font-weight: 700; }
 @media (max-width: 760px) { #title .btn-quick, #title .btn-discord { padding: 10px 18px 10px 14px; } #title .btn-discord small { font-size: 10px; } }
 #title .btn-quick { display: flex; width: fit-content; }
+/* タイトル: 全体的に大きく(2026-11-25〜) */
+#title .title-logo { padding: 56px 0 0 64px; }
+#title .title-logo .logo-big b { font-size: clamp(72px, 13vw, 176px); }
+#title .title-logo .logo-big span { font-size: clamp(24px, 4.2vw, 50px); }
+#title .title-logo .logo-rule { margin-top: 18px; }
+#title .title-logo .logo-rule em { font-size: 14px; }
+#title .title-logo .logo-rule i { width: 160px; }
+#title .title-logo .tele.tl { font-size: 12px; margin-top: 16px; }
+#title .title-inner { padding-left: 64px; padding-top: 32px; max-width: 760px; }
+#title .btn-start { font-size: 18px; padding: 20px 56px 20px calc(56px + 0.45em); clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px); }
+#title .btn-quick, #title .btn-discord { padding: 14px 32px 14px 22px; gap: 14px; margin-top: 16px; clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px); }
+#title .btn-quick b, #title .btn-discord b { font-size: 17px; }
+#title .btn-quick small, #title .btn-discord small { font-size: 13px; }
+#title .btn-discord svg { width: 30px; height: 30px; }
+#title .keys-hint { margin-top: 30px; gap: 12px; }
+#title .keys-hint kbd { width: 52px; height: 52px; font-size: 18px; }
+#title .title-discord { margin-top: 26px; }
+#title .title-lead { font-size: 15px; margin-top: 24px; }
+#title .title-taskbar { height: 52px; }
+#title .title-taskbar .tb-apps a { height: 40px; padding: 0 14px; font-size: 14px; }
+#title .title-taskbar .tb-start { font-size: 14px; height: 40px; }
+#title .title-taskbar .tb-clock { font-size: 14px; }
+#title .title-frame { bottom: 70px; }
+#title .tele.br { bottom: 70px; }
+#title .tele.bl { bottom: 100px; }
+@media (max-width: 760px) {
+  #title .title-logo { padding: 30px 0 0 22px; }
+  #title .title-logo .logo-big b { font-size: clamp(64px, 21vw, 110px); }
+  #title .title-logo .logo-big span { font-size: clamp(20px, 6.4vw, 34px); }
+  #title .title-logo .logo-rule em { font-size: 11px; }
+  #title .title-logo .logo-rule i { width: 48px; }
+  #title .title-inner { padding: 24px 18px 16px 22px; }
+  #title .btn-start { font-size: 16px; padding: 18px 40px 18px calc(40px + 0.45em); }
+  #title .btn-quick, #title .btn-discord { padding: 12px 22px 12px 16px; margin-top: 14px; }
+  #title .btn-quick b, #title .btn-discord b { font-size: 16px; }
+  #title .btn-quick small, #title .btn-discord small { font-size: 12px; }
+  #title .title-lead { font-size: 14px; }
+  #title .title-taskbar { height: 50px; }
+  #title .title-frame { bottom: 60px; }
+}
+/* 大きくしたぶん、高さが低い画面ではロゴを高さに合わせ、すき間を詰める(下のタスクバーに重ならないように) */
+@media (min-width: 761px) and (max-height: 860px) {
+  #title .title-logo { padding-top: 44px; }
+  #title .title-logo .logo-big b { font-size: clamp(64px, min(13vw, 15vh), 176px); }
+  #title .title-logo .logo-big span { font-size: clamp(22px, min(4.2vw, 4.6vh), 50px); }
+  #title .title-logo .tele.tl { margin-top: 10px; }
+  #title .title-inner { padding-top: 24px; }
+  #title .btn-quick, #title .btn-discord { margin-top: 12px; }
+  #title .keys-hint { margin-top: 18px; }
+  #title .title-discord { margin-top: 16px; }
+  #title .title-lead { margin-top: 14px; }
+}
+@media (min-width: 761px) and (max-width: 1100px) { #title .title-taskbar .tb-apps a { padding: 0 10px; font-size: 13px; } }
+@media (max-width: 760px) { #title .title-discord { margin-top: 14px; } }

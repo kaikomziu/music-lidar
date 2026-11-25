@@ -2389,3 +2389,83 @@ body.intro #title .title-inner, body.intro #title .title-taskbar, body.intro #ti
   #select .detail > .d-tools { display: none; }
   #select .detail.open > .d-tools { display: grid; }
 }
+
+/* ==========================================================================
+   リザルト 3列(2026-11-25〜・見本3)
+   上の帯(曲名・日時) / 左=ジャケットとランク / 真ん中=スコア・判定・グラフ・報酬 / 右=ランキング / 下の帯=ボタン
+   ========================================================================== */
+#result { padding: 0; align-items: stretch; justify-content: stretch; }
+.result-panel.r3 { width: 100%; max-width: none; height: 100%; max-height: none; padding: 0; border: 0; border-radius: 0; overflow: hidden;
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: linear-gradient(180deg, rgba(4, 7, 20, 0.55), rgba(2, 3, 10, 0.75)); }
+.r3 .r-kick { font: 700 11px var(--font-d); letter-spacing: 0.3em; color: var(--accent); }
+.r3 .r-top { display: flex; align-items: center; gap: 18px; padding: 0 32px; min-height: 60px; border-bottom: 1px solid var(--panel-line); background: rgba(4, 7, 20, 0.6); }
+.r3 .r-song { font-size: 18px; min-width: 0; flex-wrap: nowrap; }
+.r3 #r-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-b); }
+.r3 .r-stamp { margin-left: auto; font: 600 12px var(--font-d); color: var(--muted); white-space: nowrap; }
+.r3 .r-cols { display: grid; grid-template-columns: clamp(220px, 23vw, 320px) minmax(0, 1fr) clamp(260px, 27vw, 360px); gap: 32px; padding: 28px 32px; min-height: 0; }
+.r3 .r-col { min-width: 0; min-height: 0; }
+.r3 .r-col-c { overflow-y: auto; padding-right: 4px; }
+/* 左: ジャケットは列いっぱいの正方形、その下にランクと FULL COMBO など */
+.r3 .r-jacket { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; border-radius: 0;
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px); }
+.r3 .r-rankrow { display: flex; align-items: center; gap: 16px; margin-top: 18px; }
+.r3 .r-rank { font-size: clamp(64px, 8vw, 112px); min-width: 0; text-align: left; }
+.r3 .r-banner { margin: 0; padding: 0; background: none; text-align: left; font-size: clamp(14px, 1.5vw, 18px); letter-spacing: 0.25em; line-height: 1.5; }
+.r3 .r-banner.failed { letter-spacing: 0.3em; }
+/* 真ん中: スコアを大きく */
+.r3 .r-new { display: inline-block; font-size: 12px; letter-spacing: 0.2em; color: #05071a; background: #ffd25e; text-shadow: none; padding: 3px 10px; }
+.r3 .r-new.on { animation: none; }
+.r3 .r-new:not(.on), .r3 .r-reward:empty, .r3 .r-growth:empty, .r3 .r-team:empty { display: none; } /* 中身がないものは場所を空けない */
+.r3 .r-score { font-size: clamp(44px, 5.6vw, 76px); margin: 10px 0 6px; text-shadow: 0 0 22px color-mix(in srgb, var(--accent) 45%, transparent); }
+.r3 .r-acc { font-size: 13px; margin-bottom: 18px; }
+.r3 .r-team { margin: -8px 0 14px; }
+.r3 .r-counts { gap: 10px; }
+.r3 .r-counts div { text-align: left; padding: 10px 14px; border-radius: 0; border-left: 3px solid var(--jc, var(--panel-line)); background: rgba(10, 16, 40, 0.6); }
+.r3 .r-counts .fs { border: 0; padding: 0; text-align: left; margin-top: 2px; background: none; }
+.r-graph[hidden] { display: none; } /* 記録がないプレイでは、グラフの場所を空けない */
+.r3 .r-graph-wrap { margin-top: 16px; }
+.r3 .r-reward { margin-top: 14px; }
+/* 右: ランキングの箱 */
+.r3 .r-col-r { display: flex; flex-direction: column; gap: 10px; padding: 18px 20px; border: 1px solid var(--panel-line); background: rgba(8, 13, 34, 0.72);
+  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px); overflow-y: auto; }
+.r3 .r-online { margin-top: 0; }
+.r3 .r-online > p:first-child { font: 600 0/1 var(--font-d); }
+.r3 .r-online > p:first-child .r-myrank { display: block; font-size: 40px; color: #fff; margin: 2px 0 6px; }
+.r3 .r-online > p.r-msg:first-child { font: 400 13px/1.6 var(--font-b); }
+.r3 .r-online .rank-list { max-height: none; font-size: 14px; }
+.r3 .r-next { margin: auto 0 0; }
+/* 下の帯: 共有などは左、RETRY と「選曲へ」は右に大きく */
+.r3 .r-buttons { margin: 0; padding: 18px 32px; justify-content: flex-start; align-items: center; border-top: 1px solid var(--panel-line); background: rgba(4, 7, 20, 0.7); }
+.r3 #btn-retry { margin-left: auto; min-width: 150px; }
+.r3 #btn-back { min-width: 230px; }
+.r3 .r-buttons button { min-height: 50px; }
+/* 出てくる順: 左 → 真ん中 → 右 */
+.result-panel.r3.reveal .r-col-c { animation: fadeUp 0.5s var(--ease-out) both 0.25s; }
+.result-panel.r3.reveal .r-col-r { animation: fadeUp 0.5s var(--ease-out) both 0.45s; }
+/* 少し狭い画面: 右の列を下へ回す */
+@media (max-width: 1100px) {
+  .r3 .r-cols { grid-template-columns: clamp(200px, 26vw, 280px) minmax(0, 1fr); grid-auto-rows: max-content; overflow-y: auto; }
+  .r3 .r-col-c { overflow: visible; }
+  .r3 .r-col-r { grid-column: 1 / -1; overflow: visible; }
+}
+/* スマホ: 全部を1列にして縦に流す。ボタンは下に固定 */
+@media (max-width: 760px) {
+  .r3 .r-top { padding: 0 14px; gap: 10px; min-height: 48px; }
+  .r3 .r-top > .r-kick { display: none; }
+  .r3 .r-song { font-size: 15px; }
+  .r3 .r-stamp { font-size: 10px; }
+  .r3 .r-cols { display: block; padding: 14px; overflow-y: auto; }
+  .r3 .r-col-l { display: flex; align-items: center; gap: 14px; }
+  .r3 .r-jacket { width: 96px; flex: none; }
+  .r3 .r-rankrow { margin: 0; gap: 12px; }
+  .r3 .r-rank { font-size: 72px; }
+  .r3 .r-col-c { margin-top: 12px; padding: 0; }
+  .r3 .r-score { font-size: clamp(38px, 12vw, 54px); }
+  .r3 .r-counts div { padding: 8px 10px; }
+  .r3 .r-col-r { margin-top: 16px; }
+  /* ボタン: 共有などは小さく3つずつ、下の段に RETRY(1/3) と「選曲へ」(2/3) */
+  .r3 .r-buttons { display: grid; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .r3 .r-buttons button { grid-column: span 2; min-height: 40px; font-size: 12px; padding: 6px 4px; }
+  .r3 #btn-retry, .r3 #btn-back { margin: 0; min-width: 0; min-height: 50px; order: 10; }
+  .r3 #btn-back { grid-column: span 4; }
+}

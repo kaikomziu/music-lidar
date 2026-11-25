@@ -1298,7 +1298,7 @@ function onGameEnd(r) {
     : '';
   $('r-reward').innerHTML = '';
   offsetHint(r);
-  $('r-counts').innerHTML = Object.entries(r.counts).map(([k, v]) => `<div><small style="color:${C[k]}">${k}</small><b>${v}</b></div>`).join('') +
+  $('r-counts').innerHTML = Object.entries(r.counts).map(([k, v]) => `<div style="--jc:${C[k]}"><small style="color:${C[k]}">${k}</small><b>${v}</b></div>`).join('') +
     `<div class="fs">FAST ${r.fast} ・ SLOW ${r.slow}</div>`;
   drawJudgeGraph(r, entry.buffer?.duration || entry.duration || 120);
   setShareResult(entry, playing.label, r);

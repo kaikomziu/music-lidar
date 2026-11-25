@@ -1927,3 +1927,24 @@ body.touch .r-buttons small { display: none; } /* スマホではキーの案内
 .pf-dc { border-color: rgba(88,101,242,0.55); }
 .pf-dc h3 { color: #a9b3ff; }
 .pf-code a { text-decoration: none; display: inline-flex; align-items: center; }
+
+/* タイトル: ロゴを左上、スタートまわりはその下で少し下寄せ(2026-11-25〜) */
+#title { flex-direction: column; justify-content: flex-start; align-items: stretch; }
+.title-logo { position: relative; z-index: 1; align-self: flex-start; text-align: left; padding: 52px 0 0 56px; }
+.title-logo .logo-big b { font-size: clamp(56px, 10vw, 120px); }
+.title-logo .logo-big span { letter-spacing: 0.42em; margin-right: 0; font-size: clamp(18px, 3.2vw, 34px); padding-left: 0.12em; }
+.title-logo .logo-rule { justify-content: flex-start; width: auto; margin: 14px 0 0; }
+.title-logo .logo-rule i { flex: none; width: 120px; background: linear-gradient(270deg, transparent, rgba(94, 242, 255, 0.8)); }
+.title-logo .logo-rule em { margin-right: 0; }
+.title-logo .tele.tl { position: static; margin-top: 14px; }
+.title-inner { margin: auto; padding: 8vh 16px 16px; }
+.title-song { margin: 0 0 26px; }
+@media (max-width: 760px) {
+  .title-logo { padding: 28px 0 0 22px; }
+  .title-logo .logo-big b { font-size: clamp(48px, 15vw, 84px); }
+  .title-logo .logo-rule em { font-size: 9px; letter-spacing: 0.4em; }
+  .title-logo .logo-rule i { width: 48px; }
+  .title-inner { padding-top: 4vh; }
+}
+/* 高さが低い画面では、左下の起動ログ(飾り)が下のリンクと重なるので消す */
+@media (max-height: 860px) { .tele.bl { display: none; } }

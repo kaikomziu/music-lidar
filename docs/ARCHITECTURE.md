@@ -77,7 +77,7 @@
    - `initGrowth` / `initMatch` / `initInstall` / `initKeyConfig` / `initDan` / `initExtras` などで各機能を初期化する
    - Service Worker を `ROOT_PATH + 'sw.js'` で登録する(埋め込み時は登録しない)
 5. タイトル画面で Enter(またはタップ)を押すと音が使えるようになる(ブラウザの自動再生の制限のため。テストで音を読ませるときも、本物の操作が要る)
-   - タイトル画面の配置(2026-11-25〜、UI 全体の作り直しの1つ目): ロゴ(`.title-logo` の中の `.logo-big`・`.logo-rule`・ビルド表示 `.tele.tl`)は左上。`#title` は縦並びの flex で、スタートボタンなど(`.title-inner`)は残りの場所の中央より少し下(`padding-top: 8vh`、スマホは 4vh)。CSS は `style.css` の末尾「タイトル: ロゴを左上…」。高さ 860px 以下では左下の起動ログ(`.tele.bl`)を消す(下のリンク行と重なるため)
+   - タイトル画面の配置(2026-11-25〜、UI 全体の作り直しの1つ目): ロゴ(`.title-logo` の中の `.logo-big`・`.logo-rule`・ビルド表示 `.tele.tl`)は左上。`#title` は縦並びの flex で、スタートボタンなど(`.title-inner`)もロゴにそろえて左寄せ、残りの場所の中央より少し下(`padding-top: 8vh`、スマホは 4vh)。CSS は `style.css` の末尾「タイトル: ロゴを左上…」「ボタン類もロゴにそろえて左寄せ」。起動ログ(`.tele.bl`)は左のボタン類と重ならないよう右下(緯度経度の上)に置く
 
 ### 画面とURL
 - 画面は `index.html` の `.screen` 要素で、`show(name)` が `.active` を切り替える。今の画面は `state`

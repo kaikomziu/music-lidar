@@ -1946,5 +1946,13 @@ body.touch .r-buttons small { display: none; } /* スマホではキーの案内
   .title-logo .logo-rule i { width: 48px; }
   .title-inner { padding-top: 4vh; }
 }
-/* 高さが低い画面では、左下の起動ログ(飾り)が下のリンクと重なるので消す */
-@media (max-height: 860px) { .tele.bl { display: none; } }
+/* タイトル: ボタン類もロゴにそろえて左寄せ(2026-11-25〜) */
+#title .title-inner { align-self: flex-start; margin: auto auto auto 0; text-align: left; padding: 8vh 24px 16px 56px; max-width: 680px; }
+#title .keys-hint { justify-content: flex-start; }
+#title .btn-quick { margin: 14px 0 0; align-items: flex-start; }
+#title .title-related { margin-left: 0; }
+@media (max-width: 760px) {
+  #title .title-inner { padding: 4vh 18px 16px 22px; }
+}
+/* 左側にボタン類を寄せたので、起動ログ(飾り)は右下(緯度経度の上)へ */
+#title .tele.bl { left: auto; right: 40px; bottom: 66px; text-align: right; min-height: 0; }

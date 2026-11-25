@@ -1719,6 +1719,7 @@ function renderHome() {
   const nb = newBadges(s, entries);
   if (nb.length) setTimeout(() => toast(`実績バッジを手に入れました: ${nb.map((b) => b.icon + ' ' + b.name).join(' / ')}(プロフィールで見られます)`, 5000), 900);
   for (const t of document.querySelectorAll('#home .need-login')) t.classList.toggle('locked', !s);
+  $('h-dock-note').hidden = !!s; // ドックの下の「🔒 の4つはログインで遊べます」はログインしていないときだけ
   $('h-team').textContent = s ? fxText(acc.teamFx()) : 'キャラ5人でスキルを組み合わせる';
   $('btn-admin').hidden = !acc.isAdmin();
   if (acc.isAdmin()) checkStorage();
@@ -1743,6 +1744,7 @@ $('btn-tut-skip').addEventListener('click', () => { save('tutorialSkipped', true
 $('btn-tut-home').addEventListener('click', () => overlay('tut-done', false));
 $('btn-tut-play').addEventListener('click', () => { overlay('tut-done', false); goHome(true); goSelect(); });
 for (const b of document.querySelectorAll('[data-home]')) b.addEventListener('click', () => goHome());
+$('h-dock-login').addEventListener('click', () => openAccount());
 initEvent({ songs: SONGS.filter((d) => d.event === 'xmas' && eventActive('xmas')) });
 initSeason({
   entries, esc, toast, jacketURL, rankRows,

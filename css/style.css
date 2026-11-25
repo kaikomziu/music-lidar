@@ -2143,3 +2143,62 @@ body.intro #title .title-inner, body.intro #title .title-taskbar, body.intro #ti
 .tb-window .tbw-close:hover, .tb-window .tbw-close:focus-visible { background: rgba(255, 79, 120, 0.75); }
 .tb-window .tbw-frame { flex: 1; width: 100%; border: 0; background: #070a1c; }
 @media (max-width: 760px) { .tb-window { padding: 10px 8px 76px; } .tb-window .tbw-bar { padding-left: 14px; } }
+/* ホーム: 案2「大きい LIVE と、下にアイコンの列(ドック)」(2026-11-25〜)
+   タイルの要素(id・data-nav・need-login)はそのままで、見た目だけドックにする。説明文(p)は乗せたときの吹き出し */
+#home .home-main { display: flex; flex-direction: column; align-items: stretch; gap: 22px; }
+#home .h-tile.h-live { min-height: min(54vh, 470px); padding: 48px 52px; clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px); border-radius: 0; }
+#home .h-live .h-label b { font-size: clamp(60px, 10vw, 128px); }
+#home .h-live .h-label span { font-size: 22px; margin-top: 6px; }
+#home .h-live p { font-size: 15px; margin-top: 12px; }
+#home .h-dock { align-self: center; display: flex; justify-content: center; gap: 6px; padding: 14px 16px; max-width: 100%;
+  border: 1px solid rgba(94, 242, 255, 0.25); background: linear-gradient(180deg, rgba(18, 26, 62, 0.72), rgba(6, 10, 28, 0.88));
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px); }
+#home .h-dock .h-tile { --tc: #5ef2ff; width: 108px; min-height: 0; padding: 10px 4px 8px; display: flex; flex-direction: column; align-items: center; gap: 9px; overflow: visible;
+  border: 0; border-radius: 0; background: transparent; box-shadow: none; text-align: center; animation: none; transform: none; filter: none; }
+#home .h-dock .h-tile::before, #home .h-dock .h-tile::after { display: none; }
+#home .h-dock .h-ico { position: relative; display: grid; place-items: center; width: 54px; height: 54px; border: 1px solid color-mix(in srgb, var(--tc) 40%, transparent); background: color-mix(in srgb, var(--tc) 9%, transparent);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); transition: background 0.2s, box-shadow 0.2s, transform 0.2s; }
+#home .h-dock .h-ico svg { width: 26px; height: 26px; fill: none; stroke: var(--tc); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#home .h-dock .h-label small, #home .h-dock .h-label b, #home .h-dock .h-dc-logo, #home .h-dock .h-go { display: none; }
+#home .h-dock .h-label span { font-size: 12.5px; font-weight: 600; color: rgba(214, 226, 255, 0.9); white-space: nowrap; }
+#home .h-dock .h-tile:hover .h-ico, #home .h-dock .h-tile:focus-visible .h-ico { background: color-mix(in srgb, var(--tc) 24%, transparent); transform: translateY(-3px); filter: drop-shadow(0 0 10px color-mix(in srgb, var(--tc) 70%, transparent)); }
+#home .h-dock .h-tile:hover .h-label span, #home .h-dock .h-tile:focus-visible .h-label span { color: #fff; }
+#home .h-dock .h-tile:focus-visible { outline: none; }
+/* 説明文は乗せたときに上へ吹き出しで出す */
+#home .h-dock .h-tile p { position: absolute; left: 50%; bottom: calc(100% + 10px); width: max-content; max-width: 240px; padding: 8px 12px; transform: translate(-50%, 4px);
+  font-size: 12px; line-height: 1.5; color: #eef4ff; text-align: center; background: rgba(8, 12, 30, 0.96); border: 1px solid rgba(94, 242, 255, 0.35);
+  opacity: 0; pointer-events: none; transition: opacity 0.15s, transform 0.15s; z-index: 5; }
+#home .h-dock .h-tile:hover p, #home .h-dock .h-tile:focus-visible p { opacity: 1; transform: translate(-50%, 0); }
+#home .h-dock .h-tile.locked p::before { content: '🔒 ログインで解放 ・ '; }
+/* ならび: みんなの譜面・譜面メーカー・きくだけ → ログインが要る4つ → Discord */
+#home .h-dock #btn-charts { order: 1; } #home .h-dock #btn-maker { order: 2; } #home .h-dock #btn-player { order: 3; }
+#home .h-dock [data-nav="team"] { order: 4; } #home .h-dock [data-nav="gacha"] { order: 5; } #home .h-dock [data-nav="quest"] { order: 6; } #home .h-dock #btn-pass { order: 7; }
+#home .h-dock .h-discord { order: 8; --tc: #9aa3ff; }
+/* ログインが要るもの: うすくして、アイコンの角に小さな鍵 */
+#home .h-dock .h-tile.locked { filter: none; }
+#home .h-dock .h-tile.locked .h-ico, #home .h-dock .h-tile.locked .h-label { opacity: 0.45; }
+#home .h-dock .h-tile.locked::after { display: block; content: '🔒'; position: absolute; top: 4px; right: 22px; width: auto; height: auto; border: 0; font-size: 11px; opacity: 0.9; }
+#home .h-dock .h-tile.locked .h-label { opacity: 1; }
+#home .h-dock .h-tile.locked .h-label span { opacity: 0.5; }
+/* クエストの数(バッジ)・ガチャのイベント */
+#home .h-dock .h-badge { position: absolute; top: 2px; right: 20px; }
+#home .h-dock .h-tile.h-event-on .h-ico { border-color: rgba(255, 138, 31, 0.8); box-shadow: 0 0 12px rgba(255, 138, 31, 0.5); }
+#home .h-dock-note { align-self: center; margin: -8px 0 0; font-size: 12.5px; color: rgba(200, 215, 255, 0.65); }
+#home .h-dock-note .link-btn { color: var(--cyan); font-weight: 700; }
+@media (max-width: 860px) {
+  #home .h-tile.h-live { min-height: 240px; padding: 26px 22px; }
+  #home .h-dock { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px 2px; width: 100%; padding: 10px 6px; }
+  #home .h-dock .h-tile { width: auto; padding: 8px 2px 6px; gap: 6px; }
+  #home .h-dock .h-ico { width: 48px; height: 48px; }
+  #home .h-dock .h-label span { font-size: 11px; white-space: normal; line-height: 1.25; }
+  #home .h-dock .h-tile p { display: none; }
+  #home .h-dock .h-tile.locked::after { right: calc(50% - 30px); }
+}
+#home .h-dock .h-tile { grid-column: auto; min-height: 0; } /* 古い「最後のタイルは横いっぱい」(max-width: 860px)を打ち消す */
+/* ドックの角を切る形は ::before で描く(ドック自体に clip-path を付けると、上に出す吹き出しまで切れてしまうため) */
+#home .h-dock { position: relative; clip-path: none; border: 0; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; isolation: isolate; }
+#home .h-dock::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  border: 1px solid rgba(94, 242, 255, 0.25); background: linear-gradient(180deg, rgba(18, 26, 62, 0.72), rgba(6, 10, 28, 0.88));
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px); }

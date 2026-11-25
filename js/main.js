@@ -473,6 +473,39 @@ $('btn-version').addEventListener('click', openChangelog);
 $('btn-cl-close').addEventListener('click', () => overlay('changelog', false));
 // タイトルのタスクバーの「更新履歴」: ホームへ進まず、タイトルのまま上に重ねて開く(2026-11-25〜)
 $('title-changelog').addEventListener('click', (ev) => { ev.preventDefault(); openChangelog(); });
+// タスクバーのほかのリンク(遊び方・曲のまとめなど)も、タイトルの上に重ねたウィンドウ(iframe)で開く。
+// 別のタブで開くリンク(Discord)と、Ctrl/Shift/中クリックはふつうに開く
+function closeTbWindow() {
+  if (!$('tb-window').classList.contains('on')) return;
+  overlay('tb-window', false);
+  setTimeout(() => { if (!$('tb-window').classList.contains('on')) $('tbw-frame').src = 'about:blank'; }, 250);
+}
+document.querySelectorAll('#title .tb-apps a').forEach((a) => {
+  if (a.id === 'title-changelog' || a.target === '_blank') return;
+  a.addEventListener('click', (ev) => {
+    if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button !== 0) return;
+    ev.preventDefault();
+    $('tbw-title').textContent = a.textContent.trim();
+    $('tbw-icon').innerHTML = a.querySelector('svg')?.outerHTML || '';
+    $('tbw-open').href = a.href;
+    $('tbw-frame').title = a.textContent.trim();
+    $('tbw-frame').src = a.href;
+    overlay('tb-window', true);
+  });
+});
+$('tbw-close').addEventListener('click', closeTbWindow);
+$('tb-window').addEventListener('click', (ev) => { if (ev.target === $('tb-window')) closeTbWindow(); }); // 外側を押したら閉じる
+$('tbw-open').addEventListener('click', () => closeTbWindow());
+// ウィンドウの中でゲーム本体(キャンバス #stage があるページ)へ移ったら、ウィンドウを閉じてこの画面ごと移る
+$('tbw-frame').addEventListener('load', () => {
+  try {
+    const w = $('tbw-frame').contentWindow;
+    if (!w || w.location.href === 'about:blank') return;
+    $('tbw-title').textContent = w.document.title.split('｜')[0] || $('tbw-title').textContent;
+    w.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') closeTbWindow(); }); // 中を触ったあとでも Esc で閉じる
+    if (w.document.getElementById('stage')) { const u = w.location.href; closeTbWindow(); location.href = u; }
+  } catch { /* 別のサイトへ移ったときは中を見られないので何もしない */ }
+});
 
 // タイトルのブートログ(飾り)
 (function bootLog() {
@@ -1603,6 +1636,7 @@ function closeModals() {
   if ($('settings').classList.contains('on')) closeSettings();
   overlay('account-modal', false);
   overlay('changelog', false);
+  closeTbWindow();
   closeRequest();
   overlay('tut-offer', false);
   overlay('tut-done', false);

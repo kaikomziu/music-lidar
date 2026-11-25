@@ -2128,3 +2128,18 @@ body.intro #title .title-inner, body.intro #title .title-taskbar, body.intro #ti
 }
 @media (prefers-reduced-motion: reduce) { #title .title-taskbar::before, #title .title-taskbar .tb-mark b { animation: none; } }
 @media (min-width: 761px) and (max-width: 1380px) { #title .title-taskbar .tb-start > span { display: none; } #title .title-taskbar .tb-start { padding-right: 10px; } }
+/* タスクバーのリンクを開くウィンドウ(2026-11-25〜): PC のアプリのウィンドウ風。上にタイトルバー、中は iframe */
+.tb-window { padding: 28px 28px 92px; }
+.tb-window .tbw-box { display: flex; flex-direction: column; width: min(1120px, 100%); height: min(860px, 100%); max-height: none; padding: 0; overflow: hidden; border-radius: 0;
+  border: 1px solid rgba(94, 242, 255, 0.35); background: rgba(6, 10, 28, 0.96); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px); transform-origin: 50% 100%; }
+.tb-window .tbw-bar { display: flex; align-items: center; gap: 10px; flex: none; height: 46px; padding: 0 8px 0 20px; border-bottom: 1px solid rgba(94, 242, 255, 0.2);
+  background: linear-gradient(180deg, rgba(22, 32, 72, 0.9), rgba(10, 16, 40, 0.9)); }
+.tb-window .tbw-icon svg { display: block; width: 18px; height: 18px; fill: none; stroke: #5ef2ff; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 5px rgba(94, 242, 255, 0.7)); }
+.tb-window .tbw-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; font-size: 14px; letter-spacing: 0.06em; color: #eef4ff; }
+.tb-window .tbw-btn { display: inline-grid; place-items: center; width: 38px; height: 34px; border: 0; background: transparent; color: rgba(200, 215, 255, 0.75); cursor: pointer; transition: background 0.15s, color 0.15s; }
+.tb-window .tbw-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.tb-window .tbw-btn:hover, .tb-window .tbw-btn:focus-visible { background: rgba(94, 242, 255, 0.14); color: #fff; outline: none; }
+.tb-window .tbw-close:hover, .tb-window .tbw-close:focus-visible { background: rgba(255, 79, 120, 0.75); }
+.tb-window .tbw-frame { flex: 1; width: 100%; border: 0; background: #070a1c; }
+@media (max-width: 760px) { .tb-window { padding: 10px 8px 76px; } .tb-window .tbw-bar { padding-left: 14px; } }

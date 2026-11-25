@@ -2550,3 +2550,18 @@ body.touch .hl-mi em { display: none; }
   /* × とウィンドウが重ならないように、上を空ける */
   .overlay.modal.on:not(.tb-window) { padding-top: calc(64px + env(safe-area-inset-top)); }
 }
+/* リザルト: 中身が広くても画面の幅を超えないように(スマホで右が見切れていた。2026-11-25) */
+.result-panel.r3 { grid-template-columns: minmax(0, 1fr); }
+.r3 .r-top, .r3 .r-cols, .r3 .r-buttons { min-width: 0; }
+.r3 .r-acc { overflow-wrap: anywhere; }
+.r3 .r-offset, .r3 .ofs-graph, .r3 .ofs-hint { max-width: 100%; min-width: 0; }
+.r3 .ofs-cap { flex-wrap: wrap; justify-content: center; }
+.r3 .ofs-hint button { white-space: normal; max-width: 100%; }
+.r3 .r-diff { flex: none; }
+@media (max-width: 760px) {
+  .r3 .r-counts { gap: 6px; }
+  .r3 .r-counts div { padding: 8px 6px 8px 9px; min-width: 0; }
+  .r3 .r-counts small { font-size: 9px; letter-spacing: 0.06em; }
+  .r3 .r-counts b { font-size: 18px; }
+  .r3 .r-acc { font-size: 12px; letter-spacing: 0.04em; }
+}

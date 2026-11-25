@@ -2538,3 +2538,15 @@ body.touch .hl-mi em { display: none; }
 /* 切り替えたらすぐ、すっと出す(一覧のときの順番の遅れは使わない) */
 #home-live:not([hidden]) .hl-cards .hl-card.cur { animation: fadeUp 0.35s var(--ease-out) both; animation-delay: 0s; }
 @media (prefers-reduced-motion: reduce) { #home-live:not([hidden]) .hl-cards .hl-card.cur { animation: none; } }
+
+/* スマホのウィンドウの右上に固定する × (2026-11-25〜。main.js が開いているウィンドウに合わせて出す) */
+.modal-x { display: none; }
+@media (max-width: 760px) {
+  .modal-x:not([hidden]) { display: flex; align-items: center; justify-content: center; position: fixed; z-index: 45; top: calc(10px + env(safe-area-inset-top)); right: 10px;
+    width: 44px; height: 44px; padding: 0; border-radius: 50%; border: 1px solid var(--panel-line); background: rgba(8, 12, 30, 0.92); color: var(--text);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5); animation: fadeUp 0.25s var(--ease-out) both; }
+  .modal-x svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+  .modal-x:active { transform: scale(0.92); }
+  /* × とウィンドウが重ならないように、上を空ける */
+  .overlay.modal.on:not(.tb-window) { padding-top: calc(64px + env(safe-area-inset-top)); }
+}

@@ -1658,6 +1658,28 @@ function closeModals() {
   closeFriends();
   if ($('match-modal').classList.contains('on')) cancelMatch();
 }
+// スマホでは、開いているウィンドウ(モーダル)の右上に × を固定で出す(2026-11-25〜)。
+// 押すと、そのウィンドウの「閉じる」「やめる」「あとで」などのボタンを押したのと同じにする(閉じ方はウィンドウごとに今までどおり)。
+// 閉じるボタンが見つからないウィンドウでは出さない。上にバーがあるタスクバーのウィンドウ(#tb-window)も出さない。見た目は CSS で 760px 以下だけ
+(() => {
+  const x = document.createElement('button');
+  x.type = 'button';
+  x.className = 'modal-x';
+  x.title = '閉じる';
+  x.setAttribute('aria-label', '閉じる');
+  x.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+  x.hidden = true;
+  document.body.appendChild(x);
+  const CLOSE = /^(閉じる|やめる|あとで|キャンセル|受け取った!?)$/;
+  const topModal = () => [...document.querySelectorAll('.overlay.modal.on')].filter((m) => !m.classList.contains('tb-window')).pop();
+  const closer = (m) => m.querySelector('[data-close]:not([hidden]), [data-em-close]')
+    || [...m.querySelectorAll('.modal-actions button')].reverse().find((b) => !b.hidden && b.offsetParent !== null && CLOSE.test(b.textContent.trim()));
+  let queued = false;
+  const update = () => { queued = false; const m = topModal(); x.hidden = !(m && closer(m)); };
+  new MutationObserver(() => { if (!queued) { queued = true; requestAnimationFrame(update); } })
+    .observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'hidden'] });
+  x.addEventListener('click', () => { const m = topModal(); if (m) closer(m)?.click(); });
+})();
 function goSelect() {
   homeLive(false);
   show('select');

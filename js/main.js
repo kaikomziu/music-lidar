@@ -1530,9 +1530,21 @@ const EDGE_TAP = 0.18; // 境目からレーン幅の18%以内
 // キャンバス内の位置で、どのレーンかを決める(「回転」中は縦の位置も使う)
 const lanesOfTouch = (t) => { const r = canvas.getBoundingClientRect(); return game.lanesAt(t.clientX - r.left, t.clientY - r.top, settings.edgeTap === false ? 0 : EDGE_TAP); };
 const heldByOthers = (l, id) => [...touchLane].some(([k, ls]) => k !== id && ls.includes(l));
+// 離した通知(touchend/touchcancel)が来なかった指の記録を捨てる。
+// iPhone の Chrome などは画面の左端を「戻る」操作に使い、左レーンの指を離した通知が届かないことがある。
+// 記録が残ると「ほかの指が押している」扱いになり、左レーンが押したまま固まって押せなくなっていた(1.89.3)
+const dropLostTouches = (ev) => {
+  const alive = new Set([...ev.touches].map((t) => t.identifier));
+  for (const [id, ls] of [...touchLane]) {
+    if (alive.has(id)) continue;
+    touchLane.delete(id);
+    for (const l of ls) if (!heldByOthers(l, id) && !laneDown[l].size) game.release(l, ev.timeStamp);
+  }
+};
 canvas.addEventListener('touchstart', (ev) => {
   if (state !== 'game' || !game) return;
   ev.preventDefault();
+  dropLostTouches(ev);
   for (const t of ev.changedTouches) {
     const ls = lanesOfTouch(t);
     touchLane.set(t.identifier, ls);
@@ -1550,10 +1562,12 @@ const touchEnd = (ev) => {
     touchLane.delete(t.identifier);
     for (const l of ls) if (!heldByOthers(l, t.identifier)) game.release(l, ev.timeStamp);
   }
+  dropLostTouches(ev);
 };
 canvas.addEventListener('touchmove', (ev) => {
   if (state !== 'game' || !game) return;
   ev.preventDefault();
+  dropLostTouches(ev);
   // 指をスライドして隣のレーンへ移動できるように(増えたレーンを押し、外れたレーンを離す)
   for (const t of ev.changedTouches) {
     const old = touchLane.get(t.identifier);

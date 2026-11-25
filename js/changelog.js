@@ -2,6 +2,12 @@
 // 大きな機能追加 = 2つ目の数字を上げる / 不具合修正や小さな改善 = 3つ目の数字を上げる
 export const CHANGELOG = [
   {
+    version: '1.89.3', date: '2026-11-25',
+    notes: [
+      'iPhone(Chrome など)で、いちばん左のレーンを押すと押したまま固まり、押せなくなることがある不具合を直しました',
+    ],
+  },
+  {
     version: '1.89.2', date: '2026-11-24',
     notes: [
       'PeriTune さんの「Sanctilia」(BPM 140・2 / 4 / 7 / EX 9 / INF 11)を追加しました',

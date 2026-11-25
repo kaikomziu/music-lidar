@@ -444,6 +444,18 @@ $('btn-start').addEventListener('click', () => enterFromTitle());
 // ---------------------------------------------------------------------------
 $('ver-label').textContent = 'v' + VERSION;
 $('title-ver').textContent = 'v' + VERSION;
+// タイトルのタスクバーの時計(PC のタスクバー風)。タイトル画面を出している間だけ更新する
+{
+  const clock = $('title-clock');
+  const tick = () => {
+    if ($('title').classList.contains('active')) {
+      const d = new Date();
+      clock.textContent = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+  };
+  tick();
+  setInterval(tick, 10000);
+}
 $('ver-new').hidden = load('seenVersion', null) === VERSION;
 function openChangelog() {
   const seen = load('seenVersion', null);

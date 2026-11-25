@@ -49,7 +49,7 @@
 | `card.html` | ブログに貼る軽い「曲カード」(`?s=<urlId>`、`&theme=light`)。ゲーム本体は読まず、`data/cards.json` と曲の共有画像だけを使う |
 | `data/cards.json` | 曲カード用の曲の一覧(自動生成。`build-pages.mjs`) |
 | `music-guidelines.html` | オリジナル曲の使用ガイドライン(動画・配信の BGM・ゲーム・アレンジ・収益化 OK、クレジット必須、音源の再配布は NG だが Scratch の作品は OK、音源は公開では配らず「きくだけ」の録音で使ってもらう。mp3 がほしい人はページのフォームから申請 → `mlidar_audio_request` がメールアドレスを pgcrypto で暗号化して `mlidar_requests.email_enc` に保存(鍵は Supabase Vault の `mlidar_request_key`。`kind = 'audio'`)。管理者ページの「リクエスト・お問い合わせ」で復号して表示され、メールで音源を送る)。クレジットページ・遊び方・配信ガイドラインからリンク |
-| 公式Discord | 招待リンク https://discord.gg/aMnvqcHzNG(期限なし・#ルール チャンネル行き)。タイトル画面の参加ボタン(`.btn-discord`)とリンク行(`.title-links`)、ホームの「DISCORD」タイル(`a.h-tile.h-discord`)、`guide.html` の案内枠(`.dc-banner`)、`guide.html`・`streaming.html`・`credits.html`・`submit-music.html`・`music-guidelines.html` のお問い合わせの近くに載せている |
+| 公式Discord | 招待リンク https://discord.gg/aMnvqcHzNG(期限なし・#ルール チャンネル行き)。タイトル画面の参加ボタン(`.btn-discord`)と下のタスクバー(`.title-links`)、ホームの「DISCORD」タイル(`a.h-tile.h-discord`)、`guide.html` の案内枠(`.dc-banner`)、`guide.html`・`streaming.html`・`credits.html`・`submit-music.html`・`music-guidelines.html` のお問い合わせの近くに載せている |
 | `credits.html` | クレジットページ(ほかの作者さんの曲・フォント・ライブラリ)。外部の曲を足したら表に足す。タイトル画面・ガイド・楽曲募集のリンクから入る |
 | `streaming.html` | 実況・配信ガイドライン(日本語と英語)。外部の曲12曲の収益化の扱いもここに書いてある。外部の曲を足したら表に足す |
 | `audio/` `video/` | 音源ファイル曲の音・動画MV。ライセンスの都合で並べ替えた `.bin`(`tools/scramble_audio.py`)か、AES-GCM で暗号化した `.bin`(`tools/encrypt_audio.mjs`)。**平文の mp3 / mp4 は絶対にコミットしない**(2026-11-18 に履歴から取り除き、強制 push 済み。鍵は公開JSにあるので完全な防止ではない) |
@@ -77,7 +77,7 @@
    - `initGrowth` / `initMatch` / `initInstall` / `initKeyConfig` / `initDan` / `initExtras` などで各機能を初期化する
    - Service Worker を `ROOT_PATH + 'sw.js'` で登録する(埋め込み時は登録しない)
 5. タイトル画面で Enter(またはタップ)を押すと音が使えるようになる(ブラウザの自動再生の制限のため。テストで音を読ませるときも、本物の操作が要る)
-   - タイトル画面の配置(2026-11-25〜、UI 全体の作り直しの1つ目): ロゴ(`.title-logo` の中の `.logo-big`・`.logo-rule`・ビルド表示 `.tele.tl`)は左上。`#title` は縦並びの flex で、スタートボタンなど(`.title-inner`)もロゴにそろえて左寄せ、残りの場所の中央より少し下(`padding-top: 8vh`、スマホは 4vh)。CSS は `style.css` の末尾「タイトル: ロゴを左上…」「ボタン類もロゴにそろえて左寄せ」。起動ログ(`.tele.bl`)は左のボタン類と重ならないよう右下(緯度経度の上)に置く
+   - タイトル画面の配置(2026-11-25〜、UI 全体の作り直しの1つ目): ロゴ(`.title-logo` の中の `.logo-big`・`.logo-rule`・ビルド表示 `.tele.tl`)は左上。`#title` は縦並びの flex で、スタートボタンなど(`.title-inner`)もロゴにそろえて左寄せ、残りの場所の中央(`padding-top: 2vh`、スマホは 0)。サイト内リンク(遊び方・曲のまとめ・配信ガイドライン…更新履歴)は、いちばん下の PC のタスクバー風の帯(`nav.title-links.title-taskbar`。左にロゴ、右にバージョンと時計 `#title-clock`)。スマホでは横にスクロールする。時計は `main.js` がタイトル画面を出している間だけ10秒ごとに更新する。タスクバーの高さの分、下の飾りと角の枠を上げている。CSS は `style.css` の末尾「タイトル: ロゴを左上…」「ボタン類もロゴにそろえて左寄せ」。起動ログ(`.tele.bl`)は左のボタン類と重ならないよう右下(緯度経度の上)に置く
 
 ### 画面とURL
 - 画面は `index.html` の `.screen` 要素で、`show(name)` が `.active` を切り替える。今の画面は `state`

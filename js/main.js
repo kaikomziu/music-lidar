@@ -471,7 +471,8 @@ function openChangelog() {
 }
 $('btn-version').addEventListener('click', openChangelog);
 $('btn-cl-close').addEventListener('click', () => overlay('changelog', false));
-$('title-changelog').addEventListener('click', (ev) => { ev.preventDefault(); enterFromTitle({ quiet: true }); openChangelog(); });
+// タイトルのタスクバーの「更新履歴」: ホームへ進まず、タイトルのまま上に重ねて開く(2026-11-25〜)
+$('title-changelog').addEventListener('click', (ev) => { ev.preventDefault(); openChangelog(); });
 
 // タイトルのブートログ(飾り)
 (function bootLog() {

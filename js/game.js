@@ -38,6 +38,12 @@ export const altKeyNames = (sep = '・') => KEYMAP.map((k) => keyLabel(k[1])).fi
 const W_PERFECT = 0.045, W_GREAT = 0.09, W_GOOD = 0.135;
 const SCORE_W = { PERFECT: 1, GREAT: 0.75, GOOD: 0.4, MISS: 0 };
 const ACC_W = { PERFECT: 1, GREAT: 0.7, GOOD: 0.3, MISS: 0 };
+// roundRect がない古いブラウザ(Safari 15 以前など)では、角の丸くない四角で代わりに描く(描けずに止まらないように)
+if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h) { this.rect(x, y, w, h); };
+}
+// プレイ中の HUD の文字(2026-11-26〜 オーロラガラスのデザイン。前は Orbitron)
+const HUD_FONT = '"Outfit", "Noto Sans JP", sans-serif';
 const JUDGE_COLOR = { PERFECT: '#7ff9ff', GREAT: '#ff7ce6', GOOD: '#b6ff7a', MISS: '#ff5a6e' };
 
 const Z_J = 10, Z_FAR = 34;
@@ -735,14 +741,14 @@ export class Game {
         const [kx0] = this.proj(G, l - 2, Z_J * 0.95), [kx1] = this.proj(G, l - 1, Z_J * 0.95);
         const main = keyLabel(KEYMAP[l][0]), alt = keyLabel(KEYMAP[l][1]);
         // 「LSHIFT」のような長い名前は小さくする
-        g.font = `700 ${Math.round(G.laneW * (main.length > 2 ? 0.09 : 0.15))}px "Orbitron", sans-serif`;
+        g.font = `700 ${Math.round(G.laneW * (main.length > 2 ? 0.09 : 0.15))}px ${HUD_FONT}`;
         g.textAlign = 'center'; g.textBaseline = 'middle';
         g.fillStyle = on ? '#fff' : 'rgba(170,190,255,0.5)';
         const cx = (kx0 + kx1) / 2, cy = (ky0 + ky1) / 2;
         g.fillText(main, cx, cy);
         // 連打用の2つ目のキーを小さく出す(左右のレーンは外側、中の2つは内側)
         if (alt) {
-          g.font = `700 ${Math.round(G.laneW * (alt.length > 2 ? 0.06 : 0.085))}px "Orbitron", sans-serif`;
+          g.font = `700 ${Math.round(G.laneW * (alt.length > 2 ? 0.06 : 0.085))}px ${HUD_FONT}`;
           g.fillStyle = on ? 'rgba(255,255,255,0.8)' : 'rgba(170,190,255,0.3)';
           g.fillText(alt, cx + (l % 2 ? 1 : -1) * (kx1 - kx0) * 0.3, cy);
         }
@@ -881,18 +887,19 @@ export class Game {
 
     // 進行バー
     const p = Math.max(0, Math.min(1, t / this.endAt));
-    g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(0, 0, W, 3);
+    g.fillStyle = 'rgba(255,255,255,0.1)'; g.fillRect(0, 0, W, 4);
     if (this.lifeOpt) { // 段位道場の体力ゲージ
       const bw = Math.min(340, W * 0.42), bx = (W - bw) / 2, by = small ? 52 : 10, lv = this.life / 100;
       const lc = this.life > 50 ? '#6dffb0' : this.life > 25 ? '#ffd25e' : '#ff4f6e';
       g.fillStyle = 'rgba(4,8,22,0.75)'; g.fillRect(bx - 2, by - 2, bw + 4, 14);
       g.fillStyle = hexA(lc, 0.25); g.fillRect(bx, by, bw, 10);
       g.fillStyle = lc; g.fillRect(bx, by, bw * lv, 10);
-      g.save(); g.font = '800 10px "Orbitron", sans-serif'; g.textBaseline = 'top'; g.textAlign = 'center';
+      g.save(); g.font = `800 10px ${HUD_FONT}`; g.textBaseline = 'top'; g.textAlign = 'center';
       g.fillStyle = '#fff'; g.fillText(`LIFE ${this.life.toFixed(1)}%`, W / 2, by + 13); g.restore();
     }
-    g.fillStyle = stColor; g.fillRect(0, 0, W * p, 3);
-    g.fillStyle = '#fff'; g.fillRect(W * p - 2, 0, 2, 3);
+    { const pg = g.createLinearGradient(0, 0, W, 0); pg.addColorStop(0, hexA(stColor, 0.9)); pg.addColorStop(1, '#7b5cff');
+      g.fillStyle = pg; g.beginPath(); g.roundRect(0, 0, Math.max(4, W * p), 4, [0, 2, 2, 0]); g.fill(); }
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(W * p, 2, 3, 0, Math.PI * 2); g.fill();
 
     g.save();
     g.textBaseline = 'top';
@@ -900,46 +907,48 @@ export class Game {
     let x = 14;
     const js = small ? 36 : 46;
     if (this.jacketImg?.complete && this.jacketImg.naturalWidth) {
-      g.drawImage(this.jacketImg, x, 12, js, js);
-      g.strokeStyle = hexA(this.color, 0.8); g.lineWidth = 1; g.strokeRect(x + 0.5, 12.5, js - 1, js - 1);
+      g.save(); g.beginPath(); g.roundRect(x, 12, js, js, 10); g.clip();
+      g.drawImage(this.jacketImg, x, 12, js, js); g.restore();
+      g.strokeStyle = 'rgba(255,255,255,0.22)'; g.lineWidth = 1; g.beginPath(); g.roundRect(x + 0.5, 12.5, js - 1, js - 1, 10); g.stroke();
       x += js + 10;
     }
     g.textAlign = 'left';
-    g.fillStyle = 'rgba(230,240,255,0.95)';
-    g.font = `700 ${small ? 13 : 16}px "Orbitron", "Noto Sans JP", sans-serif`;
+    g.fillStyle = 'rgba(245,244,255,0.96)';
+    g.font = `700 ${small ? 13 : 16}px ${HUD_FONT}`;
     g.fillText(this.title, x, 14);
-    g.font = `700 ${small ? 10 : 11}px "Orbitron", sans-serif`;
+    g.font = `700 ${small ? 10 : 11}px ${HUD_FONT}`;
     const lw = g.measureText(this.label).width + 14;
     const dc = DIFF_COLOR[this.diff] || this.color;
-    g.strokeStyle = dc; g.lineWidth = 1;
-    g.strokeRect(x + 0.5, (small ? 33 : 38) + 0.5, lw, small ? 15 : 17);
+    { const ly = (small ? 33 : 38) + 0.5, lh = small ? 15 : 17;
+      g.fillStyle = hexA(dc, 0.18); g.strokeStyle = hexA(dc, 0.85); g.lineWidth = 1;
+      g.beginPath(); g.roundRect(x + 0.5, ly, lw, lh, lh / 2); g.fill(); g.stroke(); }
     g.fillStyle = dc;
     g.fillText(this.label, x + 7, (small ? 33 : 38) + (small ? 3 : 4));
 
     // 右上: スコア・精度・FC/AP
     g.textAlign = 'right';
-    g.font = `700 ${small ? 9 : 10}px "Orbitron", sans-serif`;
-    g.fillStyle = 'rgba(160,180,230,0.7)';
+    g.font = `700 ${small ? 9 : 10}px ${HUD_FONT}`;
+    g.fillStyle = 'rgba(228,225,255,0.6)';
     g.fillText('S C O R E', W - 16, 10);
     const big = this.settings.stream ? 1.7 : 1; // 配信者モードはスコアを大きく(配信の画面でも読めるように)
-    g.font = `800 ${Math.round((small ? 20 : 30) * big)}px "Orbitron", sans-serif`;
+    g.font = `800 ${Math.round((small ? 20 : 30) * big)}px ${HUD_FONT}`;
     g.fillStyle = '#fff';
     g.shadowColor = this.color; g.shadowBlur = this.F.glow;
     g.fillText(String(this.teamScore).padStart(7, '0'), W - 16, small ? 22 : 24);
     g.shadowBlur = 0;
-    g.font = `600 ${small ? 11 : 13}px "Orbitron", sans-serif`;
+    g.font = `600 ${small ? 11 : 13}px ${HUD_FONT}`;
     g.fillStyle = 'rgba(200,220,255,0.85)';
     const accY = (small ? 46 : 60) + (big > 1 ? (small ? 14 : 22) : 0);
     g.fillText(this.accuracy.toFixed(2) + '%', W - 16, accY);
     if (this.ghost) { // ゴースト: 同じ時点の自己ベストとの差
       const dlt = this.score - this.ghostScore(t);
-      g.font = `700 ${small ? 10 : 12}px "Orbitron", sans-serif`;
+      g.font = `700 ${small ? 10 : 12}px ${HUD_FONT}`;
       g.fillStyle = dlt >= 0 ? '#7dffb0' : '#ff7a8e';
       g.fillText(`${this.ghost.name} ${dlt >= 0 ? '+' : '−'}${Math.abs(dlt).toLocaleString()}`, W - 16, accY + (small ? 15 : 19));
     }
     if (status) {
       const aw = g.measureText(this.accuracy.toFixed(2) + '%').width;
-      g.font = `800 ${small ? 10 : 11}px "Orbitron", sans-serif`;
+      g.font = `800 ${small ? 10 : 11}px ${HUD_FONT}`;
       g.fillStyle = stColor;
       g.fillText(status, W - 26 - aw, accY + 1);
     }
@@ -956,7 +965,7 @@ export class Game {
       g.translate(G.cx, midY);
       g.scale(s, s);
       const fs = Math.round(G.laneW * 0.62);
-      g.font = `900 ${fs}px "Orbitron", sans-serif`;
+      g.font = `800 ${fs}px ${HUD_FONT}`;
       const cg = g.createLinearGradient(0, -fs / 2, 0, fs / 2);
       const ca = this.settings.stream ? 2.1 : 1; // 配信者モードはコンボをはっきり
       cg.addColorStop(0, `rgba(255,255,255,${0.4 * ca})`); cg.addColorStop(1, hexA(stColor, 0.22 * ca));
@@ -964,7 +973,7 @@ export class Game {
       g.fillText(this.tCombo, 0, 0);
       g.strokeStyle = 'rgba(255,255,255,0.12)'; g.lineWidth = 1;
       g.strokeText(this.tCombo, 0, 0);
-      g.font = `700 ${Math.round(G.laneW * 0.12)}px "Orbitron", sans-serif`;
+      g.font = `700 ${Math.round(G.laneW * 0.12)}px ${HUD_FONT}`;
       g.fillStyle = hexA(stColor, 0.55);
       g.fillText('C O M B O', 0, G.laneW * 0.45);
       g.restore();
@@ -979,15 +988,15 @@ export class Game {
       g.translate(G.cx, G.J - Math.min(140, (G.J - midY) * 0.55));
       g.scale(s, s);
       g.globalAlpha = 1 - Math.max(0, k - 0.6) / 0.4;
-      g.font = `900 ${Math.round(Math.min(34, G.laneW * 0.3))}px "Orbitron", sans-serif`;
-      g.lineWidth = 4; g.strokeStyle = 'rgba(2,3,10,0.85)';
+      g.font = `800 ${Math.round(Math.min(34, G.laneW * 0.3))}px ${HUD_FONT}`;
+      g.lineWidth = 4; g.strokeStyle = 'rgba(14,10,38,0.85)';
       g.strokeText(j.res, 0, 0);
       g.fillStyle = JUDGE_COLOR[j.res];
       g.shadowColor = JUDGE_COLOR[j.res]; g.shadowBlur = this.F.judgeGlow;
       g.fillText(j.res, 0, 0);
       if (j.tag) {
         g.shadowBlur = 0;
-        g.font = `800 12px "Orbitron", sans-serif`;
+        g.font = `800 12px ${HUD_FONT}`;
         g.fillStyle = j.tag === 'FAST' ? '#6fb8ff' : j.tag === 'GUARD' ? '#ffd25e' : '#ff9a5c';
         g.fillText(j.tag, 0, 24);
       }
@@ -998,19 +1007,19 @@ export class Game {
       g.save();
       g.textAlign = 'center'; g.textBaseline = 'middle';
       if (t < -0.6) {
-        g.font = '800 22px "Orbitron", sans-serif';
+        g.font = `800 22px ${HUD_FONT}`;
         g.fillStyle = `rgba(200,240,255,${0.55 + 0.45 * Math.sin(perfNow / 110)})`;
         g.fillText('R E A D Y', G.cx, H * 0.4);
         if (this.live && t < -1.1) {
           // みんなでライブ: 全員そろって始まるまでのカウントダウン
           const n = Math.ceil(-t - 0.6);
           const k = (-t - 0.6) % 1;
-          g.font = `900 ${Math.round(48 + k * 20)}px "Orbitron", sans-serif`;
+          g.font = `800 ${Math.round(48 + k * 20)}px ${HUD_FONT}`;
           g.fillStyle = `rgba(255,255,255,${0.35 + 0.65 * k})`;
           g.shadowColor = this.color; g.shadowBlur = 20;
           g.fillText(String(n), G.cx, H * 0.4 + 56);
           g.shadowBlur = 0;
-          g.font = '700 11px "Orbitron", "Noto Sans JP", sans-serif';
+          g.font = `700 11px ${HUD_FONT}`;
           g.fillStyle = 'rgba(255,120,160,0.9)';
           g.fillText('MULTI LIVE ・ 全員同時にスタート', G.cx, H * 0.4 - 34);
         }
@@ -1019,7 +1028,7 @@ export class Game {
         g.globalAlpha = 1 - Math.max(0, k - 0.6) / 0.4;
         g.translate(G.cx, H * 0.4);
         g.scale(1 + k * 0.6, 1 + k * 0.6);
-        g.font = '900 34px "Orbitron", sans-serif';
+        g.font = `800 34px ${HUD_FONT}`;
         g.fillStyle = '#fff'; g.shadowColor = this.color; g.shadowBlur = 24;
         g.fillText('GO!', 0, 0);
       }
@@ -1039,7 +1048,7 @@ export class Game {
       g.fillStyle = hexA(stColor, 0.8);
       g.fillRect(G.cx - bw / 2, y - 35, bw, 1.5); g.fillRect(G.cx - bw / 2, y + 34, bw, 1.5);
       g.beginPath(); g.rect(G.cx - bw / 2, y - 40, bw, 80); g.clip();
-      g.font = `900 ${small ? 28 : 40}px "Orbitron", sans-serif`;
+      g.font = `800 ${small ? 28 : 40}px ${HUD_FONT}`;
       g.fillStyle = '#fff'; g.shadowColor = stColor; g.shadowBlur = 26;
       g.fillText(text.split('').join(' '), G.cx, y);
       g.restore();
@@ -1129,7 +1138,7 @@ export class Game {
     g.fillStyle = 'rgba(4,8,22,0.55)';
     g.fillRect(x, y0, w, 16 + rows.length * rh + 4);
     g.fillStyle = hexA(this.color, 0.8); g.fillRect(x, y0, 2, 16 + rows.length * rh + 4);
-    g.font = `700 ${small ? 8 : 9}px "Orbitron", sans-serif`;
+    g.font = `700 ${small ? 8 : 9}px ${HUD_FONT}`;
     g.fillStyle = `rgba(255,90,140,${0.6 + 0.4 * Math.sin(perfNow / 300)})`;
     g.textAlign = 'left';
     g.beginPath(); g.arc(x + 11, y0 + 9, 2.5, 0, Math.PI * 2); g.fill();
@@ -1147,7 +1156,7 @@ export class Game {
       while (name.length > 1 && g.measureText(name).width > w - 64) name = name.slice(0, -1);
       g.fillText((i + 1) + ' ' + (name !== r.name ? name + '…' : name), x + 8, y);
       g.textAlign = 'right';
-      g.font = `800 ${small ? 10 : 12}px "Orbitron", sans-serif`;
+      g.font = `800 ${small ? 10 : 12}px ${HUD_FONT}`;
       g.fillStyle = r.done ? '#ffd25e' : r.me ? this.color : '#9fe8ff';
       g.fillText(r.done ? 'FIN' : String(r.combo), x + w - 8, y);
     });

@@ -4,7 +4,7 @@
 
 - **書いていないことが必要になったら、コードを読んでこのファイルに追記する。** 仕組みを変えたら、同じコミットでここも直す
 - コードと食い違っていたら、コードが正しい。気づいたらここを直す
-- 最終更新: 2026-11-25(1.93.0 時点)
+- 最終更新: 2026-11-26(1.94.0 時点)
 
 ---
 
@@ -87,6 +87,16 @@
    - **全体のイージング(2026-11-25〜)**: `style.css` の末尾「全体のイージング」。曲線は `--ease-out`(すっと止まる)・`--ease-spring`(少し行き過ぎて戻る)・`--ease-in-out`。押せるもの全部(`:where(button, a, input…)`)の色・背景・枠・影・位置をなめらかに変え、カード類は乗せると少し浮く。画面に入ったときは topbar・中身(`.meta-body`・`.select-body`・`.home-body`・`.home-main`)・ドックのアイコン・LIVE のモード選択のカード・一覧(`.quest-list` `.rank-list` `.chart-list` など。10行目以降はまとめて)が順に出る。`:where()` で詳しさ 0 にしているので、個別に決めてある transition があればそちらが勝つ(ドラッグする編成の枠などは個別の速い transition のまま)。「動きを減らす」設定では出さない
    - **タイトルの登場演出(2026-11-25〜)**: `index.html` の `#title` の直後のインラインスクリプトと `<canvas id="intro-dots">`。起動画面の文字のロゴの代わりに、ドットが集まって真ん中に MUSIC LiDAR を作る。ドットの行き先は、真ん中へ `transform` で移した本物のロゴ(`.logo-big`)を1文字ずつ(`Range.getBoundingClientRect`)別のキャンバスに描いて拾うので、ロゴに変わるときにずれない(フォントの読み込み後・画面の大きさが変わったときは行き先を取り直す)。起動画面の `__bootDone` が `__introWait()`(集まり終わるまでの残り時間)だけ待ってから `__introGo()` を呼ぶ → `#title.logo-on` でロゴが光って出てドットが消える → ロゴを左上へ(CSS の transition は止まったままになることがあったので `element.animate`。1秒、イーズアウト)→ ロゴの移動が終わったら(`animate().finished`。念のため4秒で打ち切り)`#title.intro-done` でボタン類がロゴの下から順に出て、タスクバーが下からせり上がる。演出中は `body.intro`。タイトル以外の画面から始まるとき・埋め込み・「動きを減らす」設定のときは演出しない(すぐ `intro-done`)
    - タイトル画面の配置(2026-11-25〜、UI 全体の作り直しの1つ目): ロゴ(`.title-logo` の中の `.logo-big`・`.logo-rule`・ビルド表示 `.tele.tl`)は左上。`#title` は縦並びの flex で、スタートボタンなど(`.title-inner`)もロゴにそろえて左寄せ、ロゴのすぐ下にくっつける(`margin-top: 0`・`padding-top: 28px`、スマホは 22px)。サイト内リンク(遊び方・曲のまとめ・配信ガイドライン…更新履歴)は、画面の下に浮かぶ PC のタスクバー風のガラスの帯(`nav.title-links.title-taskbar`。角を切った HUD 風で、上の縁を光が流れる)。左にロゴのマーク(4本のレーンが揺れる `.tb-mark`。幅 1380px 以下の PC は文字を消してマークだけ)、まん中にアイコン付きのリンク(乗せると下の目印が伸びて光る)、右にバージョンの札と時計・日付(`#title-clock` / `#title-date`)。タスクバーの「更新履歴」(`#title-changelog`)はホームへ進まず、タイトルのまま上に重ねて開く。ほかのリンク(遊び方・曲のまとめ・配信ガイドライン・楽曲募集・クレジット)も、タイトルの上に PC のアプリ風のウィンドウ(`#tb-window`。中は iframe `#tbw-frame`、タイトルバーに「別のタブで開く」と閉じる)で開く。Discord(別のタブ)と Ctrl/Shift/中クリックはふつうに開く。ウィンドウの中でゲーム本体(`#stage` があるページ)へ移ったら、ウィンドウを閉じて画面ごとそこへ移る。Esc・外側のクリックでも閉じる(`closeModals` からも閉じる)。スマホではアイコンの下に名前を出し、横にスクロールする。時計は `main.js` がタイトル画面を出している間だけ10秒ごとに更新する。タスクバーの高さの分、下の飾りと角の枠を上げている。「いますぐ1曲遊ぶ」「公式Discordに参加」も PRESS ENTER と同じ HUD 風(角を切った枠・うすい塗り。差し色はピンクと Discord の青紫)。2026-11-25 に全体を大きくした(「タイトル: 全体的に大きく」。PC で高さ 860px 以下はロゴを画面の高さに合わせ、すき間を詰めてタスクバーに重ならないようにしている)。CSS は `style.css` の末尾「タイトル: ロゴを左上…」「ボタン類もロゴにそろえて左寄せ」。起動ログ(`.tele.bl`)は左のボタン類と重ならないよう右下(緯度経度の上)に置く
+
+   - **オーロラガラスのデザイン(2026-11-26〜、1.94.0。UI 全体の作り直し・案B)**: `style.css` の末尾「オーロラガラス」以降と、`pages.css` の末尾。前の「HUD 風」(角を切った枠・角ブラケット・走査線・シアンの光)を上書きしている
+     - **色の変数**: 前の CSS にじかに書いてあったシアン `rgba(94,242,255,a)`・`#5ef2ff` は `var(--lit)`(うすい紫 `#c9bcff`)、ピンク `rgba(255,79,216,a)`・`#ff4fd8` は `var(--lit2)`、紺のパネルの色は `rgba(16,13,44,a)` に一括で置き換えた(`color-mix(in srgb, var(--lit) N%, transparent)` の形)。**`--hl` は角ブラケットの長さ(px)なので色には使わない**。新しく色を書くときは `--lit` / `--song` / `--grad` / `--glass*` を使う
+     - **曲の色 `--song`**: `main.js` の `selectSong` が選んだ曲の `color` を `<html>` に入れる(`@property` で色として登録してあるので 1.2 秒でなめらかに移る)。背景の光・PLAY などのグラデーション(`--grad` = 曲の色 → 紫)・選曲の右の引き出しがこの色になる
+     - **背景の光**: `body::before`(z-index 1。点群のキャンバスの上、画面の下)に、曲の色・紫・青緑の3つの `radial-gradient` を重ねて `transform` でゆっくり漂わせる。**`filter: blur` や `mix-blend-mode` は使わない**(ヘッドレスの Edge で画面が真っ白になった。スマホでも重い)。プレイ中(`body.playing`)は出さない。走査線(`body::after`)と角ブラケット(`--hc` を全部 transparent)・飾りの文字(`.tele`・`.title-frame`)は消した
+     - 角を切る `clip-path: polygon(...)` は `clip-path: none !important` で消して `border-radius` にした。`pages.css` は `clip-path: inset(0 round Npx)` で角丸にしている
+     - 文字: 見出し・数字は Outfit(`--font-d`。Google Fonts の読み込みに足した。`pages.css` は先頭の `@import`)。本文は今までどおり Noto Sans JP。ジャケット(`jacket.js`)と動画の書き出し(`recorder.js`)は Orbitron のまま
+     - スライダーは `appearance: none` で丸いつまみ、ウィンドウの中のチェックボックス(`.modal-box input[type=checkbox]`・`.row.check input`)は切り替えスイッチの見た目(中身はふつうのチェックボックスのまま)
+     - プレイ中の HUD(`game.js` の描画)は文字を `HUD_FONT`(Outfit)にし、ジャケットの角丸・難易度の丸い札・グラデーションの進行バーにした(見た目だけ)。`roundRect` がない古いブラウザ用に、ふつうの四角で描く代わりを `game.js` の頭に入れてある
+     - `main.js` の `show()` が `body.dataset.screen` に今の画面の名前を入れる(画面ごとの見た目の切り替え用。今は CSS では使っていない)
 
 ### 画面とURL
 - 画面は `index.html` の `.screen` 要素で、`show(name)` が `.active` を切り替える。今の画面は `state`
@@ -598,6 +608,7 @@ export default {
 - `python <scratchpad>/range_server.py 8765 "C:/Users/4yoma/Desktop/Claude"` で配信し、`http://localhost:8765/music-lidar/` を開く(`file://` では動かない)
 - ログインが要るテストは、SQL でテスト用のアカウントとセッション(決まったトークン)を作り、localStorage の `mlidar:token` に入れる。**終わったらテスト用の行(scores・sessions・accounts)を消す**
 - 音を読ませるには、タイトル画面で本物のキー操作(Enter)が要る
+- **画面の撮影(見た目の確認)**: ブラウザのペインが隠れているとスクリーンショットが一部しか写らないので、Edge のヘッドレスを DevTools プロトコルで動かすスクリプトで撮る(2026-11-26 に作った `_vtmp/mock/shot.mjs`。`_vtmp` は .gitignore 済みでコミットしないので、消えていたら作り直す)。毎回新しいプロフィールで開く(同じプロフィールだと Service Worker に残った古い CSS が出る)。終わったら `Browser.close` でブラウザごと閉じる(親を kill するだけだと子のプロセスが何百も残る)。`click:セレクタ` は本物のクリックなので音も鳴らせ、オートプレイ・プレイ・リザルトまで撮れる
 
 ### スマホ(タッチ)
 - タッチの端末では `body.touch` が付く。CSS の最後の「スマホ(タッチ)の操作感」で、ボタンを押しやすい大きさ(36px 以上)にし、入力欄を 16px にしている(iPhone は 16px 未満の入力欄を押すと画面を拡大してしまう)

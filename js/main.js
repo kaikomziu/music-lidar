@@ -369,6 +369,7 @@ function show(name) {
   for (const s of document.querySelectorAll('.screen')) s.classList.toggle('active', s.id === name);
   if (name !== 'select') { $('detail').classList.remove('open'); $('d-more').setAttribute('aria-expanded', 'false'); } // 引き出した詳細は画面を出たら閉じる
   document.body.classList.toggle('playing', name === 'game');
+  document.body.dataset.screen = name; // 画面ごとの見た目の切り替え用
   if (name !== 'game') document.body.classList.remove('rec'); // 動画の書き出し中の表示は、プレイ画面を出たら消す
   if (name !== 'game') setScreenUrl(name);
 }
@@ -684,6 +685,7 @@ function selectSong(i, force = false) {
   $('song-list').querySelector(`.song-card[data-i="${i}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
   renderDetail();
   const e = entries[i];
+  document.documentElement.style.setProperty('--song', e.color || '#ff6b9e'); // 背景の光を曲の色に(見た目だけ)
   stopPreview();
   const token = (selectSong.token = {});
   e.load().then((buf) => {

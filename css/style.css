@@ -2900,3 +2900,25 @@ input[type=range]:focus-visible { outline: none; }
 .h-tile:not(.locked)::after, #home .h-tile.h-live::after, #home .h-slide-feature::after { border: 0; width: 0; height: 0; } /* HUD の角の飾りはやめる(ログインが要るものの 🔒 は残す) */
 .h-tile::before { border-radius: inherit; }
 #title .title-taskbar .tb-start b { text-shadow: none; filter: none; }
+
+/* ---------- ログインが要る画面の手直し(オーロラガラス) ---------- */
+.gb-period[hidden] { display: none; }
+/* 選んでいないタブ(クエスト・シーズンパス・アカウント)は、黒ではなくガラスに */
+.acc-tab:not(.sel), .q-tab:not(.sel) { background: rgba(255, 255, 255, 0.05); border-color: var(--glass-line); color: var(--muted); transition: background 0.3s, color 0.3s, transform 0.4s var(--ease-spring); }
+.acc-tab:not(.sel):hover, .q-tab:not(.sel):hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+/* 押せないボタンは色を抜いて、光らせない */
+.btn-glow:disabled, .btn-play:disabled { background: rgba(255, 255, 255, 0.07); color: var(--muted); box-shadow: inset 0 0 0 1px var(--glass-line); filter: none; cursor: default; }
+.btn-glow:disabled::after, .btn-play:disabled::after { display: none; }
+/* ウィンドウ下のボタンの文字を途中で折らない */
+.modal-actions button { white-space: nowrap; }
+.modal-actions { flex-wrap: wrap; }
+/* ボタンが1つだけの行は長い文言もあるので、折り返してよい(はみ出さない) */
+.modal-actions button:only-child { white-space: normal; max-width: 100%; }
+/* スマホのドック: 名前を1行に収める(「譜 面」のような変な折り返しを避ける)。長い「シーズン・着せ替え」だけは2行 */
+@media (max-width: 760px) {
+  #home .h-dock .h-label span { font-size: 10px; letter-spacing: -0.04em; white-space: nowrap; }
+  #home .h-dock #btn-pass .h-label span { white-space: normal; }
+}
+/* 着せ替え: 装備中のカードは曲の色の縁と「装備中」の札に */
+.sk-list li.on { border-color: color-mix(in srgb, var(--song) 70%, white); box-shadow: 0 0 0 1px color-mix(in srgb, var(--song) 50%, transparent), 0 10px 30px color-mix(in srgb, var(--song) 25%, transparent); }
+.sk-on { display: inline-block; padding: 3px 12px; border-radius: 999px; background: var(--grad); color: #fff; }

@@ -606,7 +606,7 @@ export default {
 
 ### 確かめ方
 - `python <scratchpad>/range_server.py 8765 "C:/Users/4yoma/Desktop/Claude"` で配信し、`http://localhost:8765/music-lidar/` を開く(`file://` では動かない)
-- ログインが要るテストは、SQL でテスト用のアカウントとセッション(決まったトークン)を作り、localStorage の `mlidar:token` に入れる。**終わったらテスト用の行(scores・sessions・accounts)を消す**
+- ログインが要るテストは、SQL でテスト用のアカウントとセッション(決まったトークン)を作り、localStorage の `mlidar:token` に入れる(保存は JSON なので、値は `"\"<トークン>\""` のように引用符ごと入れる。そのままの文字列だとゲスト扱いになる)。**終わったらテスト用の行(scores・sessions・accounts)を消す**
 - 音を読ませるには、タイトル画面で本物のキー操作(Enter)が要る
 - **画面の撮影(見た目の確認)**: ブラウザのペインが隠れているとスクリーンショットが一部しか写らないので、Edge のヘッドレスを DevTools プロトコルで動かすスクリプトで撮る(2026-11-26 に作った `_vtmp/mock/shot.mjs`。`_vtmp` は .gitignore 済みでコミットしないので、消えていたら作り直す)。毎回新しいプロフィールで開く(同じプロフィールだと Service Worker に残った古い CSS が出る)。終わったら `Browser.close` でブラウザごと閉じる(親を kill するだけだと子のプロセスが何百も残る)。`click:セレクタ` は本物のクリックなので音も鳴らせ、オートプレイ・プレイ・リザルトまで撮れる
 

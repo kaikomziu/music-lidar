@@ -30,12 +30,14 @@ for (const f of ['index.html', 'guide.html']) {
   if (f === 'guide.html') {
     // 既存の行(日本語のジャンル名つき)は残し、足りない曲を足し、消えた曲は外す。並びは曲リストの順
     const rows = new Map();
-    for (const m of h.matchAll(/<tr><td><a href="music\/([a-z0-9]+)\/">[\s\S]*?<\/tr>/g)) rows.set(m[1], m[0]);
+    for (const m of h.matchAll(/<tr[^>]*><td><a href="music\/([a-z0-9]+)\/">[\s\S]*?<\/tr>/g)) rows.set(m[1], m[0]);
     const body = songs.map((s) => {
       const lv = `${s.levels.easy} / ${s.levels.normal} / ${s.levels.hard}${s.levels.extra ? ` / EX ${s.levels.extra}` : ""}${s.levels.inferno ? ` / INF ${s.levels.inferno}` : ""}`;
       let row = rows.get(s.urlId) ||
         `<tr><td><a href="music/${s.urlId}/">${esc(s.title)}</a></td><td>${esc(s.genre)}</td><td>${Math.round(s.bpm)}</td><td class="lv">${lv}</td></tr>`;
       row = row.replace(/<td class="lv">[^<]*<\/td>/, `<td class="lv">${lv}</td>`); // レベルは曲ファイルに合わせる
+      // 絞り込み(js/page-nav.js)用: まとめの種類・HARD のレベル・BPM・元の並び順
+      row = row.replace(/^<tr[^>]*>/, `<tr data-c="${collectionsOf(s).map((c) => c.slug).join(' ')}" data-lv="${s.levels.hard}" data-bpm="${Math.round(s.bpm)}">`);
       if (s.event && !row.includes('期間限定')) row = row.replace(/(<\/a><\/td><td>)([^<]*)/, `$1$2(${EVENT_LABEL[s.event] || '期間限定'})`);
       return '      ' + row;
     }).join('\n');

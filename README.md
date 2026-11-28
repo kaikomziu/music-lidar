@@ -61,6 +61,7 @@ python -m http.server 8765
 - 「Crown Of The Spire」 音楽: Patençial公式。作者さんの許可を得て使用し、ゲーム実況・配信の収益化もクレジット必須でOKです。元の MP3 は AES-GCM 暗号化した `audio/crown-of-the-spire.bin` として保存(平文の音源は置かない)。「きくだけ」モードには入れない
 - 「Sanctilia」 音楽: [PeriTune](https://peritune.com/blog/2026/11/15/sanctilia/)。2026年3月より後の曲なので CC BY ではなく [PeriTune の利用規約](https://peritune.com/about/)で使う(ゲームへの組み込みOK・クレジット任意・Content ID 登録は禁止)。音源は AES-GCM 暗号化した `audio/sanctilia.bin`。譜面は歌なし(inst)版の音から作り、inst 版は曲として入れない。「きくだけ」モードには入れない
 - 「しう」「ホワイトハッピー」「ニャン」 音楽: [MARETU](https://www.youtube.com/@MARETUch)。作者さんの許可を得て使用し、ゲーム実況・配信の収益化もクレジット(「音楽：MARETU」)必須でOKです。m4a を mp3 にしてから AES-GCM 暗号化した `audio/maretu-*.bin` として保存(平文の音源は置かない)。「きくだけ」モードには入れない
+- 「スーパーライフル☆」 音楽: Centipede630 Kosai(歌:初音ミク)。作者さんの許可を得て使用(クレジット必須)。AES-GCM 暗号化した `audio/super-rifle.bin` として保存(平文の音源は置かない)。「きくだけ」には入れない
 - 「Hydrangea」「蒼」 音楽: 全て蝶々の所為です。([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja))。CC BY は技術的な制限をかけてはいけないので、並べ替えずに `audio/hydrangea.mp3`・`audio/ao.mp3` のまま置く
 - そのほかの内蔵曲はブラウザ内でその場で合成しているオリジナル曲です。
 

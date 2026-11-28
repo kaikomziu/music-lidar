@@ -1,6 +1,6 @@
 // 音源ファイルを使う曲。
-// 音楽: Centipede630 Kosai「スーパーライフル☆ (feat. 初音ミク)」(2026)。
-// 作者さんの許可を得て使用(2026-11-28)。実況・配信はクレジット必須で OK、収益化は許可の範囲が分からないので × にしている(streaming.html)。
+// 音楽: Centipede630 Kosai「スーパーライフル☆ (feat. 初音ミク)」(2026)。https://www.youtube.com/@Centipede630
+// 作者さんの許可を得て使用(2026-11-28)。実況・配信はクレジット必須で OK、収益化はなし(作者さんの指定。streaming.html)。
 // 音源は mp3 から埋め込みのジャケット画像を外し、tools/encrypt_audio.mjs で AES-GCM 暗号化した .bin で置き、ゲーム内(js/external-audio.js)で復号して鳴らす。平文の音源は置かない。
 // 「きくだけ」モードには入れない(player.js はクレジットのある曲を入れない)。ジャケットは音源に入っていた画像(img/jackets/super-rifle.jpg。512×512)。
 // 譜面: chart.py で EASY、varied.py(区切りの表 tools/audiochart/sections/super-rifle.txt)で NORMAL〜INFERNO。BPM 180
@@ -23,4 +23,5 @@ export default {
   previewAt: 64.2, // 秒(サビ)
   jacket: 'img/jackets/super-rifle.jpg',
   credit: '音楽:Centipede630 Kosai「スーパーライフル☆」(歌:初音ミク)',
+  creditUrl: 'https://www.youtube.com/@Centipede630',
 };
